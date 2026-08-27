@@ -17,11 +17,18 @@
     <string name="open_app_settings_button">시스템 설정에서 허용하기</string>
     <string name="all_permissions_granted_message">권한이 준비되었습니다. 알림에서 일정을 확인하세요.</string>
 
+    <string name="settings_section_permissions">권한 관리</string>
+    <string name="permissions_summary_granted">준비됨</string>
+    <string name="permissions_summary_needed">설정 필요</string>
+
     <string name="settings_section_calendars">캘린더 선택</string>
     <string name="calendars_all_selected">선택하지 않으면 모든 캘린더를 표시합니다</string>
     <string name="no_calendars_found">캘린더를 찾을 수 없습니다</string>
+    <string name="calendars_summary_all">전체 표시</string>
+    <string name="calendars_summary_selected_format">%1$d/%2$d개 선택</string>
 
     <string name="settings_section_display">표시 설정</string>
+    <string name="display_settings_summary_format">%1$d일 · 최대 %2$d개</string>
     <string name="days_to_look_ahead_label">표시 기간</string>
     <string name="days_format">%d일</string>
     <string name="max_visible_entries_label">최대 항목 수</string>
