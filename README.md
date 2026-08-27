@@ -14,6 +14,8 @@
 - 일정 항목 행을 누르면 캘린더 앱에서 해당 일정을 열어줌 (반복 일정은 시리즈 상세)
 - 표시할 캘린더 선택 (초기 상태 = 모든 캘린더, 모두 해제하면 빈 알림)
 - 표시 기간(3/7/14/30일), 최대 항목 수(5/10/15), 알림 클릭 동작(앱 열기 / 새 일정 만들기) 설정
+- 알림 여백 설정(날짜/일정 항목 앞 여백, 날짜-일정·일정 사이·날짜 사이 간격, 0~24dp) —
+  변경 즉시 알림에 반영
 - 갱신 시점: 일정 변경 시(프로세스 생존 중), 다음 일정 시작·종료 시각, 자정, 재부팅 직후
 
 ## 요구사항
@@ -42,6 +44,7 @@ app/src/main/java/com/calinoti/app/
 │   ├── AgendaModels.kt         # AgendaEntry / AgendaListEntry / UserCalendar
 │   ├── CalendarReader.kt       # CalendarContract 쿼리 (캘린더 목록, Instances 범위 검색)
 │   ├── AgendaListBuilder.kt    # 일정 목록에 날짜 헤더 끼워 넣기
+│   ├── NotificationSpacing.kt  # 알림 여백 설정 값 (기본값, 조절 범위)
 │   └── UserPreferencesRepository.kt  # DataStore 설정 저장소
 ├── notification/
 │   ├── AgendaNotificationManager.kt  # 채널 생성, 알림 발행, 권한 확인, 클릭 PendingIntent

@@ -39,6 +39,7 @@ class AgendaRefresher(
                     listEntries = listEntries,
                     maxVisibleEntries = preferences.maxVisibleEntries,
                     clickAction = preferences.notificationClickAction,
+                    spacing = preferences.notificationSpacing,
                 )
                 AgendaRefreshScheduler.scheduleNextRefresh(context, upcomingEntries, currentTimeMilliseconds)
             } catch (cancelled: CancellationException) {

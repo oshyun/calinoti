@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 날짜 그룹 헤더 (예: "오늘, 목요일") -->
+<!-- 날짜 그룹 헤더 (예: "오늘, 목요일"). 여백은 AgendaRemoteViewsFactory가 런타임에
+     setViewPadding으로 적용한다(사용자 설정). -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/day_header_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="2dp"
     android:textSize="13sp"
     android:textColor="@color/notification_text_secondary"
     android:maxLines="1" />

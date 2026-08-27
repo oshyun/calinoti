@@ -17,6 +17,7 @@ import com.calinoti.app.MainActivity
 import com.calinoti.app.R
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.NotificationClickAction
+import com.calinoti.app.data.NotificationSpacing
 
 /** 아젠다 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
 class AgendaNotificationManager(
@@ -55,9 +56,10 @@ class AgendaNotificationManager(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
         clickAction: NotificationClickAction,
+        spacing: NotificationSpacing,
     ) {
         if (!hasNotificationPermission()) return
-        val notification = buildAgendaNotification(listEntries, maxVisibleEntries, clickAction)
+        val notification = buildAgendaNotification(listEntries, maxVisibleEntries, clickAction, spacing)
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
     }
 
@@ -65,11 +67,14 @@ class AgendaNotificationManager(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
         clickAction: NotificationClickAction,
+        spacing: NotificationSpacing,
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setCustomContentView(remoteViewsFactory.createCollapsedViews(listEntries))
-            .setCustomBigContentView(remoteViewsFactory.createExpandedViews(listEntries, maxVisibleEntries))
+            .setCustomContentView(remoteViewsFactory.createCollapsedViews(listEntries, spacing))
+            .setCustomBigContentView(
+                remoteViewsFactory.createExpandedViews(listEntries, maxVisibleEntries, spacing),
+            )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_EVENT)

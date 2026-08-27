@@ -3,6 +3,7 @@
   일정 항목 한 줄: [시간(오른쪽 정렬 칸)][제목(굵게, accent 색)][위치(회색, 말줄임)]
   종일 일정은 시간 칸을 숨기고, 위치가 없으면 위치 칸을 숨긴다.
   행을 누르면 캘린더 앱에서 해당 일정을 연다.
+  여백은 AgendaRemoteViewsFactory가 런타임에 setViewPadding으로 적용한다(사용자 설정).
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/notification_event_item"
@@ -10,11 +11,7 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:baselineAligned="false"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:baselineAligned="false">
 
     <TextView
         android:id="@+id/event_time_text"

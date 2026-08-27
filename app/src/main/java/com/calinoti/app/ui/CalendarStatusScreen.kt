@@ -28,6 +28,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +52,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.NotificationClickAction
+import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
@@ -58,6 +60,7 @@ import com.calinoti.app.notification.AgendaNotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * 권한 안내와 설정(캘린더 선택·표시 옵션)으로 이뤄진 앱의 유일한 화면.
@@ -329,6 +332,64 @@ fun CalendarStatusScreen(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.settings_subsection_spacing),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            val currentSpacing = userPreferences.notificationSpacing
+            SpacingSliderRow(
+                labelResourceId = R.string.day_header_start_padding_label,
+                savedValueDp = currentSpacing.dayHeaderStartPaddingDp,
+            ) { newValueDp ->
+                updatePreferences {
+                    userPreferencesRepository.updateNotificationSpacing(
+                        currentSpacing.copy(dayHeaderStartPaddingDp = newValueDp),
+                    )
+                }
+            }
+            SpacingSliderRow(
+                labelResourceId = R.string.event_start_padding_label,
+                savedValueDp = currentSpacing.eventStartPaddingDp,
+            ) { newValueDp ->
+                updatePreferences {
+                    userPreferencesRepository.updateNotificationSpacing(
+                        currentSpacing.copy(eventStartPaddingDp = newValueDp),
+                    )
+                }
+            }
+            SpacingSliderRow(
+                labelResourceId = R.string.day_header_to_event_spacing_label,
+                savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
+            ) { newValueDp ->
+                updatePreferences {
+                    userPreferencesRepository.updateNotificationSpacing(
+                        currentSpacing.copy(dayHeaderToEventSpacingDp = newValueDp),
+                    )
+                }
+            }
+            SpacingSliderRow(
+                labelResourceId = R.string.between_events_spacing_label,
+                savedValueDp = currentSpacing.betweenEventsSpacingDp,
+            ) { newValueDp ->
+                updatePreferences {
+                    userPreferencesRepository.updateNotificationSpacing(
+                        currentSpacing.copy(betweenEventsSpacingDp = newValueDp),
+                    )
+                }
+            }
+            SpacingSliderRow(
+                labelResourceId = R.string.between_day_headers_spacing_label,
+                savedValueDp = currentSpacing.betweenDayHeadersSpacingDp,
+            ) { newValueDp ->
+                updatePreferences {
+                    userPreferencesRepository.updateNotificationSpacing(
+                        currentSpacing.copy(betweenDayHeadersSpacingDp = newValueDp),
+                    )
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
             Button(onClick = refreshAgenda) {
                 Text(stringResource(R.string.refresh_now_button))
@@ -341,6 +402,41 @@ fun CalendarStatusScreen(
             text = versionLabel,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SpacingSliderRow(
+    labelResourceId: Int,
+    savedValueDp: Int,
+    onDragFinished: (Int) -> Unit,
+) {
+    // 드래그 중 값은 로컬로 보관한다. Slider 값을 저장값에 직결하면 thumb가 저장값으로
+    // 되돌아가 튄다. 키를 savedValueDp로 두면 저장이 반영된 순간 로컬 값도 따라온다.
+    var draggedValueDp by remember(savedValueDp) { mutableStateOf(savedValueDp.toFloat()) }
+    val adjustableRange = NotificationSpacing.RANGE_DP
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(labelResourceId),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.spacing_dp_format, draggedValueDp.roundToInt()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Slider(
+            value = draggedValueDp,
+            onValueChange = { newValue -> draggedValueDp = newValue },
+            // 드래그를 놓을 때만 저장한다. 저장마다 알림 갱신(캘린더 재쿼리)이 따라오므로
+            // 드래그 중 저장하면 제스처 하나에 갱신이 수십 번 쌓인다.
+            onValueChangeFinished = { onDragFinished(draggedValueDp.roundToInt()) },
+            valueRange = adjustableRange.first.toFloat()..adjustableRange.last.toFloat(),
+            steps = adjustableRange.last - adjustableRange.first - 1,
         )
     }
 }

@@ -6,11 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
+import com.calinoti.app.data.NotificationSpacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -21,14 +23,23 @@ import java.util.Locale
 class AgendaRemoteViewsFactory(private val context: Context) {
 
     /** 알림이 접힌 상태에서 보일 요약 뷰. 항목 몇 개만 담는다. */
-    fun createCollapsedViews(listEntries: List<AgendaListEntry>): RemoteViews =
-        createAgendaViews(listEntries, itemLimit = COLLAPSED_ITEM_LIMIT)
+    fun createCollapsedViews(
+        listEntries: List<AgendaListEntry>,
+        spacing: NotificationSpacing,
+    ): RemoteViews = createAgendaViews(listEntries, itemLimit = COLLAPSED_ITEM_LIMIT, spacing = spacing)
 
     /** 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. */
-    fun createExpandedViews(listEntries: List<AgendaListEntry>, maxVisibleEntries: Int): RemoteViews =
-        createAgendaViews(listEntries, itemLimit = maxVisibleEntries)
+    fun createExpandedViews(
+        listEntries: List<AgendaListEntry>,
+        maxVisibleEntries: Int,
+        spacing: NotificationSpacing,
+    ): RemoteViews = createAgendaViews(listEntries, itemLimit = maxVisibleEntries, spacing = spacing)
 
-    private fun createAgendaViews(listEntries: List<AgendaListEntry>, itemLimit: Int): RemoteViews {
+    private fun createAgendaViews(
+        listEntries: List<AgendaListEntry>,
+        itemLimit: Int,
+        spacing: NotificationSpacing,
+    ): RemoteViews {
         val rootViews = RemoteViews(context.packageName, R.layout.notification_agenda)
         rootViews.removeAllViews(R.id.notification_agenda_container)
         if (listEntries.isEmpty()) {
@@ -40,9 +51,19 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
         // 캘린더 앱 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
         val canOpenEventRows = canOpenEventInCalendarApp()
-        var addedItemCount = 0
-        for (listEntry in listEntries) {
-            if (addedItemCount >= itemLimit) break
+        // 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로 배분한다. AgendaListBuilder가 헤더를
+        // 일정 직전에만 추가하므로 첫 항목은 항상 헤더고, 세 수직 간격이 서로 겹치지 않는다.
+        val visibleEntries = listEntries.take(itemLimit)
+        var previousListEntry: AgendaListEntry? = null
+        for ((itemIndex, listEntry) in visibleEntries.withIndex()) {
+            val topPaddingDp = when {
+                itemIndex == 0 -> FIRST_ITEM_TOP_PADDING_DP
+                listEntry is AgendaListEntry.DayHeader -> spacing.betweenDayHeadersSpacingDp
+                previousListEntry is AgendaListEntry.DayHeader -> spacing.dayHeaderToEventSpacingDp
+                else -> spacing.betweenEventsSpacingDp
+            }
+            val bottomPaddingDp =
+                if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP else 0
             when (listEntry) {
                 is AgendaListEntry.DayHeader -> {
                     val headerViews =
@@ -51,17 +72,27 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         R.id.day_header_text,
                         formatDayHeaderText(listEntry.dayStartMilliseconds),
                     )
+                    headerViews.applyItemPadding(
+                        viewId = R.id.day_header_text,
+                        startPaddingDp = spacing.dayHeaderStartPaddingDp,
+                        topPaddingDp = topPaddingDp,
+                        bottomPaddingDp = bottomPaddingDp,
+                    )
                     rootViews.addView(R.id.notification_agenda_container, headerViews)
                 }
 
                 is AgendaListEntry.Event -> {
-                    rootViews.addView(
-                        R.id.notification_agenda_container,
-                        createEventItemViews(listEntry.entry, canOpenEventRows),
+                    val eventItemViews = createEventItemViews(listEntry.entry, canOpenEventRows)
+                    eventItemViews.applyItemPadding(
+                        viewId = R.id.notification_event_item,
+                        startPaddingDp = spacing.eventStartPaddingDp,
+                        topPaddingDp = topPaddingDp,
+                        bottomPaddingDp = bottomPaddingDp,
                     )
+                    rootViews.addView(R.id.notification_agenda_container, eventItemViews)
                 }
             }
-            addedItemCount++
+            previousListEntry = listEntry
         }
         return rootViews
     }
@@ -105,6 +136,42 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             PackageManager.MATCH_DEFAULT_ONLY,
         ).isNotEmpty()
 
+    /**
+     * 항목 뷰의 여백을 dp에서 픽셀로 바꿔 적용한다. setViewPadding은 지정하지 않은 면을
+     * 0으로 덮어쓰므로 네 면을 항상 모두 지정한다 — 레이아웃 XML에는 padding이 없다(SSOT).
+     */
+    private fun RemoteViews.applyItemPadding(
+        viewId: Int,
+        startPaddingDp: Int,
+        topPaddingDp: Int,
+        bottomPaddingDp: Int,
+    ) {
+        val displayMetrics = context.resources.displayMetrics
+
+        fun toPixels(paddingDp: Int): Int =
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                paddingDp.toFloat(),
+                displayMetrics,
+            ).toInt()
+
+        // QUIRK(remoteviews-absolute-padding): RemoteViews에는 paddingStart 액션이 없어 절대
+        //   left 좌표를 쓴다. 시스템 로캘이 RTL이면 start/end 값을 뒤집어 보정한다. 앱과
+        //   SystemUI가 같은 시스템 로캘로 방향을 정하므로 이 검사로 서로 일치한다.
+        // QUIRK-REMOVE-WHEN: start 패딩을 지정하는 RemoteViews API가 추가될 때
+        val isRtlLayout =
+            context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+        val startPaddingPixels = toPixels(startPaddingDp)
+        val endPaddingPixels = toPixels(ITEM_HORIZONTAL_INSET_DP)
+        setViewPadding(
+            viewId,
+            if (isRtlLayout) endPaddingPixels else startPaddingPixels,
+            toPixels(topPaddingDp),
+            if (isRtlLayout) startPaddingPixels else endPaddingPixels,
+            toPixels(bottomPaddingDp),
+        )
+    }
+
     private fun createOpenEventPendingIntent(eventId: Long): PendingIntent =
         PendingIntent.getActivity(
             context,
@@ -132,6 +199,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     private companion object {
         const val COLLAPSED_ITEM_LIMIT = 3
+
+        // 항목의 End(오른쪽) 고정 여백과 알림 맨 위/맨 아래 바깥 여백. 사용자가 조절하지 않는
+        // 렌더링 상수로, v1.2.4까지 레이아웃 XML에 있던 값을 옮겨온 것과 같다.
+        const val ITEM_HORIZONTAL_INSET_DP = 16
+        const val FIRST_ITEM_TOP_PADDING_DP = 8
+        const val LAST_ITEM_BOTTOM_PADDING_DP = 4
 
         // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
         // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002)와 겹치지 않는 고정값이고, 접힘·펼침 뷰가
