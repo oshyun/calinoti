@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
-    android:paddingTop="14dp"
+    android:paddingTop="8dp"
     android:paddingBottom="2dp"
     android:textSize="13sp"
     android:textColor="@color/notification_text_secondary"
