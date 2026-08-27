@@ -30,6 +30,14 @@
     <string name="click_action_open_app">앱 열기</string>
     <string name="click_action_create_event">새 일정 만들기</string>
 
+    <string name="settings_subsection_spacing">알림 여백</string>
+    <string name="day_header_start_padding_label">날짜 항목 앞 여백</string>
+    <string name="event_start_padding_label">일정 항목 앞 여백</string>
+    <string name="day_header_to_event_spacing_label">날짜와 일정 사이 여백</string>
+    <string name="between_events_spacing_label">일정 사이 여백</string>
+    <string name="between_day_headers_spacing_label">날짜 사이 여백</string>
+    <string name="spacing_dp_format">%1$d dp</string>
+
     <string name="refresh_now_button">지금 새로고침</string>
     <string name="version_format">v%1$s (%2$d)</string>
 </resources>

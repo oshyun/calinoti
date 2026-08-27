@@ -26,6 +26,7 @@ data class UserPreferences(
     val daysToLookAhead: Int,
     val maxVisibleEntries: Int,
     val notificationClickAction: NotificationClickAction,
+    val notificationSpacing: NotificationSpacing,
 ) {
     companion object {
         val DAYS_TO_LOOK_AHEAD_CHOICES = listOf(3, 7, 14, 30)
@@ -36,6 +37,7 @@ data class UserPreferences(
             daysToLookAhead = 7,
             maxVisibleEntries = 10,
             notificationClickAction = NotificationClickAction.OPEN_APP,
+            notificationSpacing = NotificationSpacing.DEFAULTS,
         )
     }
 }
@@ -64,6 +66,11 @@ private val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_
 private val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
 private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
+private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
+private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
+private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
+private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
+private val BETWEEN_DAY_HEADERS_SPACING_KEY = intPreferencesKey("between_day_headers_spacing_dp")
 
 private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
     this[SELECTED_CALENDAR_IDS_KEY]
@@ -72,6 +79,10 @@ private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
         // 손상된 토큰 하나가 앱 시작을 죽이지 않게 잘못된 토큰만 건너뛴다.
         ?.mapNotNull { it.toLongOrNull() }
         ?.toSet()
+
+/** 여백 키 조회. 없으면 기본값, 있으면 조절 범위 밖의 오래된 저장값도 범위 안으로 끌어온다. */
+private fun Preferences.readSpacingDp(key: Preferences.Key<Int>, defaultDp: Int): Int =
+    this[key]?.coerceIn(NotificationSpacing.RANGE_DP) ?: defaultDp
 
 private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "user_preferences",
@@ -103,6 +114,29 @@ class UserPreferencesRepository(private val context: Context) {
                                 NotificationClickAction.entries.firstOrNull { it.name == stored }
                             }
                             ?: UserPreferences.DEFAULTS.notificationClickAction,
+                    notificationSpacing =
+                        NotificationSpacing.DEFAULTS.copy(
+                            dayHeaderStartPaddingDp = storedPreferences.readSpacingDp(
+                                DAY_HEADER_START_PADDING_KEY,
+                                NotificationSpacing.DEFAULTS.dayHeaderStartPaddingDp,
+                            ),
+                            eventStartPaddingDp = storedPreferences.readSpacingDp(
+                                EVENT_START_PADDING_KEY,
+                                NotificationSpacing.DEFAULTS.eventStartPaddingDp,
+                            ),
+                            dayHeaderToEventSpacingDp = storedPreferences.readSpacingDp(
+                                DAY_HEADER_TO_EVENT_SPACING_KEY,
+                                NotificationSpacing.DEFAULTS.dayHeaderToEventSpacingDp,
+                            ),
+                            betweenEventsSpacingDp = storedPreferences.readSpacingDp(
+                                BETWEEN_EVENTS_SPACING_KEY,
+                                NotificationSpacing.DEFAULTS.betweenEventsSpacingDp,
+                            ),
+                            betweenDayHeadersSpacingDp = storedPreferences.readSpacingDp(
+                                BETWEEN_DAY_HEADERS_SPACING_KEY,
+                                NotificationSpacing.DEFAULTS.betweenDayHeadersSpacingDp,
+                            ),
+                        ),
                 )
             }
 
@@ -142,6 +176,17 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationClickAction(clickAction: NotificationClickAction) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_CLICK_ACTION_KEY] = clickAction.name
+        }
+    }
+
+    /** 알림 여백 전체를 한 번의 쓰기에 반영한다. UI는 변경할 한 필드만 바꿔 넘긴다. */
+    suspend fun updateNotificationSpacing(spacing: NotificationSpacing) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[DAY_HEADER_START_PADDING_KEY] = spacing.dayHeaderStartPaddingDp
+            storedPreferences[EVENT_START_PADDING_KEY] = spacing.eventStartPaddingDp
+            storedPreferences[DAY_HEADER_TO_EVENT_SPACING_KEY] = spacing.dayHeaderToEventSpacingDp
+            storedPreferences[BETWEEN_EVENTS_SPACING_KEY] = spacing.betweenEventsSpacingDp
+            storedPreferences[BETWEEN_DAY_HEADERS_SPACING_KEY] = spacing.betweenDayHeadersSpacingDp
         }
     }
 }
