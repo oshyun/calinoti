@@ -1,6 +1,11 @@
 package com.calinoti.app.notification
 
+import android.app.PendingIntent
+import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.CalendarContract
 import android.view.View
 import android.widget.RemoteViews
 import com.calinoti.app.R
@@ -33,6 +38,8 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             )
             return rootViews
         }
+        // 캘린더 앱 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
+        val canOpenEventRows = canOpenEventInCalendarApp()
         var addedItemCount = 0
         for (listEntry in listEntries) {
             if (addedItemCount >= itemLimit) break
@@ -50,7 +57,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 is AgendaListEntry.Event -> {
                     rootViews.addView(
                         R.id.notification_agenda_container,
-                        createEventItemViews(listEntry.entry),
+                        createEventItemViews(listEntry.entry, canOpenEventRows),
                     )
                 }
             }
@@ -59,7 +66,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return rootViews
     }
 
-    private fun createEventItemViews(entry: AgendaEntry): RemoteViews {
+    private fun createEventItemViews(entry: AgendaEntry, canOpenEventRows: Boolean): RemoteViews {
         val itemViews = RemoteViews(context.packageName, R.layout.notification_item_event)
         if (entry.isAllDay) {
             itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
@@ -77,8 +84,38 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             itemViews.setViewVisibility(R.id.event_location_text, View.VISIBLE)
             itemViews.setTextViewText(R.id.event_location_text, entry.location)
         }
+        if (canOpenEventRows) {
+            // 줄에 클릭이 걸리면 탭이 그 줄에서 소비된다. 캘린더 앱이 없는 기기에서는
+            // 걸지 않아 알림 전체 contentIntent가 행을 포함해 그대로 동작하게 둔다.
+            itemViews.setOnClickPendingIntent(
+                R.id.notification_event_item,
+                createOpenEventPendingIntent(entry.eventId),
+            )
+        }
         return itemViews
     }
+
+    /**
+     * 캘린더 앱이 일정 상세(content://com.android.calendar/events의 ACTION_VIEW)를 열 수 있는지.
+     * 알림을 조립할 때마다 확인한다.
+     */
+    private fun canOpenEventInCalendarApp(): Boolean =
+        context.packageManager.queryIntentActivities(
+            buildOpenEventIntent(eventId = PROBE_EVENT_ID),
+            PackageManager.MATCH_DEFAULT_ONLY,
+        ).isNotEmpty()
+
+    private fun createOpenEventPendingIntent(eventId: Long): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            EVENT_CLICK_REQUEST_CODE,
+            buildOpenEventIntent(eventId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    private fun buildOpenEventIntent(eventId: Long): Intent =
+        Intent(Intent.ACTION_VIEW)
+            .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId))
 
     /** "08.31, 금요일" 형태의 날짜 헤더. */
     private fun formatDayHeaderText(dayStartMilliseconds: Long): String =
@@ -95,6 +132,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     private companion object {
         const val COLLAPSED_ITEM_LIMIT = 3
+
+        // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
+        // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002)와 겹치지 않는 고정값이고, 접힘·펼침 뷰가
+        // 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로 같은 레코드가 갱신 재사용된다.
+        const val EVENT_CLICK_REQUEST_CODE = 1003
+
+        // 일정 열기 capability 확인용 탐침 id. 실제 일정 id가 아니라 인텐트 shape만 맞으면 충분하다.
+        const val PROBE_EVENT_ID = 0L
 
         val dayHeaderFormatter = DateTimeFormatter.ofPattern("MM.dd, EEEE", Locale.getDefault())
 

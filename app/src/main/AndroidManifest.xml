@@ -5,6 +5,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- 알림의 일정 줄을 눌러 캘린더 앱의 일정 상세를 열기 전, 런타임에 처리 앱이 있는지
+         확인한다. API 30+ 패키지 가시성 제한 때문에 이 선언이 없으면 확인이 항상 실패한다. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.calendar" />
+        </intent>
+    </queries>
+
     <application
         android:name=".AgendaApplication"
         android:allowBackup="true"
