@@ -16,8 +16,8 @@ android {
         //   대가로 Play 스토어 배포는 불가능해지고 Android 13+에서 알림 권한이 설치 시 자동 부여된다.
         // QUIRK-REMOVE-WHEN: 커스텀 알림 뷰의 전체 폭 렌더링을 허용하는 공개 API가 나왔을 때
         targetSdk = 30
-        versionCode = 5
-        versionName = "1.2.1"
+        versionCode = 6
+        versionName = "1.2.2"
     }
 
     buildTypes {
