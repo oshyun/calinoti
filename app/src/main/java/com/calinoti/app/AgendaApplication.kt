@@ -61,7 +61,14 @@ class AgendaApplication : Application() {
         )
         applicationScope.launch {
             // 설정 변경마다 갱신을 접수한다. 초기값도 한 번 접수되지만 겹침은 병합된다.
-            userPreferencesRepository.userPreferences.collect { launchAgendaRefresh() }
+            // 감시가 죽으면 설정 변경이 알림에 반영되지 않으므로 수집 오류를 삼킨다.
+            try {
+                userPreferencesRepository.userPreferences.collect { launchAgendaRefresh() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (runtimeError: Exception) {
+                Log.e(TAG, "설정 감시가 중단됐다", runtimeError)
+            }
         }
         launchAgendaRefresh()
     }

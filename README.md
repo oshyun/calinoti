@@ -53,7 +53,6 @@ app/src/main/java/com/calinoti/app/
 
 ## 향후 아이디어
 
-- Google Tasks 통합
 - 레이아웃 밀도·요소 순서 커스터마이징, Today/Tomorrow 표기 옵션
 - 상태바 아이콘에 날짜 표시, 알림 액션 버튼
 - 완료된 일정 회색 처리

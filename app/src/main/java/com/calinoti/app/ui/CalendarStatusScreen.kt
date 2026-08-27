@@ -40,9 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.PackageInfoCompat
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.NotificationClickAction
@@ -65,6 +67,7 @@ fun CalendarStatusScreen(
     userPreferencesRepository: UserPreferencesRepository,
     refreshAgenda: () -> Unit,
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val userPreferences by userPreferencesRepository.userPreferences
         .collectAsState(initial = UserPreferences.DEFAULTS)
@@ -124,15 +127,32 @@ fun CalendarStatusScreen(
         if (!hasCalendarPermission || shouldPromptForNotificationPermission) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.calendar_permission_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.calendar_permission_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
+                    if (!hasCalendarPermission) {
+                        Text(
+                            text = stringResource(R.string.calendar_permission_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.calendar_permission_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    if (shouldPromptForNotificationPermission) {
+                        if (!hasCalendarPermission) {
+                            Spacer(Modifier.height(12.dp))
+                        }
+                        Text(
+                            text = stringResource(R.string.notification_permission_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.notification_permission_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
                         Text(stringResource(R.string.calendar_permission_button))
@@ -272,6 +292,18 @@ fun CalendarStatusScreen(
                 Text(stringResource(R.string.refresh_now_button))
             }
         }
+
+        // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
+        Spacer(Modifier.height(32.dp))
+        val packageInfo = remember {
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+        Text(
+            text = "v${packageInfo.versionName} " +
+                "(${PackageInfoCompat.getLongVersionCode(packageInfo)})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
