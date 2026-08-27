@@ -22,4 +22,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // 권한 다이얼로그가 닫히거나 설정에서 돌아온 뒤 감시자 등록을 다시 시도한다 (멱등).
+        (application as AgendaApplication).registerCalendarObserverIfPermitted()
+    }
 }
