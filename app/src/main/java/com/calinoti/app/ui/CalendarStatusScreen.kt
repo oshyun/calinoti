@@ -215,7 +215,8 @@ fun CalendarStatusScreen(
                 )
 
                 else -> {
-                    if (userPreferences.selectedCalendarIds.isEmpty()) {
+                    // null은 "모든 캘린더 표시"고, 빈 집합은 사용자가 직접 전부 끈 상태다.
+                    if (userPreferences.selectedCalendarIds == null) {
                         Text(
                             text = stringResource(R.string.calendars_all_selected),
                             style = MaterialTheme.typography.bodySmall,
@@ -245,8 +246,8 @@ fun CalendarStatusScreen(
                                 }
                             }
                             Checkbox(
-                                checked = userPreferences.selectedCalendarIds.isEmpty() ||
-                                    calendar.id in userPreferences.selectedCalendarIds,
+                                checked = userPreferences.selectedCalendarIds
+                                    ?.contains(calendar.id) ?: true,
                                 onCheckedChange = { isChecked ->
                                     // 저장값 기준으로 원자적으로 반영되므로 빠르게
                                     // 연속 토글해도 이전 변경이 덮어쓰이지 않는다.

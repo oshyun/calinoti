@@ -18,7 +18,11 @@ enum class NotificationClickAction { OPEN_APP, CREATE_EVENT }
 
 /** 아젠다 알림과 설정 화면이 공유하는 사용자 설정 묶음. */
 data class UserPreferences(
-    val selectedCalendarIds: Set<Long>,
+    /**
+     * 표시할 캘린더. null이면 모든 캘린더(초기 상태), 빈 집합이면 선택된 캘린더 없음,
+     * 그 외는 해당 캘린더만 표시한다.
+     */
+    val selectedCalendarIds: Set<Long>?,
     val daysToLookAhead: Int,
     val maxVisibleEntries: Int,
     val notificationClickAction: NotificationClickAction,
@@ -28,7 +32,7 @@ data class UserPreferences(
         val MAX_VISIBLE_ENTRIES_CHOICES = listOf(5, 10, 15)
 
         val DEFAULTS = UserPreferences(
-            selectedCalendarIds = emptySet(),
+            selectedCalendarIds = null,
             daysToLookAhead = 7,
             maxVisibleEntries = 10,
             notificationClickAction = NotificationClickAction.OPEN_APP,
@@ -38,25 +42,24 @@ data class UserPreferences(
 
 /**
  * 캘린더 선택 토글의 상태 전이를 계산한다.
- * 선택 집합이 비어 있으면 "모든 캘린더 표시"를 뜻하며, 전체가 선택되면 다시 빈 집합으로
- * 단순화해 규칙을 하나로 유지한다.
+ * [selectedCalendarIds]가 null(모든 캘린더)이면 전체 선택에서 시작하고, 기기에서 사라진
+ * 캘린더 ID는 결과에서 버린다. 마지막 캘린더를 끄면 빈 집합(선택 없음)을 그대로 반환한다.
  */
 fun toggledCalendarSelection(
-    selectedCalendarIds: Set<Long>,
+    selectedCalendarIds: Set<Long>?,
     calendarId: Long,
     isChecked: Boolean,
     allCalendarIds: Set<Long>,
 ): Set<Long> {
-    val currentlySelectedIds = if (selectedCalendarIds.isEmpty()) allCalendarIds else selectedCalendarIds
-    val nextSelectedIds =
-        if (isChecked) currentlySelectedIds + calendarId else currentlySelectedIds - calendarId
-    return if (nextSelectedIds == allCalendarIds) emptySet() else nextSelectedIds
+    val currentlySelectedIds = (selectedCalendarIds ?: allCalendarIds).intersect(allCalendarIds)
+    return if (isChecked) currentlySelectedIds + calendarId else currentlySelectedIds - calendarId
 }
 
 /** 선택된 캘린더 ID 집합을 한 문자열로 저장할 때의 구분자. */
 private const val SELECTED_CALENDAR_IDS_SEPARATOR = ","
 
-// 빈 선택은 ""로 직렬화되며, 읽을 때는 "모든 캘린더 표시"가 된다.
+// 선택 집합은 쉼표 목록으로 직렬화한다. 키가 없으면 null(모든 캘린더), 빈 집합은 ""(선택 없음)이다.
+// 참고: v1.2.1까지 ""는 "모든 캘린더"를 뜻했지만 초기 단계라 마이그레이션 없이 새 해석만 쓴다.
 private val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_ids")
 private val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
@@ -66,7 +69,8 @@ private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
     this[SELECTED_CALENDAR_IDS_KEY]
         ?.split(SELECTED_CALENDAR_IDS_SEPARATOR)
         ?.filter { it.isNotBlank() }
-        ?.map { it.toLong() }
+        // 손상된 토큰 하나가 앱 시작을 죽이지 않게 잘못된 토큰만 건너뛴다.
+        ?.mapNotNull { it.toLongOrNull() }
         ?.toSet()
 
 private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -85,9 +89,7 @@ class UserPreferencesRepository(private val context: Context) {
             }
             .map { storedPreferences ->
                 UserPreferences(
-                    selectedCalendarIds =
-                        storedPreferences.parseSelectedCalendarIds()
-                            ?: UserPreferences.DEFAULTS.selectedCalendarIds,
+                    selectedCalendarIds = storedPreferences.parseSelectedCalendarIds(),
                     daysToLookAhead =
                         storedPreferences[DAYS_TO_LOOK_AHEAD_KEY]
                             ?: UserPreferences.DEFAULTS.daysToLookAhead,
@@ -114,10 +116,8 @@ class UserPreferencesRepository(private val context: Context) {
         allCalendarIds: Set<Long>,
     ) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            val currentSelectedIds = storedPreferences.parseSelectedCalendarIds()
-                ?: UserPreferences.DEFAULTS.selectedCalendarIds
             val nextSelectedIds = toggledCalendarSelection(
-                selectedCalendarIds = currentSelectedIds,
+                selectedCalendarIds = storedPreferences.parseSelectedCalendarIds(),
                 calendarId = calendarId,
                 isChecked = isChecked,
                 allCalendarIds = allCalendarIds,
