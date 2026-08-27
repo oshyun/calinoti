@@ -1,5 +1,10 @@
 # Calinoti
 
+## 리뷰 정책
+
+- 빠른 개발 기간 동안 빌드 전후의 simplify·code-review 스킬 실행을 생략한다.
+- 이 항목은 사용자가 필요한 시점에 직접 삭제한다 (삭제 시점을 Claude가 판단·제안하지 않는다).
+
 ## APK 배포 규칙
 
 - 빌드 후 `app/build/outputs/apk/debug/app-debug.apk`를
