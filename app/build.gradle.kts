@@ -11,11 +11,9 @@ android {
     defaultConfig {
         applicationId = "com.calinoti.app"
         minSdk = 26
-        // QUIRK(android12-notification-decor): targetSdk 31 이상에서 시스템이 커스텀 알림에
-        //   왼쪽 아이콘 열(52dp)을 강제 예약한다. 알림 전체 폭을 아젠다가 쓰려면 30 이하여야 한다.
-        //   대가로 Play 스토어 배포는 불가능해지고 Android 13+에서 알림 권한이 설치 시 자동 부여된다.
-        // QUIRK-REMOVE-WHEN: 커스텀 알림 뷰의 전체 폭 렌더링을 허용하는 공개 API가 나왔을 때
-        targetSdk = 30
+        // targetSdk 31+에서 시스템이 커스텀 알림에 아이콘·앱 이름 헤더를 입힌다(왼쪽 52dp 사용).
+        //   아젠다 전체 폭보다 아이콘 표시를 택했다. 33+부턴 알림 권한을 런타임에 요청해야 한다.
+        targetSdk = 35
         versionCode = 11
         versionName = "1.2.7"
     }
