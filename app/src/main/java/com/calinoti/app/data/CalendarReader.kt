@@ -54,14 +54,17 @@ class CalendarReader(private val context: Context) {
 
     /**
      * [daysToLookAhead]일 안에 시작·진행 중인 일정을 시작 시각 순으로 읽어온다.
-     * [selectedCalendarIds]가 비어 있으면 모든 캘린더를 대상으로 한다.
+     * [selectedCalendarIds]가 null이면 모든 캘린더를, 빈 집합이면 아무 캘린더도 대상으로 삼지 않는다.
      */
     fun loadUpcomingEntries(
-        selectedCalendarIds: Set<Long>,
+        selectedCalendarIds: Set<Long>?,
         daysToLookAhead: Int,
         currentTimeMilliseconds: Long,
     ): List<AgendaEntry> {
         if (!hasCalendarPermission() || daysToLookAhead <= 0) return emptyList()
+
+        // 선택된 캘린더가 하나도 없으면 IN () 절을 만들 수 없으므로 여기서 끝낸다.
+        if (selectedCalendarIds != null && selectedCalendarIds.isEmpty()) return emptyList()
 
         // Instances 범위 쿼리: 범위와 겹치는 모든 일정 인스턴스(반복 일정 전개 포함)를 반환한다.
         val searchEndMilliseconds =
@@ -76,7 +79,7 @@ class CalendarReader(private val context: Context) {
             CalendarContract.Instances.STATUS + " != ?",
         )
         val selectionValues = mutableListOf(CalendarContract.Instances.STATUS_CANCELED.toString())
-        if (selectedCalendarIds.isNotEmpty()) {
+        if (selectedCalendarIds != null) {
             selectionFilters.add(
                 CalendarContract.Instances.CALENDAR_ID + " IN (" +
                     selectedCalendarIds.joinToString(",") { "?" } + ")",
