@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.CalendarStatus" parent="android:Theme.Material.NoActionBar" />
+    <!-- 시스템 다크 모드에서도 라이트 창 테마를 유지한다 (화면과 마찬가지로 라이트 강제).
+         values-night 디렉토리 자체는 알림 텍스트 색(colors.xml) 때문에 존재한다. -->
+    <style name="Theme.CalendarStatus" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
