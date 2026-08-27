@@ -29,6 +29,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -69,6 +70,7 @@ fun CalendarStatusScreen(
     userPreferencesRepository: UserPreferencesRepository,
     versionLabel: String,
     refreshAgenda: () -> Unit,
+    openAppSettings: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val userPreferences by userPreferencesRepository.userPreferences
@@ -89,14 +91,23 @@ fun CalendarStatusScreen(
             }
         }.toTypedArray()
     }
+    // 권한 상태를 다시 읽어 반영하고, 실제로 변했을 때만 알림을 다시 그린다.
+    // 권한 다이얼로그 콜백과 ON_RESUME 복귀가 같은 규칙을 쓴다.
+    fun recheckPermissionsAndRefreshIfChanged() {
+        val calendarPermissionNow = calendarReader.hasCalendarPermission()
+        val notificationPromptNow = notificationManager.shouldPromptForNotificationPermission()
+        val permissionStateChanged =
+            calendarPermissionNow != hasCalendarPermission ||
+                notificationPromptNow != shouldPromptForNotificationPermission
+        hasCalendarPermission = calendarPermissionNow
+        shouldPromptForNotificationPermission = notificationPromptNow
+        if (permissionStateChanged) refreshAgenda()
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) {
-        hasCalendarPermission = calendarReader.hasCalendarPermission()
-        shouldPromptForNotificationPermission =
-            notificationManager.shouldPromptForNotificationPermission()
-        // 권한이 새로 생겼다면 지금까지 빈 아젠다였을 것이므로 즉시 다시 그린다.
-        refreshAgenda()
+        recheckPermissionsAndRefreshIfChanged()
     }
 
     // 시스템 설정에서 권한을 바꾸고 돌아와도 카드와 알림이 즉시 따라오게 한다.
@@ -104,17 +115,7 @@ fun CalendarStatusScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val resumeObserver = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                val calendarPermissionNow = calendarReader.hasCalendarPermission()
-                val notificationPromptNow =
-                    notificationManager.shouldPromptForNotificationPermission()
-                val permissionStateChanged =
-                    calendarPermissionNow != hasCalendarPermission ||
-                        notificationPromptNow != shouldPromptForNotificationPermission
-                hasCalendarPermission = calendarPermissionNow
-                shouldPromptForNotificationPermission = notificationPromptNow
-                if (permissionStateChanged) refreshAgenda()
-            }
+            if (event == Lifecycle.Event.ON_RESUME) recheckPermissionsAndRefreshIfChanged()
         }
         lifecycleOwner.lifecycle.addObserver(resumeObserver)
         onDispose { lifecycleOwner.lifecycle.removeObserver(resumeObserver) }
@@ -123,10 +124,13 @@ fun CalendarStatusScreen(
     // 프로바이더 쿼리는 IPC라서 컴포지션(메인 스레드)에서 직접 돌리지 않는다.
     // null은 아직 불러오는 중임을 뜻한다 — "캘린더 없음"과 구분해 로딩 중 깜빡임을 막는다.
     val calendars by produceState<List<UserCalendar>?>(null, hasCalendarPermission) {
-        value = if (hasCalendarPermission) {
-            withContext(Dispatchers.IO) { calendarReader.loadCalendars() }
+        if (!hasCalendarPermission) {
+            value = emptyList()
         } else {
-            emptyList()
+            // 권한이 새로 생겨 이 프로듀서가 재시작될 때 이전 빈 목록이 남아
+            // "캘린더 없음"이 잘못 깜빡이지 않게 로딩 상태로 되돌린다.
+            value = null
+            value = withContext(Dispatchers.IO) { calendarReader.loadCalendars() }
         }
     }
 
@@ -174,6 +178,13 @@ fun CalendarStatusScreen(
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
                         Text(stringResource(R.string.calendar_permission_button))
+                    }
+                    // 알림 권한을 영구 거부하면 시스템 다이얼로그가 아예 뜨지 않는다 —
+                    // 그때 유일한 출구인 시스템 설정으로 보내는 탈출구.
+                    if (shouldPromptForNotificationPermission) {
+                        TextButton(onClick = openAppSettings) {
+                            Text(stringResource(R.string.open_app_settings_button))
+                        }
                     }
                 }
             }

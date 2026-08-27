@@ -4,11 +4,14 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 
 /** 알림을 눌렀을 때 할 동작. */
 enum class NotificationClickAction { OPEN_APP, CREATE_EVENT }
@@ -73,24 +76,33 @@ private val Context.userPreferencesDataStore: DataStore<Preferences> by preferen
 /** 사용자 설정을 DataStore에 저장·조회한다. */
 class UserPreferencesRepository(private val context: Context) {
 
+    // 일시적 읽기 오류(IOException)에 빈 설정을 내보내 수집자가 죽지 않게 한다 (DataStore 공식 패턴).
+    // 그 외 오류는 그대로 던져 실제 손상이 숨겨지지 않게 한다.
     val userPreferences: Flow<UserPreferences> =
-        context.userPreferencesDataStore.data.map { storedPreferences ->
-            UserPreferences(
-                selectedCalendarIds =
-                    storedPreferences.parseSelectedCalendarIds()
-                        ?: UserPreferences.DEFAULTS.selectedCalendarIds,
-                daysToLookAhead =
-                    storedPreferences[DAYS_TO_LOOK_AHEAD_KEY]
-                        ?: UserPreferences.DEFAULTS.daysToLookAhead,
-                maxVisibleEntries =
-                    storedPreferences[MAX_VISIBLE_ENTRIES_KEY]
-                        ?: UserPreferences.DEFAULTS.maxVisibleEntries,
-                notificationClickAction =
-                    storedPreferences[NOTIFICATION_CLICK_ACTION_KEY]
-                        ?.let(NotificationClickAction::valueOf)
-                        ?: UserPreferences.DEFAULTS.notificationClickAction,
-            )
-        }
+        context.userPreferencesDataStore.data
+            .catch { storageError ->
+                if (storageError is IOException) emit(emptyPreferences()) else throw storageError
+            }
+            .map { storedPreferences ->
+                UserPreferences(
+                    selectedCalendarIds =
+                        storedPreferences.parseSelectedCalendarIds()
+                            ?: UserPreferences.DEFAULTS.selectedCalendarIds,
+                    daysToLookAhead =
+                        storedPreferences[DAYS_TO_LOOK_AHEAD_KEY]
+                            ?: UserPreferences.DEFAULTS.daysToLookAhead,
+                    maxVisibleEntries =
+                        storedPreferences[MAX_VISIBLE_ENTRIES_KEY]
+                            ?: UserPreferences.DEFAULTS.maxVisibleEntries,
+                    notificationClickAction =
+                        storedPreferences[NOTIFICATION_CLICK_ACTION_KEY]
+                            ?.let { stored ->
+                                // 저장값이 미래 버전에서 오래된 이름이어도 죽지 않게 기본값으로 돌아간다.
+                                NotificationClickAction.entries.firstOrNull { it.name == stored }
+                            }
+                            ?: UserPreferences.DEFAULTS.notificationClickAction,
+                )
+            }
 
     /**
      * 캘린더 선택 토글을 저장값 기준으로 원자적으로 반영한다.

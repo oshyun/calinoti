@@ -14,6 +14,7 @@
     <string name="notification_permission_title">알림 권한 필요</string>
     <string name="notification_permission_description">일정 알림을 표시하려면 알림 권한이 필요합니다.</string>
     <string name="calendar_permission_button">권한 허용하기</string>
+    <string name="open_app_settings_button">시스템 설정에서 허용하기</string>
     <string name="all_permissions_granted_message">권한이 준비되었습니다. 알림에서 일정을 확인하세요.</string>
 
     <string name="settings_section_calendars">캘린더 선택</string>

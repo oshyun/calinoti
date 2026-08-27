@@ -1,6 +1,9 @@
 package com.calinoti.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.pm.PackageInfoCompat
@@ -27,6 +30,7 @@ class MainActivity : ComponentActivity() {
                     userPreferencesRepository = agendaApplication.userPreferencesRepository,
                     versionLabel = versionLabel,
                     refreshAgenda = agendaApplication::launchAgendaRefresh,
+                    openAppSettings = ::startAppDetailsSettings,
                 )
             }
         }
@@ -36,5 +40,15 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // 권한 다이얼로그가 닫히거나 설정에서 돌아온 뒤 감시자 등록을 다시 시도한다 (멱등).
         (application as AgendaApplication).registerCalendarObserverIfPermitted()
+    }
+
+    /** 알림 권한을 영구 거부한 사용자를 위한 탈출구: 이 앱의 시스템 설정 화면을 연다. */
+    private fun startAppDetailsSettings() {
+        startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null),
+            ),
+        )
     }
 }
