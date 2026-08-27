@@ -7,6 +7,8 @@
 
 ## APK 배포 규칙
 
+- APK 빌드는 작업 브랜치의 main 머지가 끝난 뒤 main tree에서 실행한다.
+  머지 전 worktree에서 미리 빌드한 APK는 전달하지 않는다.
 - 빌드 후 `app/build/outputs/apk/debug/app-debug.apk`를
   `~/Desktop/Calinoti-v<versionName>-debug.apk`로 복사해 사용자에게 전달한다.
 - 데스크탑에 두는 파일 이름에는 항상 versionName을 포함한다 (예: `Calinoti-v1.2.1-debug.apk`).
@@ -14,7 +16,9 @@
   어떤 파일이 최신인지 헷갈리지 않게 한다.
 - 기능이나 동작이 바뀌는 빌드를 전달할 때는 versionCode/versionName을 bump한다.
   bump는 단독 커밋으로 "Bump to vX.Y.Z (versionCode N)" 형식의 메시지를 쓴다.
-- bump 전에는 반드시 main 브랜치의 `app/build.gradle.kts`에서 현재
+- bump는 사용자가 머지를 결정한 뒤 그 시점에 진행한다 (작업 브랜치 작업 중 미리
+  올려두지 않는다).
+- bump 직전에는 반드시 main 브랜치의 `app/build.gradle.kts`에서 현재
   versionCode/versionName을 확인하고 그보다 한 칸 올린다.
   다른 세션이 main에 bump를 머지했을 수 있으므로, 자신이 마지막으로 본 버전을
   기준으로 삼지 않는다 (main tree에서 `git show main:app/build.gradle.kts`로 확인).
