@@ -6,10 +6,13 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,10 +25,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -33,15 +39,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -64,6 +73,7 @@ import kotlin.math.roundToInt
 
 /**
  * 권한 안내와 설정(캘린더 선택·표시 옵션)으로 이뤄진 앱의 유일한 화면.
+ * 각 설정 묶음은 [CollapsibleSection]으로 접히며, 헤더 요약으로 접은 채 현재 상태를 확인할 수 있다.
  * 설정 변경은 저장만 담당한다 — 알림 갱신은 AgendaApplication의 설정 감시가 자동으로 한다.
  */
 @Composable
@@ -141,6 +151,28 @@ fun CalendarStatusScreen(
         coroutineScope.launch { update() }
     }
 
+    // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
+    val missingPermissionNotices = buildList {
+        if (!hasCalendarPermission) {
+            add(R.string.calendar_permission_title to R.string.calendar_permission_description)
+        }
+        if (shouldPromptForNotificationPermission) {
+            add(R.string.notification_permission_title to R.string.notification_permission_description)
+        }
+    }
+    val hasMissingPermissions = missingPermissionNotices.isNotEmpty()
+
+    // 섹션 펼침 상태는 회전·프로세스 재시작에도 유지되고, 앱을 다시 열면 기본 접힘으로 돌아온다.
+    var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
+    var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isDisplaySettingsSectionExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
+    // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
+    LaunchedEffect(hasMissingPermissions) {
+        if (hasMissingPermissions) isPermissionsSectionExpanded = true
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -154,242 +186,272 @@ fun CalendarStatusScreen(
         )
         Spacer(Modifier.height(16.dp))
 
-        // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
-        val missingPermissionNotices = buildList {
-            if (!hasCalendarPermission) {
-                add(R.string.calendar_permission_title to R.string.calendar_permission_description)
-            }
-            if (shouldPromptForNotificationPermission) {
-                add(R.string.notification_permission_title to R.string.notification_permission_description)
-            }
-        }
-        if (missingPermissionNotices.isNotEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    missingPermissionNotices.forEachIndexed { noticeIndex, (titleResourceId, descriptionResourceId) ->
-                        if (noticeIndex > 0) Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = stringResource(titleResourceId),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(descriptionResourceId),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
-                        Text(stringResource(R.string.calendar_permission_button))
-                    }
-                    // 알림 권한을 영구 거부하면 시스템 다이얼로그가 아예 뜨지 않는다 —
-                    // 그때 유일한 출구인 시스템 설정으로 보내는 탈출구.
-                    if (shouldPromptForNotificationPermission) {
-                        TextButton(onClick = openAppSettings) {
-                            Text(stringResource(R.string.open_app_settings_button))
-                        }
+        CollapsibleSection(
+            title = stringResource(R.string.settings_section_permissions),
+            summary = stringResource(
+                if (hasMissingPermissions) R.string.permissions_summary_needed
+                else R.string.permissions_summary_granted,
+            ),
+            isExpanded = isPermissionsSectionExpanded,
+            onToggleExpanded = { isPermissionsSectionExpanded = !isPermissionsSectionExpanded },
+        ) {
+            if (missingPermissionNotices.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.all_permissions_granted_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                missingPermissionNotices.forEachIndexed { noticeIndex, (titleResourceId, descriptionResourceId) ->
+                    if (noticeIndex > 0) Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(titleResourceId),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(descriptionResourceId),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
+                    Text(stringResource(R.string.calendar_permission_button))
+                }
+                // 알림 권한을 영구 거부하면 시스템 다이얼로그가 아예 뜨지 않는다 —
+                // 그때 유일한 출구인 시스템 설정으로 보내는 탈출구.
+                if (shouldPromptForNotificationPermission) {
+                    TextButton(onClick = openAppSettings) {
+                        Text(stringResource(R.string.open_app_settings_button))
                     }
                 }
             }
-        } else {
-            Text(
-                text = stringResource(R.string.all_permissions_granted_message),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
         }
 
         if (hasCalendarPermission) {
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.settings_section_calendars),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            val loadedCalendars = calendars
-            when {
-                // 아직 목록을 불러오는 중이다 — "캘린더 없음"을 대신 보여주지 않는다.
-                loadedCalendars == null -> Unit
+            Spacer(Modifier.height(12.dp))
 
-                loadedCalendars.isEmpty() -> Text(
-                    text = stringResource(R.string.no_calendars_found),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // 접힌 헤더에도 현재 선택 규모가 보이게 요약을 계산한다.
+            // 로딩 중(null)일 때는 요약을 비운다 — 아직 모르는 값을 지어 보여주지 않는다.
+            val loadedCalendars = calendars
+            val calendarsSectionSummary = when {
+                loadedCalendars == null -> null
+
+                loadedCalendars.isEmpty() -> stringResource(R.string.no_calendars_found)
+
+                userPreferences.selectedCalendarIds == null ->
+                    stringResource(R.string.calendars_summary_all)
 
                 else -> {
-                    // null은 "모든 캘린더 표시"고, 빈 집합은 사용자가 직접 전부 끈 상태다.
-                    if (userPreferences.selectedCalendarIds == null) {
-                        Text(
-                            text = stringResource(R.string.calendars_all_selected),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    // 계정(종류)별로 묶어 보여준다. 그룹 순서는 계정명 순,
-                    // 그룹 안은 로드 시의 이름 순서를 그대로 유지한다.
-                    val calendarsGroupedByAccountName = loadedCalendars
-                        .groupBy { it.accountName }
-                        .toSortedMap(String.CASE_INSENSITIVE_ORDER)
-                    calendarsGroupedByAccountName.entries
-                        .forEachIndexed { accountGroupIndex, (accountName, accountCalendars) ->
-                            if (accountGroupIndex > 0) Spacer(Modifier.height(16.dp))
+                    // 위 브랜치에서 null(전체 선택)을 걸렀으므로 orEmpty는 원본 집합 그대로다.
+                    val selectedCalendarIds = userPreferences.selectedCalendarIds.orEmpty()
+                    stringResource(
+                        R.string.calendars_summary_selected_format,
+                        loadedCalendars.count { it.id in selectedCalendarIds },
+                        loadedCalendars.size,
+                    )
+                }
+            }
+
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_calendars),
+                summary = calendarsSectionSummary,
+                isExpanded = isCalendarsSectionExpanded,
+                onToggleExpanded = { isCalendarsSectionExpanded = !isCalendarsSectionExpanded },
+            ) {
+                when {
+                    // 아직 목록을 불러오는 중이다 — "캘린더 없음"을 대신 보여주지 않는다.
+                    loadedCalendars == null -> Unit
+
+                    loadedCalendars.isEmpty() -> Text(
+                        text = stringResource(R.string.no_calendars_found),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    else -> {
+                        // null은 "모든 캘린더 표시"고, 빈 집합은 사용자가 직접 전부 끈 상태다.
+                        if (userPreferences.selectedCalendarIds == null) {
                             Text(
-                                text = accountName,
+                                text = stringResource(R.string.calendars_all_selected),
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(4.dp))
-                            for (calendar in accountCalendars) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        Modifier
-                                            .size(12.dp)
-                                            .background(Color(calendar.color), CircleShape),
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        calendar.displayName,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Checkbox(
-                                        checked = userPreferences.selectedCalendarIds
-                                            ?.contains(calendar.id) ?: true,
-                                        onCheckedChange = { isChecked ->
-                                            // 저장값 기준으로 원자적으로 반영되므로 빠르게
-                                            // 연속 토글해도 이전 변경이 덮어쓰이지 않는다.
-                                            updatePreferences {
-                                                userPreferencesRepository.toggleCalendarSelection(
-                                                    calendarId = calendar.id,
-                                                    isChecked = isChecked,
-                                                    allCalendarIds =
-                                                        loadedCalendars.map { it.id }.toSet(),
-                                                )
-                                            }
-                                        },
-                                    )
+                        }
+                        // 계정(종류)별로 묶어 보여준다. 그룹 순서는 계정명 순,
+                        // 그룹 안은 로드 시의 이름 순서를 그대로 유지한다.
+                        val calendarsGroupedByAccountName = loadedCalendars
+                            .groupBy { it.accountName }
+                            .toSortedMap(String.CASE_INSENSITIVE_ORDER)
+                        calendarsGroupedByAccountName.entries
+                            .forEachIndexed { accountGroupIndex, (accountName, accountCalendars) ->
+                                if (accountGroupIndex > 0) Spacer(Modifier.height(16.dp))
+                                Text(
+                                    text = accountName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                for (calendar in accountCalendars) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .size(12.dp)
+                                                .background(Color(calendar.color), CircleShape),
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            calendar.displayName,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Checkbox(
+                                            checked = userPreferences.selectedCalendarIds
+                                                ?.contains(calendar.id) ?: true,
+                                            onCheckedChange = { isChecked ->
+                                                // 저장값 기준으로 원자적으로 반영되므로 빠르게
+                                                // 연속 토글해도 이전 변경이 덮어쓰이지 않는다.
+                                                updatePreferences {
+                                                    userPreferencesRepository.toggleCalendarSelection(
+                                                        calendarId = calendar.id,
+                                                        isChecked = isChecked,
+                                                        allCalendarIds =
+                                                            loadedCalendars.map { it.id }.toSet(),
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
-                        }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.settings_section_display),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.days_to_look_ahead_label),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(4.dp))
-            FilterChipRow(
-                choices = UserPreferences.DAYS_TO_LOOK_AHEAD_CHOICES,
-                selectedValue = userPreferences.daysToLookAhead,
-                labelResourceId = R.string.days_format,
-            ) { days ->
-                updatePreferences { userPreferencesRepository.updateDaysToLookAhead(days) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.max_visible_entries_label),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(4.dp))
-            FilterChipRow(
-                choices = UserPreferences.MAX_VISIBLE_ENTRIES_CHOICES,
-                selectedValue = userPreferences.maxVisibleEntries,
-                labelResourceId = R.string.entries_format,
-            ) { entryCount ->
-                updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.click_action_label),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            for (clickAction in NotificationClickAction.entries) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = userPreferences.notificationClickAction == clickAction,
-                        onClick = {
-                            updatePreferences {
-                                userPreferencesRepository.updateNotificationClickAction(clickAction)
-                            }
-                        },
-                    )
-                    Text(stringResource(clickAction.labelResourceId()))
+                    }
                 }
             }
 
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.settings_subsection_spacing),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            val currentSpacing = userPreferences.notificationSpacing
-            SpacingSliderRow(
-                labelResourceId = R.string.day_header_start_padding_label,
-                savedValueDp = currentSpacing.dayHeaderStartPaddingDp,
-            ) { newValueDp ->
-                updatePreferences {
-                    userPreferencesRepository.updateNotificationSpacing(
-                        currentSpacing.copy(dayHeaderStartPaddingDp = newValueDp),
-                    )
+
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_display),
+                summary = stringResource(
+                    R.string.display_settings_summary_format,
+                    userPreferences.daysToLookAhead,
+                    userPreferences.maxVisibleEntries,
+                ),
+                isExpanded = isDisplaySettingsSectionExpanded,
+                onToggleExpanded = {
+                    isDisplaySettingsSectionExpanded = !isDisplaySettingsSectionExpanded
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.days_to_look_ahead_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(4.dp))
+                FilterChipRow(
+                    choices = UserPreferences.DAYS_TO_LOOK_AHEAD_CHOICES,
+                    selectedValue = userPreferences.daysToLookAhead,
+                    labelResourceId = R.string.days_format,
+                ) { days ->
+                    updatePreferences { userPreferencesRepository.updateDaysToLookAhead(days) }
                 }
-            }
-            SpacingSliderRow(
-                labelResourceId = R.string.event_start_padding_label,
-                savedValueDp = currentSpacing.eventStartPaddingDp,
-            ) { newValueDp ->
-                updatePreferences {
-                    userPreferencesRepository.updateNotificationSpacing(
-                        currentSpacing.copy(eventStartPaddingDp = newValueDp),
-                    )
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.max_visible_entries_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(4.dp))
+                FilterChipRow(
+                    choices = UserPreferences.MAX_VISIBLE_ENTRIES_CHOICES,
+                    selectedValue = userPreferences.maxVisibleEntries,
+                    labelResourceId = R.string.entries_format,
+                ) { entryCount ->
+                    updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
                 }
-            }
-            SpacingSliderRow(
-                labelResourceId = R.string.day_header_to_event_spacing_label,
-                savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
-            ) { newValueDp ->
-                updatePreferences {
-                    userPreferencesRepository.updateNotificationSpacing(
-                        currentSpacing.copy(dayHeaderToEventSpacingDp = newValueDp),
-                    )
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.click_action_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                for (clickAction in NotificationClickAction.entries) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = userPreferences.notificationClickAction == clickAction,
+                            onClick = {
+                                updatePreferences {
+                                    userPreferencesRepository.updateNotificationClickAction(clickAction)
+                                }
+                            },
+                        )
+                        Text(stringResource(clickAction.labelResourceId()))
+                    }
                 }
-            }
-            SpacingSliderRow(
-                labelResourceId = R.string.between_events_spacing_label,
-                savedValueDp = currentSpacing.betweenEventsSpacingDp,
-            ) { newValueDp ->
-                updatePreferences {
-                    userPreferencesRepository.updateNotificationSpacing(
-                        currentSpacing.copy(betweenEventsSpacingDp = newValueDp),
-                    )
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.settings_subsection_spacing),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                val currentSpacing = userPreferences.notificationSpacing
+                SpacingSliderRow(
+                    labelResourceId = R.string.day_header_start_padding_label,
+                    savedValueDp = currentSpacing.dayHeaderStartPaddingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(dayHeaderStartPaddingDp = newValueDp),
+                        )
+                    }
                 }
-            }
-            SpacingSliderRow(
-                labelResourceId = R.string.between_day_headers_spacing_label,
-                savedValueDp = currentSpacing.betweenDayHeadersSpacingDp,
-            ) { newValueDp ->
-                updatePreferences {
-                    userPreferencesRepository.updateNotificationSpacing(
-                        currentSpacing.copy(betweenDayHeadersSpacingDp = newValueDp),
-                    )
+                SpacingSliderRow(
+                    labelResourceId = R.string.event_start_padding_label,
+                    savedValueDp = currentSpacing.eventStartPaddingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(eventStartPaddingDp = newValueDp),
+                        )
+                    }
+                }
+                SpacingSliderRow(
+                    labelResourceId = R.string.day_header_to_event_spacing_label,
+                    savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(dayHeaderToEventSpacingDp = newValueDp),
+                        )
+                    }
+                }
+                SpacingSliderRow(
+                    labelResourceId = R.string.between_events_spacing_label,
+                    savedValueDp = currentSpacing.betweenEventsSpacingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(betweenEventsSpacingDp = newValueDp),
+                        )
+                    }
+                }
+                SpacingSliderRow(
+                    labelResourceId = R.string.between_day_headers_spacing_label,
+                    savedValueDp = currentSpacing.betweenDayHeadersSpacingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(betweenDayHeadersSpacingDp = newValueDp),
+                        )
+                    }
                 }
             }
 
+            // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
             Spacer(Modifier.height(24.dp))
             Button(onClick = refreshAgenda) {
                 Text(stringResource(R.string.refresh_now_button))
@@ -403,6 +465,58 @@ fun CalendarStatusScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * 헤더(제목·요약·펼침 화살표)를 눌러 내용을 펼치거나 접는 섹션.
+ * [summary]는 접힌 상태에서도 현재 상태를 알 수 있게 하는 한 줄 요약이다 (null이면 표시하지 않는다).
+ */
+@Composable
+private fun CollapsibleSection(
+    title: String,
+    summary: String?,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.animateContentSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpanded)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (summary != null) {
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(if (isExpanded) 180f else 0f),
+                )
+            }
+            if (isExpanded) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    content = content,
+                )
+            }
+        }
     }
 }
 
