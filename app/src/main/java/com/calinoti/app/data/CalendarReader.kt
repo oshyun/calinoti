@@ -53,7 +53,8 @@ class CalendarReader(private val context: Context) {
     }
 
     /**
-     * [daysToLookAhead]일 안에 시작·진행 중인 일정을 시작 시각 순으로 읽어온다.
+     * [daysToLookAhead]일 안에 진행 중이거나 아직 시작하지 않은 일정을 시작 시각 순으로 읽어온다.
+     * 범위 쿼리 특성상 종료 시각이 지난 인스턴스도 섞여 나올 수 있어 여기서 제외한다.
      * [selectedCalendarIds]가 null이면 모든 캘린더를, 빈 집합이면 아무 캘린더도 대상으로 삼지 않는다.
      */
     fun loadUpcomingEntries(
@@ -111,12 +112,16 @@ class CalendarReader(private val context: Context) {
             val locationColumnIndex =
                 cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_LOCATION)
             while (cursor.moveToNext()) {
+                val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
+                val endTimeMilliseconds = cursor.getLong(endColumnIndex)
+                // 종료 시각이 지나간 일정은 아젠다에서 제외한다. 진행 중(끝나지 않은) 일정은 유지한다.
+                if (endTimeMilliseconds <= currentTimeMilliseconds) continue
                 entries.add(
                     AgendaEntry(
                         eventId = cursor.getLong(eventIdColumnIndex),
                         title = cursor.getString(titleColumnIndex).orEmpty(),
-                        beginTimeMilliseconds = cursor.getLong(beginColumnIndex),
-                        endTimeMilliseconds = cursor.getLong(endColumnIndex),
+                        beginTimeMilliseconds = beginTimeMilliseconds,
+                        endTimeMilliseconds = endTimeMilliseconds,
                         isAllDay = cursor.getInt(allDayColumnIndex) != 0,
                         location = cursor.getString(locationColumnIndex),
                     ),
