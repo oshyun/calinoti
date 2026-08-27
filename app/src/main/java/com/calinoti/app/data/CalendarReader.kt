@@ -6,8 +6,10 @@ import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import java.util.concurrent.TimeUnit
+import kotlin.math.max
+import kotlin.math.min
 
-/** 시스템 캘린더 프로바이더에서 캘린더 목록과 다가오는 일정을 읽어온다. */
+/** 시스템 캘린더 프로바이더에서 캘린더 목록과 표시 기간에 든 일정을 읽어온다. */
 class CalendarReader(private val context: Context) {
 
     fun hasCalendarPermission(): Boolean =
@@ -53,25 +55,31 @@ class CalendarReader(private val context: Context) {
     }
 
     /**
-     * [daysToLookAhead]일 안에 진행 중이거나 아직 시작하지 않은 일정을 시작 시각 순으로 읽어온다.
-     * 범위 쿼리 특성상 종료 시각이 지난 인스턴스도 섞여 나올 수 있어 여기서 제외한다.
+     * [daysToLookAhead]가 양수면 앞으로 그 날수까지의 일정(진행 중 포함)을, 음수면 그 날수 이전부터
+     * 지금까지의 이미 끝난 일정을 시작 시각 순으로 읽어온다. 0이면 진행 중인 일정만 해당한다.
+     * 범위 쿼리 특성상 창 반대편으로 삐져나간 인스턴스도 섞여 나올 수 있어 종료 시각으로 걸러낸다.
      * [selectedCalendarIds]가 null이면 모든 캘린더를, 빈 집합이면 아무 캘린더도 대상으로 삼지 않는다.
      */
-    fun loadUpcomingEntries(
+    fun loadAgendaEntries(
         selectedCalendarIds: Set<Long>?,
         daysToLookAhead: Int,
         currentTimeMilliseconds: Long,
     ): List<AgendaEntry> {
-        if (!hasCalendarPermission() || daysToLookAhead <= 0) return emptyList()
+        if (!hasCalendarPermission()) return emptyList()
 
         // 선택된 캘린더가 하나도 없으면 IN () 절을 만들 수 없으므로 여기서 끝낸다.
         if (selectedCalendarIds != null && selectedCalendarIds.isEmpty()) return emptyList()
 
         // Instances 범위 쿼리: 범위와 겹치는 모든 일정 인스턴스(반복 일정 전개 포함)를 반환한다.
+        // 표시 기간이 음수면 창 방향을 반대로 뒤집어 [그 날수 이전, 지금]으로 잡는다.
+        val windowSpanMilliseconds = TimeUnit.DAYS.toMillis(daysToLookAhead.toLong())
+        val searchStartMilliseconds =
+            min(currentTimeMilliseconds, currentTimeMilliseconds + windowSpanMilliseconds)
         val searchEndMilliseconds =
-            currentTimeMilliseconds + TimeUnit.DAYS.toMillis(daysToLookAhead.toLong())
+            max(currentTimeMilliseconds, currentTimeMilliseconds + windowSpanMilliseconds)
+        val isPastWindow = daysToLookAhead < 0
         val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon()
-            .appendPath(currentTimeMilliseconds.toString())
+            .appendPath(searchStartMilliseconds.toString())
             .appendPath(searchEndMilliseconds.toString())
             .build()
 
@@ -114,8 +122,13 @@ class CalendarReader(private val context: Context) {
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = cursor.getLong(endColumnIndex)
-                // 종료 시각이 지나간 일정은 아젠다에서 제외한다. 진행 중(끝나지 않은) 일정은 유지한다.
-                if (endTimeMilliseconds <= currentTimeMilliseconds) continue
+                // 과거 창에서는 아직 끝나지 않은 일정을, 미래 창에서는 이미 끝난 일정을
+                // 아젠다에서 제외한다. 미래 창은 진행 중인 일정을 유지한다.
+                if (isPastWindow) {
+                    if (currentTimeMilliseconds < endTimeMilliseconds) continue
+                } else {
+                    if (endTimeMilliseconds <= currentTimeMilliseconds) continue
+                }
                 entries.add(
                     AgendaEntry(
                         eventId = cursor.getLong(eventIdColumnIndex),

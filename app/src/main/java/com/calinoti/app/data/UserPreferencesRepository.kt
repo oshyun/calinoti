@@ -23,15 +23,14 @@ data class UserPreferences(
      * 그 외는 해당 캘린더만 표시한다.
      */
     val selectedCalendarIds: Set<Long>?,
+    /** 표시 기간(일). 양수는 앞으로 그 날수까지, 음수는 그 날수 이전부터 지금까지를 뜻한다. */
     val daysToLookAhead: Int,
+    /** 알림에 표시할 최대 항목 수. 항상 1 이상이다. */
     val maxVisibleEntries: Int,
     val notificationClickAction: NotificationClickAction,
     val notificationSpacing: NotificationSpacing,
 ) {
     companion object {
-        val DAYS_TO_LOOK_AHEAD_CHOICES = listOf(3, 7, 14, 30)
-        val MAX_VISIBLE_ENTRIES_CHOICES = listOf(5, 10, 15)
-
         val DEFAULTS = UserPreferences(
             selectedCalendarIds = null,
             daysToLookAhead = 7,
