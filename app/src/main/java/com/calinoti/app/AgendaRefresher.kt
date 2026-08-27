@@ -38,6 +38,7 @@ class AgendaRefresher(
                 notificationManager.publishAgendaNotification(
                     listEntries = listEntries,
                     maxVisibleEntries = preferences.maxVisibleEntries,
+                    notificationTextSizeSp = preferences.notificationTextSizeSp,
                     clickAction = preferences.notificationClickAction,
                     spacing = preferences.notificationSpacing,
                 )

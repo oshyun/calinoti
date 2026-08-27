@@ -348,7 +348,7 @@ fun CalendarStatusScreen(
                     fieldLabelResourceId = R.string.days_to_look_ahead_label,
                     unitSuffixResourceId = R.string.days_unit_suffix,
                     storedValue = userPreferences.daysToLookAhead,
-                    guidanceTextResourceId = R.string.days_to_look_ahead_negative_hint,
+                    guidanceText = stringResource(R.string.days_to_look_ahead_negative_hint),
                     onValidValueChange = { days ->
                         updatePreferences { userPreferencesRepository.updateDaysToLookAhead(days) }
                     },
@@ -359,10 +359,31 @@ fun CalendarStatusScreen(
                     fieldLabelResourceId = R.string.max_visible_entries_label,
                     unitSuffixResourceId = R.string.entries_unit_suffix,
                     storedValue = userPreferences.maxVisibleEntries,
-                    invalidValueTextResourceId = R.string.max_visible_entries_invalid_message,
+                    invalidValueText = stringResource(R.string.max_visible_entries_invalid_message),
                     isValidValue = { entryCount -> entryCount >= 1 },
                     onValidValueChange = { entryCount ->
                         updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
+                    },
+                )
+
+                Spacer(Modifier.height(12.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.notification_text_size_label,
+                    unitSuffixResourceId = R.string.text_size_unit_suffix,
+                    storedValue = userPreferences.notificationTextSizeSp,
+                    invalidValueText = stringResource(
+                        R.string.notification_text_size_invalid_message,
+                        UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
+                        UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP,
+                    ),
+                    isValidValue = { textSizeSp ->
+                        textSizeSp in
+                            UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
+                    },
+                    onValidValueChange = { textSizeSp ->
+                        updatePreferences {
+                            userPreferencesRepository.updateNotificationTextSize(textSizeSp)
+                        }
                     },
                 )
 
@@ -551,16 +572,16 @@ private fun SpacingSliderRow(
 /**
  * 정수 하나를 저장하는 설정 입력 필드. 숫자(맨 앞 '-' 포함)만 입력받으며,
  * 입력이 유효한 정수이고 저장값과 다를 때만 [onValidValueChange]를 부른다.
- * [isValidValue] 검증에 실패한 값은 오류 문구와 함께 저장하지 않는다.
- * [guidanceTextResourceId]는 항상 보이는 안내 문구다 (오류가 없을 때만 표시).
+ * [isValidValue] 검증에 실패한 값은 [invalidValueText] 오류 문구와 함께 저장하지 않는다.
+ * [guidanceText]는 오류가 없을 때 보이는 안내 문구다.
  */
 @Composable
 private fun IntegerSettingField(
     fieldLabelResourceId: Int,
     unitSuffixResourceId: Int,
     storedValue: Int,
-    guidanceTextResourceId: Int? = null,
-    invalidValueTextResourceId: Int? = null,
+    guidanceText: String? = null,
+    invalidValueText: String? = null,
     isValidValue: (Int) -> Boolean = { true },
     onValidValueChange: (Int) -> Unit,
 ) {
@@ -590,10 +611,8 @@ private fun IntegerSettingField(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         supportingText = {
             when {
-                showsInvalidValueError && invalidValueTextResourceId != null ->
-                    Text(stringResource(invalidValueTextResourceId))
-
-                guidanceTextResourceId != null -> Text(stringResource(guidanceTextResourceId))
+                showsInvalidValueError && invalidValueText != null -> Text(invalidValueText)
+                guidanceText != null -> Text(guidanceText)
             }
         },
     )

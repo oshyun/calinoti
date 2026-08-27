@@ -27,14 +27,21 @@ data class UserPreferences(
     val daysToLookAhead: Int,
     /** 알림에 표시할 최대 항목 수. 항상 1 이상이다. */
     val maxVisibleEntries: Int,
+    /** 알림 제목 글자 크기(sp). 시각·위치·날짜 헤더는 이보다 2sp 작게 표시된다. */
+    val notificationTextSizeSp: Int,
     val notificationClickAction: NotificationClickAction,
     val notificationSpacing: NotificationSpacing,
 ) {
     companion object {
+        // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
+        const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
+        const val NOTIFICATION_TEXT_SIZE_MAX_SP = 32
+
         val DEFAULTS = UserPreferences(
             selectedCalendarIds = null,
             daysToLookAhead = 7,
             maxVisibleEntries = 10,
+            notificationTextSizeSp = 15,
             notificationClickAction = NotificationClickAction.OPEN_APP,
             notificationSpacing = NotificationSpacing.DEFAULTS,
         )
@@ -64,6 +71,7 @@ private const val SELECTED_CALENDAR_IDS_SEPARATOR = ","
 private val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_ids")
 private val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
+private val NOTIFICATION_TEXT_SIZE_KEY = intPreferencesKey("notification_text_size_sp")
 private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
@@ -106,6 +114,9 @@ class UserPreferencesRepository(private val context: Context) {
                     maxVisibleEntries =
                         storedPreferences[MAX_VISIBLE_ENTRIES_KEY]
                             ?: UserPreferences.DEFAULTS.maxVisibleEntries,
+                    notificationTextSizeSp =
+                        storedPreferences[NOTIFICATION_TEXT_SIZE_KEY]
+                            ?: UserPreferences.DEFAULTS.notificationTextSizeSp,
                     notificationClickAction =
                         storedPreferences[NOTIFICATION_CLICK_ACTION_KEY]
                             ?.let { stored ->
@@ -169,6 +180,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateMaxVisibleEntries(maxVisibleEntries: Int) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[MAX_VISIBLE_ENTRIES_KEY] = maxVisibleEntries
+        }
+    }
+
+    suspend fun updateNotificationTextSize(textSizeSp: Int) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[NOTIFICATION_TEXT_SIZE_KEY] = textSizeSp
         }
     }
 

@@ -35,6 +35,9 @@
     <string name="max_visible_entries_label">최대 항목 수</string>
     <string name="entries_unit_suffix">개</string>
     <string name="max_visible_entries_invalid_message">1 이상의 수를 입력하세요</string>
+    <string name="notification_text_size_label">글자 크기</string>
+    <string name="text_size_unit_suffix">sp</string>
+    <string name="notification_text_size_invalid_message">%1$d 이상 %2$d 이하의 수를 입력하세요</string>
     <string name="click_action_label">알림 클릭 동작</string>
     <string name="click_action_open_app">앱 열기</string>
     <string name="click_action_create_event">새 일정 만들기</string>

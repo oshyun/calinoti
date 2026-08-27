@@ -55,25 +55,40 @@ class AgendaNotificationManager(
     fun publishAgendaNotification(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
+        notificationTextSizeSp: Int,
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
     ) {
         if (!hasNotificationPermission()) return
-        val notification = buildAgendaNotification(listEntries, maxVisibleEntries, clickAction, spacing)
+        val notification = buildAgendaNotification(
+            listEntries,
+            maxVisibleEntries,
+            notificationTextSizeSp,
+            clickAction,
+            spacing,
+        )
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
     }
 
     private fun buildAgendaNotification(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
+        notificationTextSizeSp: Int,
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setCustomContentView(remoteViewsFactory.createCollapsedViews(listEntries, spacing))
+            .setCustomContentView(
+                remoteViewsFactory.createCollapsedViews(listEntries, spacing, notificationTextSizeSp),
+            )
             .setCustomBigContentView(
-                remoteViewsFactory.createExpandedViews(listEntries, maxVisibleEntries, spacing),
+                remoteViewsFactory.createExpandedViews(
+                    listEntries,
+                    maxVisibleEntries,
+                    spacing,
+                    notificationTextSizeSp,
+                ),
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
