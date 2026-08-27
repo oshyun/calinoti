@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,11 +41,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.pm.PackageInfoCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.NotificationClickAction
@@ -65,9 +67,9 @@ fun CalendarStatusScreen(
     calendarReader: CalendarReader,
     notificationManager: AgendaNotificationManager,
     userPreferencesRepository: UserPreferencesRepository,
+    versionLabel: String,
     refreshAgenda: () -> Unit,
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val userPreferences by userPreferencesRepository.userPreferences
         .collectAsState(initial = UserPreferences.DEFAULTS)
@@ -97,6 +99,27 @@ fun CalendarStatusScreen(
         refreshAgenda()
     }
 
+    // 시스템 설정에서 권한을 바꾸고 돌아와도 카드와 알림이 즉시 따라오게 한다.
+    // ON_RESUME이 "권한이 바뀌었을 수 있는" 단일 체크포인트다 (돌아오는 시점에만 상태를 다시 읽는다).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val resumeObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val calendarPermissionNow = calendarReader.hasCalendarPermission()
+                val notificationPromptNow =
+                    notificationManager.shouldPromptForNotificationPermission()
+                val permissionStateChanged =
+                    calendarPermissionNow != hasCalendarPermission ||
+                        notificationPromptNow != shouldPromptForNotificationPermission
+                hasCalendarPermission = calendarPermissionNow
+                shouldPromptForNotificationPermission = notificationPromptNow
+                if (permissionStateChanged) refreshAgenda()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(resumeObserver)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(resumeObserver) }
+    }
+
     // 프로바이더 쿼리는 IPC라서 컴포지션(메인 스레드)에서 직접 돌리지 않는다.
     // null은 아직 불러오는 중임을 뜻한다 — "캘린더 없음"과 구분해 로딩 중 깜빡임을 막는다.
     val calendars by produceState<List<UserCalendar>?>(null, hasCalendarPermission) {
@@ -124,32 +147,27 @@ fun CalendarStatusScreen(
         )
         Spacer(Modifier.height(16.dp))
 
-        if (!hasCalendarPermission || shouldPromptForNotificationPermission) {
+        // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
+        val missingPermissionNotices = buildList {
+            if (!hasCalendarPermission) {
+                add(R.string.calendar_permission_title to R.string.calendar_permission_description)
+            }
+            if (shouldPromptForNotificationPermission) {
+                add(R.string.notification_permission_title to R.string.notification_permission_description)
+            }
+        }
+        if (missingPermissionNotices.isNotEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
-                    if (!hasCalendarPermission) {
+                    missingPermissionNotices.forEachIndexed { noticeIndex, (titleResourceId, descriptionResourceId) ->
+                        if (noticeIndex > 0) Spacer(Modifier.height(12.dp))
                         Text(
-                            text = stringResource(R.string.calendar_permission_title),
+                            text = stringResource(titleResourceId),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = stringResource(R.string.calendar_permission_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    if (shouldPromptForNotificationPermission) {
-                        if (!hasCalendarPermission) {
-                            Spacer(Modifier.height(12.dp))
-                        }
-                        Text(
-                            text = stringResource(R.string.notification_permission_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.notification_permission_description),
+                            text = stringResource(descriptionResourceId),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -295,12 +313,8 @@ fun CalendarStatusScreen(
 
         // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
         Spacer(Modifier.height(32.dp))
-        val packageInfo = remember {
-            context.packageManager.getPackageInfo(context.packageName, 0)
-        }
         Text(
-            text = "v${packageInfo.versionName} " +
-                "(${PackageInfoCompat.getLongVersionCode(packageInfo)})",
+            text = versionLabel,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

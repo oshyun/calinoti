@@ -3,6 +3,7 @@ package com.calinoti.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.content.pm.PackageInfoCompat
 import com.calinoti.app.ui.CalendarStatusScreen
 import com.calinoti.app.ui.CalendarStatusTheme
 
@@ -11,12 +12,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val agendaApplication = application as AgendaApplication
+        // 화면은 파라미터만 받게 한다 — 버전 조회(IPC)는 컴포지션 밖 여기서 한 번만.
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val versionLabel = getString(
+            R.string.version_format,
+            packageInfo.versionName,
+            PackageInfoCompat.getLongVersionCode(packageInfo),
+        )
         setContent {
             CalendarStatusTheme {
                 CalendarStatusScreen(
                     calendarReader = agendaApplication.calendarReader,
                     notificationManager = agendaApplication.notificationManager,
                     userPreferencesRepository = agendaApplication.userPreferencesRepository,
+                    versionLabel = versionLabel,
                     refreshAgenda = agendaApplication::launchAgendaRefresh,
                 )
             }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -58,14 +59,10 @@ class AgendaApplication : Application() {
         registerCalendarObserverIfPermitted()
         applicationScope.launch {
             // 설정 변경마다 갱신을 접수한다. 초기값도 한 번 접수되지만 겹침은 병합된다.
-            // 감시가 죽으면 설정 변경이 알림에 반영되지 않으므로 수집 오류를 삼킨다.
-            try {
-                userPreferencesRepository.userPreferences.collect { launchAgendaRefresh() }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (runtimeError: Exception) {
-                Log.e(TAG, "설정 감시가 중단됐다", runtimeError)
-            }
+            // 감시가 죽으면 설정 변경이 알림에 반영되지 않으므로 수집 오류를 기록하고 끝낸다.
+            userPreferencesRepository.userPreferences
+                .catch { runtimeError -> Log.e(TAG, "설정 감시가 중단됐다", runtimeError) }
+                .collect { launchAgendaRefresh() }
         }
         launchAgendaRefresh()
     }
