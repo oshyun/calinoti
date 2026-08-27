@@ -2,7 +2,6 @@ package com.calinoti.app.data
 
 /** 알림에 표시할 일정 한 건. 렌더링에 필요한 최소 정보만 담는다. */
 data class AgendaEntry(
-    val eventId: Long,
     val title: String,
     val beginTimeMilliseconds: Long,
     val endTimeMilliseconds: Long,

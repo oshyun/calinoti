@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import java.util.concurrent.TimeUnit
 
 /** 시스템 캘린더 프로바이더에서 캘린더 목록과 다가오는 일정을 읽어온다. */
 class CalendarReader(private val context: Context) {
@@ -30,17 +31,20 @@ class CalendarReader(private val context: Context) {
             /* sortOrder = */
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME + " COLLATE NOCASE ASC",
         )?.use { cursor ->
+            val idColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
+            val displayNameColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+            val accountNameColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)
+            val colorColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_COLOR)
             while (cursor.moveToNext()) {
                 calendars.add(
                     UserCalendar(
-                        id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)),
-                        displayName = cursor.getString(
-                            cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME),
-                        ).orEmpty(),
-                        accountName = cursor.getString(
-                            cursor.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME),
-                        ).orEmpty(),
-                        color = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_COLOR)),
+                        id = cursor.getLong(idColumnIndex),
+                        displayName = cursor.getString(displayNameColumnIndex).orEmpty(),
+                        accountName = cursor.getString(accountNameColumnIndex).orEmpty(),
+                        color = cursor.getInt(colorColumnIndex),
                     ),
                 )
             }
@@ -60,15 +64,14 @@ class CalendarReader(private val context: Context) {
         if (!hasCalendarPermission() || daysToLookAhead <= 0) return emptyList()
 
         // Instances 범위 쿼리: 범위와 겹치는 모든 일정 인스턴스(반복 일정 전개 포함)를 반환한다.
-        val searchEndMilliseconds = currentTimeMilliseconds + daysToLookAhead * MILLIS_PER_DAY
+        val searchEndMilliseconds =
+            currentTimeMilliseconds + TimeUnit.DAYS.toMillis(daysToLookAhead.toLong())
         val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon()
             .appendPath(currentTimeMilliseconds.toString())
             .appendPath(searchEndMilliseconds.toString())
             .build()
 
-        var selection: String? = null
-        var selectionArgs: Array<String>? = null
-        // 취소된 일정은 아젠다에서 제외한다.
+        // 취소된 일정은 아젠다에서 제외하고, 선택된 캘린더로 한정한다.
         val selectionFilters = mutableListOf(
             CalendarContract.Instances.STATUS + " != ?",
         )
@@ -80,41 +83,39 @@ class CalendarReader(private val context: Context) {
             )
             selectionValues.addAll(selectedCalendarIds.map(Long::toString))
         }
-        selection = selectionFilters.joinToString(" AND ")
-        selectionArgs = selectionValues.toTypedArray()
 
         val entries = mutableListOf<AgendaEntry>()
         context.contentResolver.query(
             instancesUri,
             arrayOf(
-                CalendarContract.Instances.EVENT_ID,
                 CalendarContract.Instances.TITLE,
                 CalendarContract.Instances.BEGIN,
                 CalendarContract.Instances.END,
                 CalendarContract.Instances.ALL_DAY,
                 CalendarContract.Instances.EVENT_LOCATION,
             ),
-            selection,
-            selectionArgs,
+            /* selection = */ selectionFilters.joinToString(" AND "),
+            /* selectionArgs = */ selectionValues.toTypedArray(),
             /* sortOrder = */ CalendarContract.Instances.BEGIN + " ASC",
         )?.use { cursor ->
+            val titleColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)
+            val beginColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)
+            val endColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.END)
+            val allDayColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.ALL_DAY)
+            val locationColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_LOCATION)
             while (cursor.moveToNext()) {
                 entries.add(
                     AgendaEntry(
-                        eventId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)),
-                        title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)).orEmpty(),
-                        beginTimeMilliseconds = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)),
-                        endTimeMilliseconds = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.END)),
-                        isAllDay = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Instances.ALL_DAY)) != 0,
-                        location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_LOCATION)),
+                        title = cursor.getString(titleColumnIndex).orEmpty(),
+                        beginTimeMilliseconds = cursor.getLong(beginColumnIndex),
+                        endTimeMilliseconds = cursor.getLong(endColumnIndex),
+                        isAllDay = cursor.getInt(allDayColumnIndex) != 0,
+                        location = cursor.getString(locationColumnIndex),
                     ),
                 )
             }
         }
         return entries
-    }
-
-    private companion object {
-        const val MILLIS_PER_DAY = 24L * 60 * 60 * 1000
     }
 }

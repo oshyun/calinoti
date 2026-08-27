@@ -42,12 +42,11 @@ app/src/main/java/com/calinoti/app/
 │   ├── AgendaListBuilder.kt    # 일정 목록에 날짜 헤더 끼워 넣기
 │   └── UserPreferencesRepository.kt  # DataStore 설정 저장소
 ├── notification/
-│   ├── AgendaNotificationManager.kt  # 채널 생성, 알림 발행/취소, 클릭 PendingIntent
+│   ├── AgendaNotificationManager.kt  # 채널 생성, 알림 발행, 권한 확인, 클릭 PendingIntent
 │   └── AgendaRemoteViewsFactory.kt   # 알림 RemoteViews 조립
 ├── scheduling/
 │   ├── AgendaRefreshScheduler.kt     # AlarmManager 다음 갱신 예약
-│   ├── AgendaRefreshReceiver.kt      # 알람 수신 → 갱신
-│   └── BootCompletedReceiver.kt      # 재부팅 후 복원
+│   └── AgendaRefreshReceiver.kt      # 알람 수신 → 갱신, 재부팅(BOOT_COMPLETED) 복원
 └── ui/                          # Compose 테마와 설정 화면
 ```
 

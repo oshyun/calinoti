@@ -18,7 +18,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.NotificationClickAction
 
-/** 아젠다 지속 알림의 채널 생성·발행·취소를 담당한다. */
+/** 아젠다 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
 class AgendaNotificationManager(
     private val context: Context,
     private val remoteViewsFactory: AgendaRemoteViewsFactory,
@@ -32,9 +32,10 @@ class AgendaNotificationManager(
         ).apply {
             description = context.getString(R.string.notification_channel_agenda_description)
         }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        NotificationManagerCompat.from(context).createNotificationChannel(channel)
     }
 
+    /** 알림 권한 상태의 단일 출처. 발행 가드와 UI 확인이 이 함수 하나를 쓴다. */
     fun hasNotificationPermission(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
@@ -42,6 +43,13 @@ class AgendaNotificationManager(
         } else {
             NotificationManagerCompat.from(context).areNotificationsEnabled()
         }
+
+    /**
+     * 권한 안내 카드를 보여줘야 하는지. API 33 미만은 알림 권한의 런타임 요청 UI가 없어
+     * 앱 안에서 해결할 수 없으므로 카드 대상에서 제외한다.
+     */
+    fun shouldPromptForNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission()
 
     fun publishAgendaNotification(
         listEntries: List<AgendaListEntry>,
@@ -51,10 +59,6 @@ class AgendaNotificationManager(
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(listEntries, maxVisibleEntries, clickAction)
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
-    }
-
-    fun cancelAgendaNotification() {
-        NotificationManagerCompat.from(context).cancel(AGENDA_NOTIFICATION_ID)
     }
 
     private fun buildAgendaNotification(

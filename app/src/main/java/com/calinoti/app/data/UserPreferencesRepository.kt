@@ -38,23 +38,33 @@ data class UserPreferences(
  * 선택 집합이 비어 있으면 "모든 캘린더 표시"를 뜻하며, 전체가 선택되면 다시 빈 집합으로
  * 단순화해 규칙을 하나로 유지한다.
  */
-fun UserPreferences.withToggledCalendar(
-    calendar: UserCalendar,
+fun toggledCalendarSelection(
+    selectedCalendarIds: Set<Long>,
+    calendarId: Long,
     isChecked: Boolean,
-    allCalendars: List<UserCalendar>,
-): UserPreferences {
-    val allCalendarIds = allCalendars.map(UserCalendar::id).toSet()
-    val selectedIds = if (selectedCalendarIds.isEmpty()) allCalendarIds else selectedCalendarIds
-    val nextSelectedIds = if (isChecked) selectedIds + calendar.id else selectedIds - calendar.id
-    return if (nextSelectedIds == allCalendarIds) {
-        copy(selectedCalendarIds = emptySet())
-    } else {
-        copy(selectedCalendarIds = nextSelectedIds)
-    }
+    allCalendarIds: Set<Long>,
+): Set<Long> {
+    val currentlySelectedIds = if (selectedCalendarIds.isEmpty()) allCalendarIds else selectedCalendarIds
+    val nextSelectedIds =
+        if (isChecked) currentlySelectedIds + calendarId else currentlySelectedIds - calendarId
+    return if (nextSelectedIds == allCalendarIds) emptySet() else nextSelectedIds
 }
 
 /** 선택된 캘린더 ID 집합을 한 문자열로 저장할 때의 구분자. */
 private const val SELECTED_CALENDAR_IDS_SEPARATOR = ","
+
+// 빈 선택은 ""로 직렬화되며, 읽을 때는 "모든 캘린더 표시"가 된다.
+private val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_ids")
+private val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
+private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
+private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
+
+private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
+    this[SELECTED_CALENDAR_IDS_KEY]
+        ?.split(SELECTED_CALENDAR_IDS_SEPARATOR)
+        ?.filter { it.isNotBlank() }
+        ?.map { it.toLong() }
+        ?.toSet()
 
 private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "user_preferences",
@@ -67,10 +77,7 @@ class UserPreferencesRepository(private val context: Context) {
         context.userPreferencesDataStore.data.map { storedPreferences ->
             UserPreferences(
                 selectedCalendarIds =
-                    storedPreferences[SELECTED_CALENDAR_IDS_KEY]
-                        ?.split(SELECTED_CALENDAR_IDS_SEPARATOR)
-                        ?.map { it.toLong() }
-                        ?.toSet()
+                    storedPreferences.parseSelectedCalendarIds()
                         ?: UserPreferences.DEFAULTS.selectedCalendarIds,
                 daysToLookAhead =
                     storedPreferences[DAYS_TO_LOOK_AHEAD_KEY]
@@ -85,10 +92,26 @@ class UserPreferencesRepository(private val context: Context) {
             )
         }
 
-    suspend fun updateSelectedCalendarIds(selectedCalendarIds: Set<Long>) {
+    /**
+     * 캘린더 선택 토글을 저장값 기준으로 원자적으로 반영한다.
+     * UI의 상태 스냅샷이 늦더라도 연속 토글이 서로를 덮어쓰지 않는다.
+     */
+    suspend fun toggleCalendarSelection(
+        calendarId: Long,
+        isChecked: Boolean,
+        allCalendarIds: Set<Long>,
+    ) {
         context.userPreferencesDataStore.edit { storedPreferences ->
+            val currentSelectedIds = storedPreferences.parseSelectedCalendarIds()
+                ?: UserPreferences.DEFAULTS.selectedCalendarIds
+            val nextSelectedIds = toggledCalendarSelection(
+                selectedCalendarIds = currentSelectedIds,
+                calendarId = calendarId,
+                isChecked = isChecked,
+                allCalendarIds = allCalendarIds,
+            )
             storedPreferences[SELECTED_CALENDAR_IDS_KEY] =
-                selectedCalendarIds.map(Long::toString).joinToString(SELECTED_CALENDAR_IDS_SEPARATOR)
+                nextSelectedIds.joinToString(SELECTED_CALENDAR_IDS_SEPARATOR)
         }
     }
 
@@ -108,12 +131,5 @@ class UserPreferencesRepository(private val context: Context) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_CLICK_ACTION_KEY] = clickAction.name
         }
-    }
-
-    private companion object {
-        val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_ids")
-        val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
-        val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
-        val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
     }
 }

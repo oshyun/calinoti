@@ -22,14 +22,10 @@
             </intent-filter>
         </activity>
 
-        <!-- AlarmManager 갱신 예약을 받는다. 명시적 인텐트로만 호출되므로 외부 노출 불필요. -->
+        <!-- 알람 갱신 예약과 재부팅 복원(BOOT_COMPLETED)을 같은 경로로 받는다.
+             시스템 전용 브로드캐스트와 명시적 인텐트만 다루므로 외부 노출 불필요. -->
         <receiver
             android:name=".scheduling.AgendaRefreshReceiver"
-            android:exported="false" />
-
-        <!-- 기기 재부팅 후 아젠다 알림을 복원한다. 시스템 전용 브로드캐스트라 외부 노출 불필요. -->
-        <receiver
-            android:name=".scheduling.BootCompletedReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

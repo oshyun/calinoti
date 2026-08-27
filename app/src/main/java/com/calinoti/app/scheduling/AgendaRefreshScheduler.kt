@@ -7,6 +7,7 @@ import android.content.Intent
 import com.calinoti.app.data.AgendaEntry
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 
 /**
  * 아젠다가 변할 수 있는 다음 시점에 갱신 브로드캐스트를 예약한다.
@@ -35,10 +36,6 @@ object AgendaRefreshScheduler {
         )
     }
 
-    fun cancelScheduledRefresh(context: Context) {
-        context.getSystemService(AlarmManager::class.java).cancel(buildRefreshPendingIntent(context))
-    }
-
     private fun buildRefreshPendingIntent(context: Context): PendingIntent =
         PendingIntent.getBroadcast(
             context,
@@ -56,6 +53,6 @@ object AgendaRefreshScheduler {
         return tomorrow.atStartOfDay(zoneId).toInstant().toEpochMilli()
     }
 
-    private const val FALLBACK_REFRESH_INTERVAL_MILLIS = 6L * 60 * 60 * 1000
+    private val FALLBACK_REFRESH_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(6)
     private const val REFRESH_REQUEST_CODE = 2001
 }
