@@ -1,7 +1,9 @@
 package com.calinoti.app.data
 
-/** 알림에 표시할 일정 한 건. 렌더링에 필요한 최소 정보만 담는다. */
+/** 알림에 표시할 일정 한 건. 렌더링과 일정 열기에 필요한 최소 정보만 담는다. */
 data class AgendaEntry(
+    /** 캘린더 프로바이더 Events 테이블의 일정 ID(반복 일정은 시리즈 원본). 알림 줄 클릭으로 일정을 열 때 쓴다. */
+    val eventId: Long,
     val title: String,
     val beginTimeMilliseconds: Long,
     val endTimeMilliseconds: Long,

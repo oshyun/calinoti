@@ -88,6 +88,7 @@ class CalendarReader(private val context: Context) {
         context.contentResolver.query(
             instancesUri,
             arrayOf(
+                CalendarContract.Instances.EVENT_ID,
                 CalendarContract.Instances.TITLE,
                 CalendarContract.Instances.BEGIN,
                 CalendarContract.Instances.END,
@@ -98,6 +99,8 @@ class CalendarReader(private val context: Context) {
             /* selectionArgs = */ selectionValues.toTypedArray(),
             /* sortOrder = */ CalendarContract.Instances.BEGIN + " ASC",
         )?.use { cursor ->
+            val eventIdColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)
             val titleColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)
             val beginColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)
             val endColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.END)
@@ -107,6 +110,7 @@ class CalendarReader(private val context: Context) {
             while (cursor.moveToNext()) {
                 entries.add(
                     AgendaEntry(
+                        eventId = cursor.getLong(eventIdColumnIndex),
                         title = cursor.getString(titleColumnIndex).orEmpty(),
                         beginTimeMilliseconds = cursor.getLong(beginColumnIndex),
                         endTimeMilliseconds = cursor.getLong(endColumnIndex),
