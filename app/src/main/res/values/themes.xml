@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 전용 앱이라 플랫폼 테마를 그대로 쓴다. 실제 UI는 Compose가 그린다. -->
+    <style name="Theme.CalendarStatus" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  아젠다 알림의 루트 레이아웃. 항목(날짜 헤더/일정)은 RemoteViews가 런타임에 addView로 채운다.
+  알림이 잘리지 않는 최대 높이는 시스템이 정하므로 항목 수는 설정값으로 제한한다.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_agenda_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical" />

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Calinoti = "cal(endar) in noti(fication) bar"의 줄임말 -->
+    <string name="app_name">Calinoti</string>
+
+    <string name="notification_channel_agenda_name">일정 아젠다</string>
+    <string name="notification_channel_agenda_description">다가오는 캘린더 일정을 알림으로 표시합니다</string>
+
+    <string name="agenda_empty_text">표시할 일정이 없습니다</string>
+    <string name="agenda_untitled_event">제목 없는 일정</string>
+
+    <string name="calendar_permission_title">캘린더 권한 필요</string>
+    <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>
+    <string name="calendar_permission_button">권한 허용하기</string>
+    <string name="all_permissions_granted_message">권한이 준비되었습니다. 알림에서 일정을 확인하세요.</string>
+
+    <string name="settings_section_calendars">캘린더 선택</string>
+    <string name="calendars_all_selected">선택하지 않으면 모든 캘린더를 표시합니다</string>
+    <string name="no_calendars_found">캘린더를 찾을 수 없습니다</string>
+
+    <string name="settings_section_display">표시 설정</string>
+    <string name="days_to_look_ahead_label">표시 기간</string>
+    <string name="days_format">%d일</string>
+    <string name="max_visible_entries_label">최대 항목 수</string>
+    <string name="entries_format">%d개</string>
+    <string name="click_action_label">알림 클릭 동작</string>
+    <string name="click_action_open_app">앱 열기</string>
+    <string name="click_action_create_event">새 일정 만들기</string>
+
+    <string name="refresh_now_button">지금 새로고침</string>
+</resources>
