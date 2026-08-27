@@ -224,44 +224,56 @@ fun CalendarStatusScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                     }
-                    for (calendar in loadedCalendars) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(12.dp)
-                                    .background(Color(calendar.color), CircleShape),
+                    // 계정(종류)별로 묶어 보여준다. 그룹 순서는 계정명 순,
+                    // 그룹 안은 로드 시의 이름 순서를 그대로 유지한다.
+                    val calendarsGroupedByAccountName = loadedCalendars
+                        .groupBy { it.accountName }
+                        .toSortedMap(String.CASE_INSENSITIVE_ORDER)
+                    calendarsGroupedByAccountName.entries
+                        .forEachIndexed { accountGroupIndex, (accountName, accountCalendars) ->
+                            if (accountGroupIndex > 0) Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = accountName,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(calendar.displayName, style = MaterialTheme.typography.bodyLarge)
-                                if (calendar.accountName != calendar.displayName) {
+                            Spacer(Modifier.height(4.dp))
+                            for (calendar in accountCalendars) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(12.dp)
+                                            .background(Color(calendar.color), CircleShape),
+                                    )
+                                    Spacer(Modifier.width(10.dp))
                                     Text(
-                                        text = calendar.accountName,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        calendar.displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Checkbox(
+                                        checked = userPreferences.selectedCalendarIds
+                                            ?.contains(calendar.id) ?: true,
+                                        onCheckedChange = { isChecked ->
+                                            // 저장값 기준으로 원자적으로 반영되므로 빠르게
+                                            // 연속 토글해도 이전 변경이 덮어쓰이지 않는다.
+                                            updatePreferences {
+                                                userPreferencesRepository.toggleCalendarSelection(
+                                                    calendarId = calendar.id,
+                                                    isChecked = isChecked,
+                                                    allCalendarIds =
+                                                        loadedCalendars.map { it.id }.toSet(),
+                                                )
+                                            }
+                                        },
                                     )
                                 }
                             }
-                            Checkbox(
-                                checked = userPreferences.selectedCalendarIds
-                                    ?.contains(calendar.id) ?: true,
-                                onCheckedChange = { isChecked ->
-                                    // 저장값 기준으로 원자적으로 반영되므로 빠르게
-                                    // 연속 토글해도 이전 변경이 덮어쓰이지 않는다.
-                                    updatePreferences {
-                                        userPreferencesRepository.toggleCalendarSelection(
-                                            calendarId = calendar.id,
-                                            isChecked = isChecked,
-                                            allCalendarIds = loadedCalendars.map { it.id }.toSet(),
-                                        )
-                                    }
-                                },
-                            )
                         }
-                    }
                 }
             }
 
