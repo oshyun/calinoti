@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  일정 항목 한 줄: [시간(오른쪽 정렬 칸)][제목(굵게, accent 색)][위치(회색, 말줄임)]
+  일정 항목 한 줄: [시간(오른쪽 정렬 칸)][제목(굵게, 캘린더 색)][위치(회색, 말줄임)]
   종일 일정은 시간 칸을 숨기고, 위치가 없으면 위치 칸을 숨긴다.
   행을 누르면 캘린더 앱에서 해당 일정을 연다.
-  여백과 글자 크기는 지정하지 않는다 — AgendaRemoteViewsFactory가 런타임에 사용자 설정으로 적용한다.
+  여백·글자 크기·제목 색은 지정하지 않는다 — AgendaRemoteViewsFactory가 런타임에 적용한다.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/notification_event_item"
@@ -29,7 +29,6 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:textStyle="bold"
-        android:textColor="@color/notification_text_accent"
         android:maxLines="1"
         android:ellipsize="end" />
 

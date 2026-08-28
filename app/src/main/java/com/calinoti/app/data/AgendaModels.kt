@@ -9,6 +9,8 @@ data class AgendaEntry(
     val endTimeMilliseconds: Long,
     val isAllDay: Boolean,
     val location: String?,
+    /** 이 일정이 속한 캘린더의 표시 색(ARGB). 알림 제목 색으로 쓴다. */
+    val calendarColor: Int,
 )
 
 /** 아젠다 목록의 한 줄: 날짜 그룹 헤더 또는 일정 항목. */

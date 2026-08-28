@@ -2,5 +2,4 @@
 <resources>
     <color name="notification_text_primary">#DEFFFFFF</color>
     <color name="notification_text_secondary">#A6FFFFFF</color>
-    <color name="notification_text_accent">#ECE9A9</color>
 </resources>

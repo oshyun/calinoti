@@ -143,6 +143,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) },
         )
         itemViews.setTextViewTextSize(R.id.event_title_text, COMPLEX_UNIT_SP, titleTextSizeSp)
+        // 제목 색은 캘린더 앱과 같은 캘린더 색으로 표시한다. 일정별 개별 색(EVENT_COLOR)은
+        // 무시하고 캘린더 색만 따른다.
+        itemViews.setTextColor(R.id.event_title_text, entry.calendarColor)
         if (entry.location.isNullOrBlank()) {
             itemViews.setViewVisibility(R.id.event_location_text, View.GONE)
         } else {

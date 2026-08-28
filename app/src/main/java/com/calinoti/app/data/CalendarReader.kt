@@ -102,6 +102,7 @@ class CalendarReader(private val context: Context) {
                 CalendarContract.Instances.END,
                 CalendarContract.Instances.ALL_DAY,
                 CalendarContract.Instances.EVENT_LOCATION,
+                CalendarContract.Instances.CALENDAR_COLOR,
             ),
             /* selection = */ selectionFilters.joinToString(" AND "),
             /* selectionArgs = */ selectionValues.toTypedArray(),
@@ -115,6 +116,8 @@ class CalendarReader(private val context: Context) {
             val allDayColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.ALL_DAY)
             val locationColumnIndex =
                 cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_LOCATION)
+            val calendarColorColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_COLOR)
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = cursor.getLong(endColumnIndex)
@@ -129,6 +132,7 @@ class CalendarReader(private val context: Context) {
                         endTimeMilliseconds = endTimeMilliseconds,
                         isAllDay = cursor.getInt(allDayColumnIndex) != 0,
                         location = cursor.getString(locationColumnIndex),
+                        calendarColor = cursor.getInt(calendarColorColumnIndex),
                     ),
                 )
             }
