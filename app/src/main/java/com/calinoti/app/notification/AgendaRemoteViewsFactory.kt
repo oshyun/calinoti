@@ -13,6 +13,7 @@ import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
+import android.text.style.UnderlineSpan
 import android.util.TypedValue
 import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
@@ -472,26 +473,30 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         )
 
     /**
-     * "08.31, 금요일" 형태의 날짜 헤더. 오늘 날짜면 (오늘) 접미사를 붙이고 전체를 볼드로
-     * 강조해 목록에서 오늘 그룹을 한눈에 찾게 한다.
+     * "08.31, 금요일" 형태의 날짜 헤더. 오늘 날짜면 볼드+밑줄로 강조해 목록에서 오늘 그룹을
+     * 한눈에 찾게 한다. 접미사를 붙이지 않는다 — 접미사가 오늘 날짜 열만 넓혀 그룹 사이
+     * 일정 들여쓰기가 어긋난다.
      */
     private fun formatDayHeaderText(
         dayStartMilliseconds: Long,
         currentTimeMilliseconds: Long,
     ): CharSequence {
         val headerDay = findLocalDateOf(dayStartMilliseconds)
-        val today = findLocalDateOf(currentTimeMilliseconds)
-        if (headerDay != today) return headerDay.format(dayHeaderFormatter)
-        val todayHeaderText = SpannableStringBuilder(headerDay.format(dayHeaderFormatter))
-            .append(RELATIVE_TIME_LABEL_SEPARATOR)
-            .append(context.getString(R.string.today_label))
-        todayHeaderText.setSpan(
+        val headerText = SpannableStringBuilder(headerDay.format(dayHeaderFormatter))
+        if (headerDay != findLocalDateOf(currentTimeMilliseconds)) return headerText
+        headerText.setSpan(
             StyleSpan(Typeface.BOLD),
             0,
-            todayHeaderText.length,
+            headerText.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
-        return todayHeaderText
+        headerText.setSpan(
+            UnderlineSpan(),
+            0,
+            headerText.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        return headerText
     }
 
     private fun formatTimeText(timeMilliseconds: Long): String =
