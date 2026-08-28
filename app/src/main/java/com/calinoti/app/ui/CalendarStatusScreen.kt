@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package com.calinoti.app.ui
 
 import android.Manifest
@@ -9,11 +7,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,15 +20,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -55,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -338,7 +336,8 @@ fun CalendarStatusScreen(
                 title = stringResource(R.string.settings_section_display),
                 summary = stringResource(
                     R.string.display_settings_summary_format,
-                    userPreferences.daysToLookAhead,
+                    userPreferences.windowStartDays,
+                    userPreferences.windowEndDays,
                     userPreferences.maxVisibleEntries,
                 ),
                 isExpanded = isDisplaySettingsSectionExpanded,
@@ -346,32 +345,63 @@ fun CalendarStatusScreen(
                     isDisplaySettingsSectionExpanded = !isDisplaySettingsSectionExpanded
                 },
             ) {
-                Text(
-                    text = stringResource(R.string.days_to_look_ahead_label),
-                    style = MaterialTheme.typography.bodyMedium,
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.window_start_days_label,
+                    unitSuffixResourceId = R.string.days_unit_suffix,
+                    storedValue = userPreferences.windowStartDays,
+                    guidanceText = stringResource(R.string.window_start_days_hint),
+                    invalidValueText = stringResource(R.string.display_window_order_invalid_message),
+                    isValidValue = { startDays -> startDays <= userPreferences.windowEndDays },
+                    onValidValueChange = { startDays ->
+                        updatePreferences { userPreferencesRepository.updateWindowStartDays(startDays) }
+                    },
                 )
-                Spacer(Modifier.height(4.dp))
-                FilterChipRow(
-                    choices = UserPreferences.DAYS_TO_LOOK_AHEAD_CHOICES,
-                    selectedValue = userPreferences.daysToLookAhead,
-                    labelResourceId = R.string.days_format,
-                ) { days ->
-                    updatePreferences { userPreferencesRepository.updateDaysToLookAhead(days) }
-                }
 
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.max_visible_entries_label),
-                    style = MaterialTheme.typography.bodyMedium,
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.window_end_days_label,
+                    unitSuffixResourceId = R.string.days_unit_suffix,
+                    storedValue = userPreferences.windowEndDays,
+                    guidanceText = stringResource(R.string.window_end_days_hint),
+                    invalidValueText = stringResource(R.string.display_window_order_invalid_message),
+                    isValidValue = { endDays -> endDays >= userPreferences.windowStartDays },
+                    onValidValueChange = { endDays ->
+                        updatePreferences { userPreferencesRepository.updateWindowEndDays(endDays) }
+                    },
                 )
-                Spacer(Modifier.height(4.dp))
-                FilterChipRow(
-                    choices = UserPreferences.MAX_VISIBLE_ENTRIES_CHOICES,
-                    selectedValue = userPreferences.maxVisibleEntries,
-                    labelResourceId = R.string.entries_format,
-                ) { entryCount ->
-                    updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
-                }
+
+                Spacer(Modifier.height(12.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.max_visible_entries_label,
+                    unitSuffixResourceId = R.string.entries_unit_suffix,
+                    storedValue = userPreferences.maxVisibleEntries,
+                    invalidValueText = stringResource(R.string.max_visible_entries_invalid_message),
+                    isValidValue = { entryCount -> entryCount >= 1 },
+                    onValidValueChange = { entryCount ->
+                        updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
+                    },
+                )
+
+                Spacer(Modifier.height(12.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.notification_text_size_label,
+                    unitSuffixResourceId = R.string.text_size_unit_suffix,
+                    storedValue = userPreferences.notificationTextSizeSp,
+                    invalidValueText = stringResource(
+                        R.string.notification_text_size_invalid_message,
+                        UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
+                        UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP,
+                    ),
+                    isValidValue = { textSizeSp ->
+                        textSizeSp in
+                            UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
+                    },
+                    onValidValueChange = { textSizeSp ->
+                        updatePreferences {
+                            userPreferencesRepository.updateNotificationTextSize(textSizeSp)
+                        }
+                    },
+                )
 
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -555,22 +585,53 @@ private fun SpacingSliderRow(
     }
 }
 
+/**
+ * 정수 하나를 저장하는 설정 입력 필드. 숫자(맨 앞 '-' 포함)만 입력받으며,
+ * 입력이 유효한 정수이고 저장값과 다를 때만 [onValidValueChange]를 부른다.
+ * [isValidValue] 검증에 실패한 값은 [invalidValueText] 오류 문구와 함께 저장하지 않는다.
+ * [guidanceText]는 오류가 없을 때 보이는 안내 문구다.
+ */
 @Composable
-private fun FilterChipRow(
-    choices: List<Int>,
-    selectedValue: Int,
-    labelResourceId: Int,
-    onSelect: (Int) -> Unit,
+private fun IntegerSettingField(
+    fieldLabelResourceId: Int,
+    unitSuffixResourceId: Int,
+    storedValue: Int,
+    guidanceText: String? = null,
+    invalidValueText: String? = null,
+    isValidValue: (Int) -> Boolean = { true },
+    onValidValueChange: (Int) -> Unit,
 ) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (choice in choices) {
-            FilterChip(
-                selected = selectedValue == choice,
-                onClick = { onSelect(choice) },
-                label = { Text(stringResource(labelResourceId, choice)) },
-            )
-        }
-    }
+    // 저장값이 바뀌면(직접 입력한 값이 저장된 직후) 필드 텍스트를 그 값으로 맞춘다.
+    // 빈 문자열이나 "-"만 남은 상태는 지우는 중의 임시 상태라 저장값을 덮어쓰지 않는다.
+    var inputText by remember(storedValue) { mutableStateOf(storedValue.toString()) }
+    val parsedInputValue = inputText.toIntOrNull()
+    val showsInvalidValueError = parsedInputValue != null && !isValidValue(parsedInputValue)
+
+    OutlinedTextField(
+        value = inputText,
+        onValueChange = { typedText ->
+            val isIntegerText = typedText.toIntOrNull() != null
+            if (typedText.isEmpty() || typedText == "-" || isIntegerText) {
+                inputText = typedText
+                val typedValue = typedText.toIntOrNull()
+                if (typedValue != null && isValidValue(typedValue) && typedValue != storedValue) {
+                    onValidValueChange(typedValue)
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(fieldLabelResourceId)) },
+        suffix = { Text(stringResource(unitSuffixResourceId)) },
+        isError = showsInvalidValueError,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        supportingText = {
+            when {
+                showsInvalidValueError && invalidValueText != null -> Text(invalidValueText)
+                guidanceText != null -> Text(guidanceText)
+            }
+        },
+    )
 }
 
 private fun NotificationClickAction.labelResourceId(): Int = when (this) {

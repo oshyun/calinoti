@@ -28,11 +28,19 @@
     <string name="calendars_summary_selected_format">%1$d/%2$d개 선택</string>
 
     <string name="settings_section_display">표시 설정</string>
-    <string name="display_settings_summary_format">%1$d일 · 최대 %2$d개</string>
-    <string name="days_to_look_ahead_label">표시 기간</string>
-    <string name="days_format">%d일</string>
+    <string name="display_settings_summary_format">%1$d~%2$d일 · 최대 %3$d개</string>
+    <string name="window_start_days_label">표시 시작일</string>
+    <string name="window_end_days_label">표시 마지막일</string>
+    <string name="days_unit_suffix">일</string>
+    <string name="window_start_days_hint">0은 오늘부터, 음수는 그만큼 이전부터 표시합니다</string>
+    <string name="window_end_days_hint">0은 오늘까지, 숫자만큼 뒤까지 표시합니다</string>
+    <string name="display_window_order_invalid_message">시작일은 마지막일보다 빠르거나 같아야 합니다</string>
     <string name="max_visible_entries_label">최대 항목 수</string>
-    <string name="entries_format">%d개</string>
+    <string name="entries_unit_suffix">개</string>
+    <string name="max_visible_entries_invalid_message">1 이상의 수를 입력하세요</string>
+    <string name="notification_text_size_label">글자 크기</string>
+    <string name="text_size_unit_suffix">sp</string>
+    <string name="notification_text_size_invalid_message">%1$d 이상 %2$d 이하의 수를 입력하세요</string>
     <string name="click_action_label">알림 클릭 동작</string>
     <string name="click_action_open_app">앱 열기</string>
     <string name="click_action_create_event">새 일정 만들기</string>

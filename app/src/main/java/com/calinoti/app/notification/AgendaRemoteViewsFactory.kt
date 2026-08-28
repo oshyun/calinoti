@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import android.util.TypedValue
+import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
 import android.widget.RemoteViews
 import com.calinoti.app.R
@@ -26,27 +27,43 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     fun createCollapsedViews(
         listEntries: List<AgendaListEntry>,
         spacing: NotificationSpacing,
-    ): RemoteViews = createAgendaViews(listEntries, itemLimit = COLLAPSED_ITEM_LIMIT, spacing = spacing)
+        notificationTextSizeSp: Int,
+    ): RemoteViews = createAgendaViews(
+        listEntries,
+        itemLimit = COLLAPSED_ITEM_LIMIT,
+        spacing = spacing,
+        notificationTextSizeSp = notificationTextSizeSp,
+    )
 
     /** 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. */
     fun createExpandedViews(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
         spacing: NotificationSpacing,
-    ): RemoteViews = createAgendaViews(listEntries, itemLimit = maxVisibleEntries, spacing = spacing)
+        notificationTextSizeSp: Int,
+    ): RemoteViews = createAgendaViews(
+        listEntries,
+        itemLimit = maxVisibleEntries,
+        spacing = spacing,
+        notificationTextSizeSp = notificationTextSizeSp,
+    )
 
     private fun createAgendaViews(
         listEntries: List<AgendaListEntry>,
         itemLimit: Int,
         spacing: NotificationSpacing,
+        notificationTextSizeSp: Int,
     ): RemoteViews {
+        // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다.
+        // 시각·위치·날짜 헤더는 제목보다 2sp 작게 표시한다 (기존 레이아웃의 15/13sp 관계).
+        val titleTextSizeSp = notificationTextSizeSp.toFloat()
+        val secondaryTextSizeSp = (notificationTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP).toFloat()
         val rootViews = RemoteViews(context.packageName, R.layout.notification_agenda)
         rootViews.removeAllViews(R.id.notification_agenda_container)
         if (listEntries.isEmpty()) {
-            rootViews.addView(
-                R.id.notification_agenda_container,
-                RemoteViews(context.packageName, R.layout.notification_item_empty),
-            )
+            val emptyViews = RemoteViews(context.packageName, R.layout.notification_item_empty)
+            emptyViews.setTextViewTextSize(R.id.agenda_empty_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
+            rootViews.addView(R.id.notification_agenda_container, emptyViews)
             return rootViews
         }
         // 캘린더 앱 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
@@ -72,6 +89,11 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         R.id.day_header_text,
                         formatDayHeaderText(listEntry.dayStartMilliseconds),
                     )
+                    headerViews.setTextViewTextSize(
+                        R.id.day_header_text,
+                        COMPLEX_UNIT_SP,
+                        secondaryTextSizeSp,
+                    )
                     headerViews.applyItemPadding(
                         viewId = R.id.day_header_text,
                         startPaddingDp = spacing.dayHeaderStartPaddingDp,
@@ -82,7 +104,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 }
 
                 is AgendaListEntry.Event -> {
-                    val eventItemViews = createEventItemViews(listEntry.entry, canOpenEventRows)
+                    val eventItemViews = createEventItemViews(
+                        listEntry.entry,
+                        canOpenEventRows,
+                        titleTextSizeSp,
+                        secondaryTextSizeSp,
+                    )
                     eventItemViews.applyItemPadding(
                         viewId = R.id.notification_event_item,
                         startPaddingDp = spacing.eventStartPaddingDp,
@@ -97,23 +124,31 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return rootViews
     }
 
-    private fun createEventItemViews(entry: AgendaEntry, canOpenEventRows: Boolean): RemoteViews {
+    private fun createEventItemViews(
+        entry: AgendaEntry,
+        canOpenEventRows: Boolean,
+        titleTextSizeSp: Float,
+        secondaryTextSizeSp: Float,
+    ): RemoteViews {
         val itemViews = RemoteViews(context.packageName, R.layout.notification_item_event)
         if (entry.isAllDay) {
             itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
         } else {
             itemViews.setViewVisibility(R.id.event_time_text, View.VISIBLE)
             itemViews.setTextViewText(R.id.event_time_text, formatTimeText(entry.beginTimeMilliseconds))
+            itemViews.setTextViewTextSize(R.id.event_time_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
         itemViews.setTextViewText(
             R.id.event_title_text,
             entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) },
         )
+        itemViews.setTextViewTextSize(R.id.event_title_text, COMPLEX_UNIT_SP, titleTextSizeSp)
         if (entry.location.isNullOrBlank()) {
             itemViews.setViewVisibility(R.id.event_location_text, View.GONE)
         } else {
             itemViews.setViewVisibility(R.id.event_location_text, View.VISIBLE)
             itemViews.setTextViewText(R.id.event_location_text, entry.location)
+            itemViews.setTextViewTextSize(R.id.event_location_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
         if (canOpenEventRows) {
             // 줄에 클릭이 걸리면 탭이 그 줄에서 소비된다. 캘린더 앱이 없는 기기에서는
@@ -205,6 +240,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         const val ITEM_HORIZONTAL_INSET_DP = 16
         const val FIRST_ITEM_TOP_PADDING_DP = 8
         const val LAST_ITEM_BOTTOM_PADDING_DP = 4
+
+        // 시각·위치·날짜 헤더가 제목 글자보다 작은 정도. 기존 레이아웃의 15/13sp 관계를 유지한다.
+        const val SECONDARY_TEXT_SIZE_OFFSET_SP = 2
 
         // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
         // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002)와 겹치지 않는 고정값이고, 접힘·펼침 뷰가

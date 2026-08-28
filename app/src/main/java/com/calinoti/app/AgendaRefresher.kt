@@ -29,19 +29,21 @@ class AgendaRefresher(
             val currentTimeMilliseconds = System.currentTimeMillis()
             try {
                 val preferences = userPreferencesRepository.userPreferences.first()
-                val upcomingEntries = calendarReader.loadUpcomingEntries(
+                val agendaEntries = calendarReader.loadAgendaEntries(
                     selectedCalendarIds = preferences.selectedCalendarIds,
-                    daysToLookAhead = preferences.daysToLookAhead,
+                    windowStartDays = preferences.windowStartDays,
+                    windowEndDays = preferences.windowEndDays,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
-                val listEntries = AgendaListBuilder.buildDayGroupedEntries(upcomingEntries)
+                val listEntries = AgendaListBuilder.buildDayGroupedEntries(agendaEntries)
                 notificationManager.publishAgendaNotification(
                     listEntries = listEntries,
                     maxVisibleEntries = preferences.maxVisibleEntries,
+                    notificationTextSizeSp = preferences.notificationTextSizeSp,
                     clickAction = preferences.notificationClickAction,
                     spacing = preferences.notificationSpacing,
                 )
-                AgendaRefreshScheduler.scheduleNextRefresh(context, upcomingEntries, currentTimeMilliseconds)
+                AgendaRefreshScheduler.scheduleNextRefresh(context, agendaEntries, currentTimeMilliseconds)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (runtimeError: Exception) {
