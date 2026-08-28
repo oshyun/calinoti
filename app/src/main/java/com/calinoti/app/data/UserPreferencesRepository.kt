@@ -92,6 +92,7 @@ private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp"
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
 private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
 private val BETWEEN_DAY_HEADERS_SPACING_KEY = intPreferencesKey("between_day_headers_spacing_dp")
+private val TIME_TO_TITLE_SPACING_KEY = intPreferencesKey("time_to_title_spacing_dp")
 
 private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
     this[SELECTED_CALENDAR_IDS_KEY]
@@ -162,6 +163,10 @@ class UserPreferencesRepository(private val context: Context) {
                             betweenDayHeadersSpacingDp = storedPreferences.readSpacingDp(
                                 BETWEEN_DAY_HEADERS_SPACING_KEY,
                                 NotificationSpacing.DEFAULTS.betweenDayHeadersSpacingDp,
+                            ),
+                            timeToTitleSpacingDp = storedPreferences.readSpacingDp(
+                                TIME_TO_TITLE_SPACING_KEY,
+                                NotificationSpacing.DEFAULTS.timeToTitleSpacingDp,
                             ),
                         ),
                     isNotificationPinned =
@@ -235,6 +240,7 @@ class UserPreferencesRepository(private val context: Context) {
             storedPreferences[DAY_HEADER_TO_EVENT_SPACING_KEY] = spacing.dayHeaderToEventSpacingDp
             storedPreferences[BETWEEN_EVENTS_SPACING_KEY] = spacing.betweenEventsSpacingDp
             storedPreferences[BETWEEN_DAY_HEADERS_SPACING_KEY] = spacing.betweenDayHeadersSpacingDp
+            storedPreferences[TIME_TO_TITLE_SPACING_KEY] = spacing.timeToTitleSpacingDp
         }
     }
 }

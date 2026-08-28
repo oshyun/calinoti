@@ -6,6 +6,7 @@
   종일 일정은 시간 텍스트를 숨기고, 위치가 없으면 위치 칸을 숨긴다.
   행을 누르면 캘린더 앱에서 해당 일정을 연다.
   여백·글자 크기·제목 색은 지정하지 않는다 — AgendaRemoteViewsFactory가 런타임에 적용한다.
+  시각과 제목 사이 간격도 RemoteViews가 margin을 못 바꾸므로 시간 뷰의 paddingEnd로 적용한다.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/notification_event_item"
@@ -19,7 +20,6 @@
         android:id="@+id/event_time_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="12dp"
         android:textColor="@color/notification_text_secondary"
         android:maxLines="1" />
 

@@ -123,6 +123,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         titleTextSizeSp,
                         secondaryTextSizeSp,
                         currentTimeMilliseconds,
+                        spacing.timeToTitleSpacingDp,
                     )
                     eventItemViews.applyItemPadding(
                         viewId = R.id.notification_event_item,
@@ -144,8 +145,19 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         titleTextSizeSp: Float,
         secondaryTextSizeSp: Float,
         currentTimeMilliseconds: Long,
+        timeToTitleSpacingDp: Int,
     ): RemoteViews {
         val itemViews = RemoteViews(context.packageName, R.layout.notification_item_event)
+        // 시각-제목 간격은 RemoteViews에 margin 액션이 없어 시간 뷰의 end padding으로 준다.
+        // 배경 없는 텍스트라 margin과 시각적으로 동일하다. 종일 일정은 시간 뷰가 GONE이라
+        // 적용돼도 그려지지 않는다.
+        itemViews.applyItemPadding(
+            viewId = R.id.event_time_text,
+            startPaddingDp = 0,
+            endPaddingDp = timeToTitleSpacingDp,
+            topPaddingDp = 0,
+            bottomPaddingDp = 0,
+        )
         if (entry.isAllDay) {
             itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
         } else {
@@ -190,7 +202,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         ).isNotEmpty()
 
     /**
-     * 항목 뷰의 여백을 dp에서 픽셀로 바꿔 적용한다. setViewPadding은 지정하지 않은 면을
+     * 뷰의 여백을 dp에서 픽셀로 바꿔 적용한다. setViewPadding은 지정하지 않은 면을
      * 0으로 덮어쓰므로 네 면을 항상 모두 지정한다 — 레이아웃 XML에는 padding이 없다(SSOT).
      */
     private fun RemoteViews.applyItemPadding(
@@ -198,6 +210,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         startPaddingDp: Int,
         topPaddingDp: Int,
         bottomPaddingDp: Int,
+        endPaddingDp: Int = ITEM_HORIZONTAL_INSET_DP,
     ) {
         val displayMetrics = context.resources.displayMetrics
 
@@ -215,7 +228,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val isRtlLayout =
             context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
         val startPaddingPixels = toPixels(startPaddingDp)
-        val endPaddingPixels = toPixels(ITEM_HORIZONTAL_INSET_DP)
+        val endPaddingPixels = toPixels(endPaddingDp)
         setViewPadding(
             viewId,
             if (isRtlLayout) endPaddingPixels else startPaddingPixels,

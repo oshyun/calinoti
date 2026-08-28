@@ -5,8 +5,14 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -32,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,9 +55,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -475,6 +487,16 @@ fun CalendarStatusScreen(
                     }
                 }
                 SpacingSliderRow(
+                    labelResourceId = R.string.time_to_title_spacing_label,
+                    savedValueDp = currentSpacing.timeToTitleSpacingDp,
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(timeToTitleSpacingDp = newValueDp),
+                        )
+                    }
+                }
+                SpacingSliderRow(
                     labelResourceId = R.string.day_header_to_event_spacing_label,
                     savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
                 ) { newValueDp ->
@@ -598,15 +620,133 @@ private fun SpacingSliderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Slider(
+        StepSlider(
             value = draggedValueDp,
-            onValueChange = { newValue -> draggedValueDp = newValue },
+            valueRange = adjustableRange,
+            onValueChange = { newValueDp -> draggedValueDp = newValueDp.toFloat() },
             // 드래그를 놓을 때만 저장한다. 저장마다 알림 갱신(캘린더 재쿼리)이 따라오므로
             // 드래그 중 저장하면 제스처 하나에 갱신이 수십 번 쌓인다.
             onValueChangeFinished = { onDragFinished(draggedValueDp.roundToInt()) },
-            valueRange = adjustableRange.first.toFloat()..adjustableRange.last.toFloat(),
-            steps = adjustableRange.last - adjustableRange.first - 1,
         )
+    }
+}
+
+// StepSlider의 시각 규격. 트랙 양끝 inset은 드래그 중 최대 thumb(8dp)+halo(2dp)라서
+// 어떤 순간에도 thumb가 캔버스 밖으로 잘리지 않는다.
+private val TRACK_HEIGHT_DP = 4.dp
+private val THUMB_RADIUS_DP = 6.dp
+private val DRAGGED_THUMB_RADIUS_DP = 8.dp
+private val THUMB_HALO_THICKNESS_DP = 2.dp
+private val TRACK_INSET_DP = DRAGGED_THUMB_RADIUS_DP + THUMB_HALO_THICKNESS_DP
+
+/**
+ * 정수 단계로 스냅되는 얇은 트랙 슬라이더. Material3 기본 Slider보다 트랙·thumb가 작아
+ * 설정 목록에 여러 개가 나란히 놓일 때 시선을 덜 뺏는다. 트랙을 탭하면 그 위치의 값으로
+ * 바로 이동하고, 드래그 중에는 thumb가 살짝 부풀어 잡은 느낌을 준다.
+ */
+@Composable
+private fun StepSlider(
+    value: Float,
+    valueRange: IntRange,
+    onValueChange: (Int) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var isThumbDragged by remember { mutableStateOf(false) }
+    val thumbRadius by animateDpAsState(
+        targetValue = if (isThumbDragged) DRAGGED_THUMB_RADIUS_DP else THUMB_RADIUS_DP,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "thumbRadius",
+    )
+    val activeTrackColor = MaterialTheme.colorScheme.primary
+    val inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+    val thumbHaloColor = MaterialTheme.colorScheme.surface
+
+    // 터치 좌표를 값으로 바꾼다. 트랙 inset을 같이 빼야 thumb 위치와 터치 위치가 어긋나지 않는다.
+    fun snapValueToPosition(positionX: Float, trackInsetPx: Float, trackWidthPx: Float): Int {
+        val usableTrackWidthPx = trackWidthPx - 2 * trackInsetPx
+        val dragFraction = ((positionX - trackInsetPx) / usableTrackWidthPx).coerceIn(0f, 1f)
+        val rawValue = valueRange.first + dragFraction * (valueRange.last - valueRange.first)
+        return rawValue.roundToInt()
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = value,
+                    range = valueRange.first.toFloat()..valueRange.last.toFloat(),
+                )
+            }
+            .pointerInput(valueRange) {
+                detectTapGestures { gesturePosition ->
+                    onValueChange(
+                        snapValueToPosition(gesturePosition.x, TRACK_INSET_DP.toPx(), size.width.toFloat()),
+                    )
+                    onValueChangeFinished()
+                }
+            }
+            .pointerInput(valueRange) {
+                detectHorizontalDragGestures(
+                    onDragStart = { _ -> isThumbDragged = true },
+                    onDragEnd = {
+                        isThumbDragged = false
+                        onValueChangeFinished()
+                    },
+                    onDragCancel = { isThumbDragged = false },
+                ) { change, _ ->
+                    change.consume()
+                    onValueChange(
+                        snapValueToPosition(change.position.x, TRACK_INSET_DP.toPx(), size.width.toFloat()),
+                    )
+                }
+            },
+    ) {
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val trackInsetPx = TRACK_INSET_DP.toPx()
+            val trackStartX = trackInsetPx
+            val trackEndX = size.width - trackInsetPx
+            val valueFraction =
+                ((value - valueRange.first) / (valueRange.last - valueRange.first))
+                    .coerceIn(0f, 1f)
+            val thumbCenterX = trackStartX + (trackEndX - trackStartX) * valueFraction
+            val trackHeightPx = TRACK_HEIGHT_DP.toPx()
+            val trackTopY = size.height / 2 - trackHeightPx / 2
+            val trackCorner = CornerRadius(trackHeightPx / 2)
+
+            if (thumbCenterX > trackStartX) {
+                drawRoundRect(
+                    color = activeTrackColor,
+                    topLeft = Offset(trackStartX, trackTopY),
+                    size = Size(thumbCenterX - trackStartX, trackHeightPx),
+                    cornerRadius = trackCorner,
+                )
+            }
+            if (trackEndX > thumbCenterX) {
+                drawRoundRect(
+                    color = inactiveTrackColor,
+                    topLeft = Offset(thumbCenterX, trackTopY),
+                    size = Size(trackEndX - thumbCenterX, trackHeightPx),
+                    cornerRadius = trackCorner,
+                )
+            }
+            // thumb은 배경색 halo 위에 활성 트랙 색 원 — 트랙 위에서 독립적으로 떠 보인다.
+            drawCircle(
+                color = thumbHaloColor,
+                radius = thumbRadius.toPx() + THUMB_HALO_THICKNESS_DP.toPx(),
+                center = Offset(thumbCenterX, size.height / 2),
+            )
+            drawCircle(
+                color = activeTrackColor,
+                radius = thumbRadius.toPx(),
+                center = Offset(thumbCenterX, size.height / 2),
+            )
+        }
     }
 }
 

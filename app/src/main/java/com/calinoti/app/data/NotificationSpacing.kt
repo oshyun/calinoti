@@ -15,6 +15,8 @@ data class NotificationSpacing(
     val betweenEventsSpacingDp: Int,
     /** 날짜 그룹(헤더) 사이 간격. */
     val betweenDayHeadersSpacingDp: Int,
+    /** 일정 줄 안에서 시각과 제목 사이 수평 간격. */
+    val timeToTitleSpacingDp: Int,
 ) {
     companion object {
         /** 슬라이더와 저장값 클램프가 공유하는 조절 범위의 단일 출처. */
@@ -22,13 +24,14 @@ data class NotificationSpacing(
 
         // 기본값은 v1.2.4까지 레이아웃 XML에 하드코딩되던 값의 시각 등가다.
         // 수직 간격은 인접 항목 패딩의 합으로 렌더링되었으므로 헤더(2)+일정(4)=6, 일정(4)+일정(4)=8,
-        // 일정(4)+헤더(8)=12를 옮겨왔다.
+        // 일정(4)+헤더(8)=12를 옮겨왔다. 시각-제목 간격은 시간 뷰의 marginEnd 12dp를 옮겨왔다.
         val DEFAULTS = NotificationSpacing(
             dayHeaderStartPaddingDp = 16,
             eventStartPaddingDp = 16,
             dayHeaderToEventSpacingDp = 6,
             betweenEventsSpacingDp = 8,
             betweenDayHeadersSpacingDp = 12,
+            timeToTitleSpacingDp = 12,
         )
     }
 }
