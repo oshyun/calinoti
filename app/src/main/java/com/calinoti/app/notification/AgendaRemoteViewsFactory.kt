@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.Build
 import android.provider.CalendarContract
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -15,6 +17,7 @@ import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
 import android.util.TypedValue
+import android.util.TypedValue.COMPLEX_UNIT_PX
 import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
 import android.widget.RemoteViews
@@ -37,6 +40,7 @@ import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.ceil
 
 /** 아젠다 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
 class AgendaRemoteViewsFactory(private val context: Context) {
@@ -203,6 +207,17 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             rootViews.addView(R.id.notification_agenda_container, emptyViews)
             return rootViews
         }
+        // 날짜 열 폭은 목록에서 가장 넓은 날짜 헤더 한 번 재어 모든 그룹이 같게 한다.
+        // take(itemLimit) 전 목록을 재므로 접힌 뷰와 펼친 뷰의 날짜 집합이 같으면 폭도
+        // 같다 — 펼치는 순간 일정 열이 좌우로 움직이지 않는다.
+        val dayHeaderMaxWidthPx = findDayHeaderMaxWidthPx(
+            dayStartMillisecondsValues = listEntries
+                .filterIsInstance<AgendaListEntry.DayHeader>()
+                .map { it.dayStartMilliseconds },
+            currentTimeMilliseconds = currentTimeMilliseconds,
+            formatPattern = dayHeaderFormatPattern,
+            textSizeSp = secondaryTextSizeSp,
+        )
         // 날짜 그룹 하나가 [날짜][일정 열] 한 행(notification_item_day_group)이고, 일정은
         // 그 그룹의 일정 열에 쌓인다. 수직 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로
         // 배분한다(첫 그룹 위 여백 → 그룹 행, 그룹 사이 여백 → 다음 그룹 행, 일정 사이
@@ -229,6 +244,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         COMPLEX_UNIT_SP,
                         secondaryTextSizeSp,
                     )
+                    dayGroupViews.applyDayHeaderFixedWidth(dayHeaderMaxWidthPx)
                     // 행의 시작 여백은 날짜 앞 여백이 담당하고, 오른쪽 여백은 항목 공통
                     // 여백(일정 열 폭을 줄여 제목 말줄임 지점을 만든다)이 담당한다.
                     dayGroupViews.applyItemPadding(
@@ -455,6 +471,20 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         )
     }
 
+    /**
+     * 날짜 헤더의 폭을 [widthPx]로 고정한다 — 그룹마다 날짜 길이가 달라도 일정 열의
+     * 시작 x가 같아진다. 대상은 [R.id.day_header_text] 하나이며 LayoutParams의 width만
+     * 바꾸므로 일정 열의 weight 등 나머지 속성은 그대로 유지된다.
+     */
+    private fun RemoteViews.applyDayHeaderFixedWidth(widthPx: Int) {
+        // QUIRK(remoteviews-layout-width): RemoteViews에서 뷰 폭을 바꾸는 공개 API는
+        //   setViewLayoutWidth(API 31)부터다. 그 전 버전은 레이아웃 XML의 wrap_content를
+        //   그대로 쓴다(날짜 길이대로 폭이 변하는 기존 동작).
+        // QUIRK-REMOVE-WHEN: minSdk가 31 이상이 될 때
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        setViewLayoutWidth(R.id.day_header_text, widthPx.toFloat(), COMPLEX_UNIT_PX)
+    }
+
     private fun createOpenEventPendingIntent(
         eventId: Long,
         targetPackageName: String?,
@@ -493,10 +523,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         currentTimeMilliseconds: Long,
         formatPattern: String,
     ): CharSequence {
-        val headerDay = findLocalDateOf(dayStartMilliseconds)
-        val dayHeaderFormatter = DateTimeFormatter.ofPattern(formatPattern, Locale.getDefault())
-        val headerText = SpannableStringBuilder(headerDay.format(dayHeaderFormatter))
-        if (headerDay != findLocalDateOf(currentTimeMilliseconds)) return headerText
+        val headerText = SpannableStringBuilder(
+            findDayHeaderText(dayStartMilliseconds, formatPattern),
+        )
+        if (findLocalDateOf(dayStartMilliseconds) != findLocalDateOf(currentTimeMilliseconds)) {
+            return headerText
+        }
         headerText.setSpan(
             StyleSpan(Typeface.BOLD),
             0,
@@ -510,6 +542,43 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
         return headerText
+    }
+
+    /** 날짜 헤더의 순수 텍스트. [formatPattern]으로 포맷한 Span 없는 평문이다. */
+    private fun findDayHeaderText(dayStartMilliseconds: Long, formatPattern: String): String =
+        findLocalDateOf(dayStartMilliseconds)
+            .format(DateTimeFormatter.ofPattern(formatPattern, Locale.getDefault()))
+
+    /**
+     * [dayStartMillisecondsValues] 날짜 헤더들 중 가장 넓은 텍스트의 폭(px). 모든 그룹의
+     * 날짜 열을 이 폭으로 고정해 일정 열이 같은 x에서 시작하게 한다. 오늘 헤더는 볼드로
+     * 그려지므로 볼드로 측정한다. 밑줄 span은 글자 아래에 획을 긋는 것이라 폭에 영향이
+     * 없다.
+     */
+    private fun findDayHeaderMaxWidthPx(
+        dayStartMillisecondsValues: List<Long>,
+        currentTimeMilliseconds: Long,
+        formatPattern: String,
+        textSizeSp: Float,
+    ): Int {
+        val today = findLocalDateOf(currentTimeMilliseconds)
+        val textPaint = Paint().apply {
+            textSize = TypedValue.applyDimension(
+                COMPLEX_UNIT_SP,
+                textSizeSp,
+                context.resources.displayMetrics,
+            )
+        }
+        var maxWidthPixels = 0f
+        for (dayStartMilliseconds in dayStartMillisecondsValues) {
+            val isTodayHeader = findLocalDateOf(dayStartMilliseconds) == today
+            textPaint.typeface = if (isTodayHeader) dayHeaderBoldTypeface else Typeface.DEFAULT
+            maxWidthPixels = maxOf(
+                maxWidthPixels,
+                textPaint.measureText(findDayHeaderText(dayStartMilliseconds, formatPattern)),
+            )
+        }
+        return ceil(maxWidthPixels).toInt() + DAY_HEADER_WIDTH_SLACK_PX
     }
 
     private fun formatTimeText(timeMilliseconds: Long): String =
@@ -758,6 +827,13 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
         // 시각·위치·날짜 헤더가 제목 글자보다 작은 정도. 기존 레이아웃의 15/13sp 관계를 유지한다.
         const val SECONDARY_TEXT_SIZE_OFFSET_SP = 2
+
+        // measureText와 날짜 헤더 TextView 실제 폭의 소수점·힌팅 오차를 흡수하는 여유(px).
+        // 과하면 날짜와 일정 사이 공백이 커져 보이므로 최소값으로 둔다.
+        private const val DAY_HEADER_WIDTH_SLACK_PX = 2
+
+        // 오늘 날짜 헤더는 볼드로 그려지므로 폭 측정에도 쓰는 볼드 페이스.
+        private val dayHeaderBoldTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
 
         // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
         // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002), 해제 복구 브로드캐스트의
