@@ -78,6 +78,10 @@ data class UserPreferences(
         const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
         const val NOTIFICATION_TEXT_SIZE_MAX_SP = 32
 
+        /** 글자 크기 슬라이더의 조절 범위. 단일 객체로 둬 슬라이더가 이를 안정적으로 참조한다. */
+        val NOTIFICATION_TEXT_SIZE_RANGE_SP =
+            NOTIFICATION_TEXT_SIZE_MIN_SP..NOTIFICATION_TEXT_SIZE_MAX_SP
+
         /** 클릭 동작 미지정을 뜻하는 저장값. 빈 문자열이면 시스템이 처리 앱을 고른다. */
         const val UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME = ""
 
