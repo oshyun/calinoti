@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.calinoti.app.data.AgendaListBuilder
 import com.calinoti.app.data.CalendarReader
+import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
 import com.calinoti.app.notification.AgendaNotificationManager
 import com.calinoti.app.scheduling.AgendaRefreshScheduler
@@ -51,16 +52,23 @@ class AgendaRefresher(
                     dayHeaderFormatPattern = preferences.dayHeaderFormatPattern,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
-                AgendaRefreshScheduler.scheduleNextRefresh(context, agendaEntries, currentTimeMilliseconds)
+                AgendaRefreshScheduler.scheduleNextRefresh(
+                    context,
+                    agendaEntries,
+                    preferences.notificationUpdateIntervalMinutes,
+                    currentTimeMilliseconds,
+                )
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (runtimeError: Exception) {
                 Log.e(TAG, "아젠다 갱신에 실패했다", runtimeError)
                 // 방금 소비된 알람을 대체하지 않으면 갱신 체인이 끊겨 알림이 멈춘다.
-                // 일정 목록 없이 예약하면 6시간 안전망과 자정 알람만 걸린다.
+                // 설정을 읽지 못했을 수 있으므로 일정 목록 없이 기본 갱신 주기와
+                // 자정 알람만 걸어 체인을 이어준다.
                 AgendaRefreshScheduler.scheduleNextRefresh(
                     context,
                     emptyList(),
+                    UserPreferences.DEFAULTS.notificationUpdateIntervalMinutes,
                     currentTimeMilliseconds,
                 )
             }

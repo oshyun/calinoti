@@ -205,6 +205,7 @@ fun CalendarStatusScreen(
     var isNotificationDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isLanguageSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isNotificationUpdateIntervalSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
     // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
@@ -759,6 +760,37 @@ fun CalendarStatusScreen(
                     text = stringResource(R.string.notification_pinned_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // 갱신 주기는 표시·동작이 아니라 알림을 언제 다시 읽어오는지의 문제라 별도 섹션으로 둔다.
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_notification_update_interval),
+                summary = notificationUpdateIntervalSummary(
+                    userPreferences.notificationUpdateIntervalMinutes,
+                ),
+                isExpanded = isNotificationUpdateIntervalSectionExpanded,
+                onToggleExpanded = {
+                    isNotificationUpdateIntervalSectionExpanded =
+                        !isNotificationUpdateIntervalSectionExpanded
+                },
+            ) {
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.notification_update_interval_label,
+                    unitSuffixResourceId = R.string.minutes_unit_suffix,
+                    storedValue = userPreferences.notificationUpdateIntervalMinutes,
+                    guidanceText = stringResource(R.string.notification_update_interval_hint),
+                    invalidValueText =
+                        stringResource(R.string.notification_update_interval_invalid_message),
+                    isValidValue = { intervalMinutes ->
+                        intervalMinutes in UserPreferences.NOTIFICATION_UPDATE_INTERVAL_RANGE_MINUTES
+                    },
+                    onValidValueChange = { intervalMinutes ->
+                        updatePreferences {
+                            userPreferencesRepository
+                                .updateNotificationUpdateIntervalMinutes(intervalMinutes)
+                        }
+                    },
                 )
             }
 
@@ -1334,6 +1366,7 @@ private fun clickTargetSummaryLabel(
 }
 
 /**
+<<<<<<< HEAD
  * 언어 섹션의 접힘 요약. 앱 전용 설정이 없으면 "시스템 기본", 한국어·English면 그 언어명,
  * 그 외(adb 등으로 설정된 낯선 locale)면 그 언어의 표시 이름을 보여준다.
  */
@@ -1343,6 +1376,19 @@ private fun languageSummaryLabel(currentAppLocale: Locale?): String = when {
     currentAppLocale.language == "ko" -> stringResource(R.string.language_korean_label)
     currentAppLocale.language == "en" -> stringResource(R.string.language_english_label)
     else -> currentAppLocale.displayName
+=======
+ * 갱신 주기(분)를 접힌 헤더 요약용 기간 텍스트로 바꾼다. 시간으로 나누어떨어지면
+ * "6시간"처럼 묶어 보여주고, 아니면 분 그대로 "30분"으로 보여준다.
+ */
+@Composable
+private fun notificationUpdateIntervalSummary(intervalMinutes: Int): String {
+    val durationText = when {
+        intervalMinutes % 60 == 0 ->
+            stringResource(R.string.duration_hours_format, intervalMinutes / 60)
+        else -> stringResource(R.string.duration_minutes_format, intervalMinutes)
+    }
+    return stringResource(R.string.notification_update_interval_summary_format, durationText)
+>>>>>>> b8aa6ef (Add configurable notification update interval setting)
 }
 
 /**
