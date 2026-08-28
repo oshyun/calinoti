@@ -8,11 +8,21 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+
+/** 접힌 알림에서 감출 항목의 종류. 펼친 알림에는 적용되지 않는다. */
+enum class CollapsedHiddenItemType {
+    /** 하루짜리 종일 일정. 단 오늘(시스템 표준 시간대 기준) 시작하는 것은 감추지 않는다. */
+    SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY,
+
+    /** 이틀 이상 이어지는 종일 일정. 시작일이 오늘이어도 감춘다. */
+    MULTI_DAY_ALL_DAY,
+}
 
 /** 아젠다 알림과 설정 화면이 공유하는 사용자 설정 묶음. */
 data class UserPreferences(
@@ -39,6 +49,8 @@ data class UserPreferences(
     val notificationSpacing: NotificationSpacing,
     /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
     val isNotificationPinned: Boolean,
+    /** 접힌 알림에서 감출 항목. 빈 집합이면 아무것도 감추지 않는다. */
+    val collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
 ) {
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
@@ -58,6 +70,7 @@ data class UserPreferences(
             calendarAppPackageName = UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
+            collapsedHiddenItemTypes = emptySet(),
         )
     }
 }
@@ -94,6 +107,9 @@ private val ALL_DAY_EVENT_TEXT_SIZE_KEY = intPreferencesKey("all_day_event_text_
 // 바뀌며 마이그레이션 없이 폐기했다(초기 단계라 기존 저장값은 버려도 이롭지 않다).
 private val CALENDAR_APP_PACKAGE_NAME_KEY = stringPreferencesKey("calendar_app_package_name")
 private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
+// 감춤 항목은 enum name의 집합이다. 낯선 이름(미래 버전이 남긴 값)은 읽을 때 버린다.
+private val COLLAPSED_HIDDEN_ITEM_TYPES_KEY =
+    stringSetPreferencesKey("collapsed_hidden_item_types")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
@@ -108,6 +124,16 @@ private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
         // 손상된 토큰 하나가 앱 시작을 죽이지 않게 잘못된 토큰만 건너뛴다.
         ?.mapNotNull { it.toLongOrNull() }
         ?.toSet()
+
+/** 저장된 감춤 항목 이름 집합을 enum 집합으로 되돌린다. 낯선 이름은 건너뛴다. */
+private fun Preferences.parseCollapsedHiddenItemTypes(): Set<CollapsedHiddenItemType> =
+    this[COLLAPSED_HIDDEN_ITEM_TYPES_KEY]
+        ?.mapNotNull { storedName ->
+            // 저장값이 미래 버전에서 오래된 이름이어도 나머지 항목은 살려 쓴다.
+            CollapsedHiddenItemType.entries.firstOrNull { it.name == storedName }
+        }
+        ?.toSet()
+        ?: UserPreferences.DEFAULTS.collapsedHiddenItemTypes
 
 /** 여백 키 조회. 없으면 기본값, 있으면 조절 범위 밖의 오래된 저장값도 범위 안으로 끌어온다. */
 private fun Preferences.readSpacingDp(key: Preferences.Key<Int>, defaultDp: Int): Int =
@@ -178,6 +204,8 @@ class UserPreferencesRepository(private val context: Context) {
                     isNotificationPinned =
                         storedPreferences[NOTIFICATION_PINNED_KEY]
                             ?: UserPreferences.DEFAULTS.isNotificationPinned,
+                    collapsedHiddenItemTypes =
+                        storedPreferences.parseCollapsedHiddenItemTypes(),
                 )
             }
 
@@ -199,6 +227,24 @@ class UserPreferencesRepository(private val context: Context) {
             )
             storedPreferences[SELECTED_CALENDAR_IDS_KEY] =
                 nextSelectedIds.joinToString(SELECTED_CALENDAR_IDS_SEPARATOR)
+        }
+    }
+
+    /**
+     * 접힌 알림 감춤 항목 토글을 저장값 기준으로 원자적으로 반영한다.
+     * 캘린더 선택 토글과 같은 이유로 UI의 상태 스냅샷이 늦더라도 연속 토글이
+     * 서로를 덮어쓰지 않는다.
+     */
+    suspend fun toggleCollapsedHiddenItemType(
+        itemType: CollapsedHiddenItemType,
+        isChecked: Boolean,
+    ) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            val currentHiddenItemTypes = storedPreferences.parseCollapsedHiddenItemTypes()
+            val nextHiddenItemTypes =
+                if (isChecked) currentHiddenItemTypes + itemType else currentHiddenItemTypes - itemType
+            storedPreferences[COLLAPSED_HIDDEN_ITEM_TYPES_KEY] =
+                nextHiddenItemTypes.map(CollapsedHiddenItemType::name).toSet()
         }
     }
 

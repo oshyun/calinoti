@@ -50,6 +50,15 @@
     <string name="entries_unit_suffix">개</string>
     <string name="max_visible_entries_invalid_message">1 이상의 수를 입력하세요</string>
 
+    <string name="settings_section_collapsed_hidden_items">접힌 알림에서 감추기</string>
+    <string name="collapsed_hidden_items_summary_none">감추지 않음</string>
+    <string name="collapsed_hidden_items_summary_format">%1$d개 감춤</string>
+    <string name="collapsed_hidden_items_description">접힌 상태의 알림에서 감출 항목을 고릅니다. 알림을 펼치면 모두 표시됩니다.</string>
+    <string name="collapsed_hidden_item_single_day_all_day_label">하루종일 일정 감추기</string>
+    <string name="collapsed_hidden_item_single_day_all_day_description">하루짜리 종일 일정을 감춥니다. 오늘 시작하는 일정은 그대로 표시합니다.</string>
+    <string name="collapsed_hidden_item_multi_day_all_day_label">여러 날 하루종일 일정 감추기</string>
+    <string name="collapsed_hidden_item_multi_day_all_day_description">이틀 이상 이어지는 종일 일정을 감춥니다. 오늘 시작한 일정도 감춥니다.</string>
+
     <string name="settings_section_font_size">폰트 크기</string>
     <string name="font_size_summary_format">시간 %1$dsp · 종일 %2$dsp</string>
     <string name="timed_event_text_size_label">시간 일정 글자 크기</string>

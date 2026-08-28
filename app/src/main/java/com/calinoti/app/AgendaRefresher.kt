@@ -38,6 +38,7 @@ class AgendaRefresher(
                 val listEntries = AgendaListBuilder.buildDayGroupedEntries(agendaEntries)
                 notificationManager.publishAgendaNotification(
                     listEntries = listEntries,
+                    collapsedHiddenItemTypes = preferences.collapsedHiddenItemTypes,
                     maxVisibleEntries = preferences.maxVisibleEntries,
                     notificationTextSizeSp = preferences.notificationTextSizeSp,
                     allDayEventTextSizeSp = preferences.allDayEventTextSizeSp,

@@ -22,6 +22,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.CalendarIntents
+import com.calinoti.app.data.CollapsedHiddenItemType
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.ui.CalendarColorTone
@@ -38,16 +39,17 @@ import java.util.concurrent.TimeUnit
 /** 아젠다 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
 class AgendaRemoteViewsFactory(private val context: Context) {
 
-    /** 알림이 접힌 상태에서 보일 요약 뷰. 항목 몇 개만 담는다. */
+    /** 알림이 접힌 상태에서 보일 요약 뷰. 감춤 설정을 적용한 뒤 항목 몇 개만 담는다. */
     fun createCollapsedViews(
         listEntries: List<AgendaListEntry>,
+        hiddenItemTypes: Set<CollapsedHiddenItemType>,
         calendarAppPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
-        listEntries,
+        filterEntriesVisibleInCollapsedView(listEntries, hiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
         calendarAppPackageName = calendarAppPackageName,
         spacing = spacing,
@@ -56,7 +58,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
-    /** 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. */
+    /** 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. 감춤 설정은 무시한다. */
     fun createExpandedViews(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
@@ -74,6 +76,61 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         allDayEventTextSizeSp = allDayEventTextSizeSp,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
+
+    /**
+     * 접힌 뷰에 보일 항목만 남긴다. 감춤 규칙에 걸린 일정을 버리고, 일정이 모두 사라진 날짜
+     * 그룹의 헤더도 함께 버린다. [hiddenItemTypes]가 비면 목록을 그대로 돌려준다 — 감춤을
+     * 끈 기본 상태에서는 기존 목록이 그대로 유지돼야 한다.
+     */
+    private fun filterEntriesVisibleInCollapsedView(
+        listEntries: List<AgendaListEntry>,
+        hiddenItemTypes: Set<CollapsedHiddenItemType>,
+        currentTimeMilliseconds: Long,
+    ): List<AgendaListEntry> {
+        if (hiddenItemTypes.isEmpty()) return listEntries
+        val today = findLocalDateOf(currentTimeMilliseconds)
+        // AgendaListBuilder가 헤더를 일정 직전에만 추가하므로(첫 항목은 항상 헤더) 헤더 뒤에
+        // 일정이 곧바로 오지 않으면 그 그룹은 감춤으로 비어 있는 것이다. 헤더를 잠시 들어뒀다가
+        // 일정이 올 때만 내보내면 빈 그룹의 헤더가 자연히 사라진다.
+        return buildList {
+            var pendingDayHeader: AgendaListEntry.DayHeader? = null
+            for (listEntry in listEntries) {
+                when (listEntry) {
+                    is AgendaListEntry.DayHeader -> pendingDayHeader = listEntry
+                    is AgendaListEntry.Event -> {
+                        if (isEntryHiddenInCollapsedView(listEntry.entry, hiddenItemTypes, today)) {
+                            continue
+                        }
+                        pendingDayHeader?.let { dayHeader -> add(dayHeader) }
+                        pendingDayHeader = null
+                        add(listEntry)
+                    }
+                }
+            }
+        }
+    }
+
+    /** 이 일정이 접힌 뷰의 감춤 규칙에 걸리는지. 시간 있는 일정은 대상이 아니다. */
+    private fun isEntryHiddenInCollapsedView(
+        entry: AgendaEntry,
+        hiddenItemTypes: Set<CollapsedHiddenItemType>,
+        today: LocalDate,
+    ): Boolean {
+        if (!entry.isAllDay) return false
+        // 종일 일정은 시작이 UTC 자정으로 저장된다(calendar-provider-allday-utc QUIRK 참조) —
+        // 날짜 판정도 findAllDayStartDate처럼 UTC 기준으로 해야 한다. 오늘 비교는 날짜 헤더의
+        // (오늘) 표시와 같은 기준(findLocalDateOf)이라 감추지 않기로 한 종일 일정은 항상
+        // (오늘) 헤더 아래에 놓인다. 시작 시각을 시스템 표준 시간대로 해석하면 UTC보다 뒤인
+        // 지역(한국, UTC+9)에서 헤더 표시와 감춤 판정이 어긋난다.
+        val isStartedToday = findAllDayStartDate(entry) == today
+        val isMultiDay = findAllDayLastDayOrNull(entry) != null
+        return when {
+            CollapsedHiddenItemType.SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY in hiddenItemTypes &&
+                !isMultiDay && !isStartedToday -> true
+            CollapsedHiddenItemType.MULTI_DAY_ALL_DAY in hiddenItemTypes && isMultiDay -> true
+            else -> false
+        }
+    }
 
     private fun createAgendaViews(
         listEntries: List<AgendaListEntry>,
