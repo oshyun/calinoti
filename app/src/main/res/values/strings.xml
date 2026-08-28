@@ -13,6 +13,8 @@
     <string name="agenda_relative_minutes_format">(%1$d분 뒤)</string>
     <string name="agenda_relative_soon">(곧)</string>
     <string name="agenda_in_progress">진행 중</string>
+    <!-- 여러 날에 걸친 종일 일정의 제목: "제목 (~08.30까지)" -->
+    <string name="agenda_multiday_title_format">%1$s (~%2$s까지)</string>
 
     <string name="calendar_permission_title">캘린더 권한 필요</string>
     <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>
