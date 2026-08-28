@@ -92,6 +92,19 @@
     <string name="between_day_headers_spacing_label">날짜 사이 여백</string>
     <string name="spacing_dp_format">%1$d dp</string>
 
+    <string name="day_header_format_label">날짜 표시 형식</string>
+    <string name="day_header_format_description">알림 날짜 헤더의 표시 형식입니다.</string>
+    <string name="day_header_format_preset_label">프리셋</string>
+    <string name="day_header_format_custom_option">직접 입력</string>
+    <string name="day_header_format_hint">직접 입력은 yyyy(연도)·MM(월)·dd(일)·E(요일 약자)·EEEE(요일 전체) 같은 토큰으로 씁니다.</string>
+    <string name="day_header_format_preview_format">미리보기: %1$s</string>
+    <string name="day_header_format_invalid_message">날짜 형식으로 쓸 수 없습니다. MM·dd 같은 날짜 토큰을 포함해 입력하세요.</string>
+    <string name="day_header_format_preset_basic">기본</string>
+    <string name="day_header_format_preset_weekday_short">요일 약자</string>
+    <string name="day_header_format_preset_korean">한글형</string>
+    <string name="day_header_format_preset_with_year">연도 포함</string>
+    <string name="day_header_format_preset_compact">간단형</string>
+
     <string name="refresh_now_button">지금 새로고침</string>
     <string name="version_format">v%1$s (%2$d)</string>
 </resources>

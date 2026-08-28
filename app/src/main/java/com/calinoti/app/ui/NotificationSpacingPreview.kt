@@ -35,6 +35,7 @@ internal fun NotificationSpacingPreview(
     spacing: NotificationSpacing,
     notificationTextSizeSp: Int,
     allDayEventTextSizeSp: Int,
+    dayHeaderFormatPattern: String,
     remoteViewsFactory: AgendaRemoteViewsFactory,
     modifier: Modifier = Modifier,
 ) {
@@ -52,12 +53,14 @@ internal fun NotificationSpacingPreview(
         spacing,
         notificationTextSizeSp,
         allDayEventTextSizeSp,
+        dayHeaderFormatPattern,
     ) {
         remoteViewsFactory.createPreviewViews(
             listEntries = sampleEntries,
             spacing = spacing,
             notificationTextSizeSp = notificationTextSizeSp,
             allDayEventTextSizeSp = allDayEventTextSizeSp,
+            dayHeaderFormatPattern = dayHeaderFormatPattern,
             currentTimeMilliseconds = previewTimeMilliseconds,
         )
     }

@@ -48,6 +48,7 @@ class AgendaRefresher(
                         preferences.notificationClickTargetPackageName,
                     spacing = preferences.notificationSpacing,
                     isNotificationPinned = preferences.isNotificationPinned,
+                    dayHeaderFormatPattern = preferences.dayHeaderFormatPattern,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 AgendaRefreshScheduler.scheduleNextRefresh(context, agendaEntries, currentTimeMilliseconds)

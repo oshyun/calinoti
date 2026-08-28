@@ -27,6 +27,7 @@ import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.ui.CalendarColorTone
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -48,6 +49,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         filterHiddenEntries(listEntries, collapsedHiddenItemTypes, currentTimeMilliseconds),
@@ -56,6 +58,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
+        dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
@@ -71,6 +74,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         listEntries,
@@ -79,6 +83,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
+        dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
@@ -94,6 +99,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         filterHiddenEntries(listEntries, expandedHiddenItemTypes, currentTimeMilliseconds),
@@ -102,6 +108,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
+        dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
@@ -179,6 +186,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews {
         // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다. 종일 일정 제목은
@@ -213,6 +221,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         formatDayHeaderText(
                             dayStartMilliseconds = listEntry.dayStartMilliseconds,
                             currentTimeMilliseconds = currentTimeMilliseconds,
+                            formatPattern = dayHeaderFormatPattern,
                         ),
                     )
                     dayGroupViews.setTextViewTextSize(
@@ -473,15 +482,19 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         )
 
     /**
-     * "08.31, 금요일" 형태의 날짜 헤더. 오늘 날짜면 볼드+밑줄로 강조해 목록에서 오늘 그룹을
-     * 한눈에 찾게 한다. 접미사를 붙이지 않는다 — 접미사가 오늘 날짜 열만 넓혀 그룹 사이
-     * 일정 들여쓰기가 어긋난다.
+     * 날짜 헤더 텍스트. [formatPattern](DateTimeFormatter 패턴, 예: "MM.dd, EEEE")으로
+     * 표시하고, 오늘 날짜면 볼드+밑줄로 강조해 목록에서 오늘 그룹을 한눈에 찾게 한다.
+     * 접미사를 붙이지 않는다 — 접미사가 오늘 날짜 열만 넓혀 그룹 사이 일정 들여쓰기가
+     * 어긋난다. [formatPattern]은 저장 시점에 검증된 값이므로 여기서는 유효성을 다시
+     * 보지 않는다.
      */
     private fun formatDayHeaderText(
         dayStartMilliseconds: Long,
         currentTimeMilliseconds: Long,
+        formatPattern: String,
     ): CharSequence {
         val headerDay = findLocalDateOf(dayStartMilliseconds)
+        val dayHeaderFormatter = DateTimeFormatter.ofPattern(formatPattern, Locale.getDefault())
         val headerText = SpannableStringBuilder(headerDay.format(dayHeaderFormatter))
         if (headerDay != findLocalDateOf(currentTimeMilliseconds)) return headerText
         headerText.setSpan(
@@ -673,7 +686,62 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
 
-    private companion object {
+    /**
+     * 날짜 헤더 형식 패턴의 유효성 검사와 표본 포맷은 설정 화면의 저장·미리보기와 알림
+     * 조립이 같은 규칙을 쓰게 이 한 곳에 둔다. 그래서 companion은 private이 아니다.
+     */
+    companion object {
+
+        /**
+         * [formatPattern]을 날짜 헤더 형식으로 쓸 수 있는지. DateTimeFormatter가 해석해
+         * 실제 날짜를 포맷할 수 있어야 하고, 날짜 토큰(y·M·d·E)을 하나 이상 담아야 한다 —
+         * 날짜 토큰이 전혀 없으면 모든 헤더가 같은 텍스트가 되어 아젠다의 날짜 구분이
+         * 사라진다.
+         */
+        fun isValidDayHeaderFormatPattern(formatPattern: String): Boolean =
+            formatDayHeaderSample(formatPattern, dayHeaderValidationSampleDate) != null
+
+        /**
+         * [formatPattern]으로 [date]를 포맷한 표본. 드롭다운·직접 입력의 실시간 미리보기가
+         * 이 하나를 쓴다. 패턴이 유효하지 않으면 null이다.
+         */
+        fun formatDayHeaderSample(formatPattern: String, date: LocalDate): String? {
+            val dayHeaderFormatter = createDayHeaderFormatterOrNull(formatPattern) ?: return null
+            if (!formatPattern.hasDayHeaderDateToken()) return null
+            // ofPattern은 통과하지만 LocalDate에는 시간 토큰(HH 등)이 섞이면 포맷이
+            // 실패한다 — 실제 포맷을 시도해야 완전히 유효한 패턴이다.
+            return try {
+                date.format(dayHeaderFormatter)
+            } catch (_: DateTimeException) {
+                null
+            }
+        }
+
+        private fun createDayHeaderFormatterOrNull(formatPattern: String): DateTimeFormatter? =
+            try {
+                DateTimeFormatter.ofPattern(formatPattern, Locale.getDefault())
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+
+        /** 따옴표 리터럴 구간을 벗겨낸 패턴 문자 중 날짜 토큰(y·M·d·E)이 있는지. */
+        private fun String.hasDayHeaderDateToken(): Boolean {
+            var isInsideQuotedLiteral = false
+            for (patternCharacter in this) {
+                when {
+                    patternCharacter == '\'' -> isInsideQuotedLiteral = !isInsideQuotedLiteral
+                    !isInsideQuotedLiteral && patternCharacter in DAY_HEADER_DATE_TOKEN_CHARACTERS ->
+                        return true
+                }
+            }
+            return false
+        }
+
+        private const val DAY_HEADER_DATE_TOKEN_CHARACTERS = "yMdE"
+
+        // 유효성 검사용 표본 날짜. 값 자체는 의미가 없다 — 어떤 날이든 포맷 가능한지만 본다.
+        private val dayHeaderValidationSampleDate: LocalDate = LocalDate.of(2026, 1, 1)
+
         // 접힌 뷰에 담을 항목 수 한도. 접힌 알림 카드의 높이는 시스템이 고정하므로 항목이
         // 넘치면 시스템이 잘라낸다. 글자 크기를 줄인 설정에서 더 많은 항목이 보이도록
         // 한도는 넉넉히 잡는다.
@@ -698,9 +766,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 같은 레코드가 갱신 재사용된다.
         const val EVENT_CLICK_REQUEST_CODE = 1004
 
-        val dayHeaderFormatter = DateTimeFormatter.ofPattern("MM.dd, EEEE", Locale.getDefault())
-
-        // 여러 날 종일 일정의 종료일 표기(~08.30까지)에 쓰는 "MM.dd" 포맷.
+        // 여러 날 종일 일정의 종료일 표기(~08.30까지)에 쓰는 "MM.dd" 포맷. 날짜 헤더와
+        // 달리 사용자 지정 패턴을 따르지 않는다 — 종료일은 짧은 날짜 표기가 자연스럽고,
+        // 헤더 패턴의 요일(금요일)이 "~08.30, 금요일까지"처럼 뒤섞이지 않게 한다.
         val multidayEndDateFormatter = DateTimeFormatter.ofPattern("MM.dd", Locale.getDefault())
 
         // 시스템의 12/24시간 설정을 자동으로 따른다.

@@ -68,6 +68,7 @@ class AgendaNotificationManager(
         notificationClickTargetPackageName: String,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ) {
         if (!hasNotificationPermission()) return
@@ -82,6 +83,7 @@ class AgendaNotificationManager(
             notificationClickTargetPackageName,
             spacing,
             isNotificationPinned,
+            dayHeaderFormatPattern,
             currentTimeMilliseconds,
         )
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
@@ -98,6 +100,7 @@ class AgendaNotificationManager(
         notificationClickTargetPackageName: String,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
+        dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): Notification {
         // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙 집합을 받는다 — 두 규칙은 서로 독립이며,
@@ -113,6 +116,7 @@ class AgendaNotificationManager(
                     spacing,
                     notificationTextSizeSp,
                     allDayEventTextSizeSp,
+                    dayHeaderFormatPattern,
                     currentTimeMilliseconds,
                 ),
             )
@@ -125,6 +129,7 @@ class AgendaNotificationManager(
                     spacing,
                     notificationTextSizeSp,
                     allDayEventTextSizeSp,
+                    dayHeaderFormatPattern,
                     currentTimeMilliseconds,
                 ),
             )
