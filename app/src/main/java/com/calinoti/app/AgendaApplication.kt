@@ -1,6 +1,7 @@
 package com.calinoti.app
 
 import android.app.Application
+import android.content.res.Configuration
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
@@ -22,9 +23,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 앱 전역 구성요소를 수동으로 조립해 보관한다.
  *
- * 갱신 트리거는 세 가지이고 전부 launchAgendaRefresh로 모인다:
+ * 갱신 트리거는 네 가지이고 전부 launchAgendaRefresh로 모인다:
  * - ContentObserver: 캘린더 앱에서 일정 변경 (프로세스가 살아 있는 동안만 동작)
  * - DataStore 감시: 설정 변경 — 갱신 의무를 개별 UI 콜백이 기억하지 않도록 여기서 강제한다
+ * - onConfigurationChanged: 다크 테마 전환 (프로세스가 살아 있는 동안만 동작)
  * - 수동 새로고침(설정 화면 버튼)
  * 프로세스가 죽은 뒤의 갱신은 AgendaRefreshScheduler의 알람과 재부팅 리시버가 담당한다.
  */
@@ -33,6 +35,9 @@ class AgendaApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val refreshRequested = AtomicBoolean(false)
     private var isCalendarObserverRegistered = false
+
+    /** 마지막으로 본 시스템 다크 테마. 전환 순간만 걸러 내기 위한 기준값이다. */
+    private var lastSeenSystemNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
 
     lateinit var userPreferencesRepository: UserPreferencesRepository
         private set
@@ -51,6 +56,8 @@ class AgendaApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        lastSeenSystemNightMode =
+            resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         userPreferencesRepository = UserPreferencesRepository(this)
         calendarReader = CalendarReader(this)
         calendarAppReader = CalendarAppReader(this)
@@ -72,6 +79,20 @@ class AgendaApplication : Application() {
                 .catch { runtimeError -> Log.e(TAG, "설정 감시가 중단됐다", runtimeError) }
                 .collect { launchAgendaRefresh() }
         }
+        launchAgendaRefresh()
+    }
+
+    /**
+     * 다크 테마 전환에 알림을 다시 그린다. RemoteViews는 조립 시점의 uiMode로 캘린더 색 톤과
+     * values-night 보조 텍스트 색을 굽기 때문에, 카드 배경은 SystemUI가 새로 그려도 텍스트 색은
+     * 이전 테마에 묶여 있다. night mask가 바뀐 경우만 걸러 회전·밀도 등 다른 구성 변경에는
+     * 반응하지 않게 한다. 프로세스가 죽은 상태에서의 전환은 다음 알람까지 늦는다.
+     */
+    override fun onConfigurationChanged(newConfiguration: Configuration) {
+        super.onConfigurationChanged(newConfiguration)
+        val newSystemNightMode = newConfiguration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        if (newSystemNightMode == lastSeenSystemNightMode) return
+        lastSeenSystemNightMode = newSystemNightMode
         launchAgendaRefresh()
     }
 
