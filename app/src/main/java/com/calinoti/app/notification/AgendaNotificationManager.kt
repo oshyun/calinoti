@@ -16,7 +16,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.CalendarIntents
-import com.calinoti.app.data.CollapsedHiddenItemType
+import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.scheduling.AgendaRefreshReceiver
@@ -59,7 +59,8 @@ class AgendaNotificationManager(
 
     fun publishAgendaNotification(
         listEntries: List<AgendaListEntry>,
-        collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
+        hiddenItemTypes: Set<HiddenItemType>,
+        applyHiddenItemsToExpanded: Boolean,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -72,7 +73,8 @@ class AgendaNotificationManager(
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(
             listEntries,
-            collapsedHiddenItemTypes,
+            hiddenItemTypes,
+            applyHiddenItemsToExpanded,
             maxVisibleEntries,
             notificationTextSizeSp,
             allDayEventTextSizeSp,
@@ -87,7 +89,8 @@ class AgendaNotificationManager(
 
     private fun buildAgendaNotification(
         listEntries: List<AgendaListEntry>,
-        collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
+        hiddenItemTypes: Set<HiddenItemType>,
+        applyHiddenItemsToExpanded: Boolean,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -96,14 +99,18 @@ class AgendaNotificationManager(
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
         currentTimeMilliseconds: Long,
-    ): Notification =
-        NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
+    ): Notification {
+        // 감춤 규칙의 적용 범위 분기는 이 한 곳이다. 펼친 뷰 적용이 꺼져 있으면 빈 집합을
+        // 넘겨 펼친 뷰가 감춤 없이 전부 표시되게 한다(필터는 빈 집합에서 멱등하다).
+        val expandedHiddenItemTypes =
+            if (applyHiddenItemsToExpanded) hiddenItemTypes else emptySet()
+        return NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
-                    collapsedHiddenItemTypes,
+                    hiddenItemTypes,
                     eventClickTargetPackageName,
                     spacing,
                     notificationTextSizeSp,
@@ -114,6 +121,7 @@ class AgendaNotificationManager(
             .setCustomBigContentView(
                 remoteViewsFactory.createExpandedViews(
                     listEntries,
+                    expandedHiddenItemTypes,
                     maxVisibleEntries,
                     eventClickTargetPackageName,
                     spacing,
@@ -135,6 +143,7 @@ class AgendaNotificationManager(
                 buildContentPendingIntent(notificationClickTargetPackageName, currentTimeMilliseconds),
             )
             .build()
+    }
 
     /**
      * 시스템 헤더를 다음 일정 정보로 채운다. 헤더는 시스템이 그리는 영역이라 없앨 수는

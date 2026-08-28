@@ -15,13 +15,24 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-/** 접힌 알림에서 감출 항목의 종류. 펼친 알림에는 적용되지 않는다. */
-enum class CollapsedHiddenItemType {
-    /** 하루짜리 종일 일정. 단 오늘(시스템 표준 시간대 기준) 시작하는 것은 감추지 않는다. */
-    SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY,
+/**
+ * 알림에서 감출 종일 일정의 상태. 네 상태는 서로 겹치지 않고(완전분할) 종일 일정 하나를
+ * 정확히 하나로 분류하므로, 상태별 감춤 토글은 서로 간섭하지 않는다. 시간 있는 일정은
+ * 대상이 아니다. 항목을 늘릴 때는 분류 규칙(AgendaRemoteViewsFactory.findHiddenItemTypeOf)과
+ * 문자열 2개를 함께 맞춰야 완전분할이 깨지지 않는다.
+ */
+enum class HiddenItemType {
+    /** 오늘(시스템 표준 시간대 기준) 시작한 종일 일정. 여러 날 일정도 포함된다. */
+    ALL_DAY_STARTED_TODAY,
 
-    /** 이틀 이상 이어지는 종일 일정. 시작일이 오늘이어도 감춘다. */
-    MULTI_DAY_ALL_DAY,
+    /** 이전에 시작해 아직 이어지는 종일 일정. */
+    ALL_DAY_IN_PROGRESS,
+
+    /** 내일 이후 시작하는 종일 일정. */
+    ALL_DAY_UPCOMING,
+
+    /** 이미 끝난 종일 일정. 표시 창에 과거가 포함될 때만 목록에 나타난다. */
+    ALL_DAY_FINISHED,
 }
 
 /** 아젠다 알림과 설정 화면이 공유하는 사용자 설정 묶음. */
@@ -58,7 +69,9 @@ data class UserPreferences(
     /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
     val isNotificationPinned: Boolean,
     /** 접힌 알림에서 감출 항목. 빈 집합이면 아무것도 감추지 않는다. */
-    val collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
+    val hiddenItemTypes: Set<HiddenItemType>,
+    /** 감춤 규칙을 펼친 알림에도 적용한다. 끄면 펼친 알림은 감춤 없이 전부 표시한다. */
+    val applyHiddenItemsToExpanded: Boolean,
 ) {
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
@@ -79,7 +92,8 @@ data class UserPreferences(
             notificationClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
-            collapsedHiddenItemTypes = emptySet(),
+            hiddenItemTypes = emptySet(),
+            applyHiddenItemsToExpanded = false,
         )
     }
 }
@@ -121,8 +135,12 @@ private val NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY =
     stringPreferencesKey("notification_click_target_package_name")
 private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
 // 감춤 항목은 enum name의 집합이다. 낯선 이름(미래 버전이 남긴 값)은 읽을 때 버린다.
-private val COLLAPSED_HIDDEN_ITEM_TYPES_KEY =
-    stringSetPreferencesKey("collapsed_hidden_item_types")
+// 참고: v1.2.260828까지 기간 기반(하루/여러 날)의 collapsed_hidden_item_types 키를 썼다.
+//   상태 기반(오늘 시작/진행 중/예정/종료됨) 모델로 바뀌며 마이그레이션 없이 폐기했다
+//   (초기 단계라 기존 저장값은 버려도 이롭지 않다).
+private val HIDDEN_ITEM_TYPES_KEY = stringSetPreferencesKey("hidden_item_types")
+private val HIDDEN_ITEMS_APPLY_TO_EXPANDED_KEY =
+    booleanPreferencesKey("hidden_items_apply_to_expanded")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
@@ -139,14 +157,14 @@ private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
         ?.toSet()
 
 /** 저장된 감춤 항목 이름 집합을 enum 집합으로 되돌린다. 낯선 이름은 건너뛴다. */
-private fun Preferences.parseCollapsedHiddenItemTypes(): Set<CollapsedHiddenItemType> =
-    this[COLLAPSED_HIDDEN_ITEM_TYPES_KEY]
+private fun Preferences.parseHiddenItemTypes(): Set<HiddenItemType> =
+    this[HIDDEN_ITEM_TYPES_KEY]
         ?.mapNotNull { storedName ->
             // 저장값이 미래 버전에서 오래된 이름이어도 나머지 항목은 살려 쓴다.
-            CollapsedHiddenItemType.entries.firstOrNull { it.name == storedName }
+            HiddenItemType.entries.firstOrNull { it.name == storedName }
         }
         ?.toSet()
-        ?: UserPreferences.DEFAULTS.collapsedHiddenItemTypes
+        ?: UserPreferences.DEFAULTS.hiddenItemTypes
 
 /** 여백 키 조회. 없으면 기본값, 있으면 조절 범위 밖의 오래된 저장값도 범위 안으로 끌어온다. */
 private fun Preferences.readSpacingDp(key: Preferences.Key<Int>, defaultDp: Int): Int =
@@ -220,8 +238,10 @@ class UserPreferencesRepository(private val context: Context) {
                     isNotificationPinned =
                         storedPreferences[NOTIFICATION_PINNED_KEY]
                             ?: UserPreferences.DEFAULTS.isNotificationPinned,
-                    collapsedHiddenItemTypes =
-                        storedPreferences.parseCollapsedHiddenItemTypes(),
+                    hiddenItemTypes = storedPreferences.parseHiddenItemTypes(),
+                    applyHiddenItemsToExpanded =
+                        storedPreferences[HIDDEN_ITEMS_APPLY_TO_EXPANDED_KEY]
+                            ?: UserPreferences.DEFAULTS.applyHiddenItemsToExpanded,
                 )
             }
 
@@ -251,16 +271,22 @@ class UserPreferencesRepository(private val context: Context) {
      * 캘린더 선택 토글과 같은 이유로 UI의 상태 스냅샷이 늦더라도 연속 토글이
      * 서로를 덮어쓰지 않는다.
      */
-    suspend fun toggleCollapsedHiddenItemType(
-        itemType: CollapsedHiddenItemType,
+    suspend fun toggleHiddenItemType(
+        itemType: HiddenItemType,
         isChecked: Boolean,
     ) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            val currentHiddenItemTypes = storedPreferences.parseCollapsedHiddenItemTypes()
+            val currentHiddenItemTypes = storedPreferences.parseHiddenItemTypes()
             val nextHiddenItemTypes =
                 if (isChecked) currentHiddenItemTypes + itemType else currentHiddenItemTypes - itemType
-            storedPreferences[COLLAPSED_HIDDEN_ITEM_TYPES_KEY] =
-                nextHiddenItemTypes.map(CollapsedHiddenItemType::name).toSet()
+            storedPreferences[HIDDEN_ITEM_TYPES_KEY] =
+                nextHiddenItemTypes.map(HiddenItemType::name).toSet()
+        }
+    }
+
+    suspend fun updateHiddenItemsApplyToExpanded(applyToExpanded: Boolean) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[HIDDEN_ITEMS_APPLY_TO_EXPANDED_KEY] = applyToExpanded
         }
     }
 
