@@ -81,6 +81,7 @@ import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
 import com.calinoti.app.notification.AgendaNotificationManager
+import com.calinoti.app.notification.AgendaRemoteViewsFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,6 +97,7 @@ fun CalendarStatusScreen(
     calendarReader: CalendarReader,
     calendarAppReader: CalendarAppReader,
     notificationManager: AgendaNotificationManager,
+    remoteViewsFactory: AgendaRemoteViewsFactory,
     userPreferencesRepository: UserPreferencesRepository,
     versionLabel: String,
     refreshAgenda: () -> Unit,
@@ -552,9 +554,33 @@ fun CalendarStatusScreen(
                 onToggleExpanded = { isSpacingSectionExpanded = !isSpacingSectionExpanded },
             ) {
                 val currentSpacing = userPreferences.notificationSpacing
+                // 드래그 중에도 미리보기에 즉시 반영하는 로컬 상태다. 저장값이 바뀌면(드래그를
+                // 놓아 저장된 순간) 키가 바뀌며 저장값으로 초기화된다. 여기서 저장하지는
+                // 않는다 — 저장은 각 슬라이더의 onDragFinished만 한다.
+                var previewSpacing by remember(currentSpacing) { mutableStateOf(currentSpacing) }
+                Text(
+                    text = stringResource(R.string.settings_spacing_preview_caption),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.settings_spacing_preview_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                NotificationSpacingPreview(
+                    spacing = previewSpacing,
+                    notificationTextSizeSp = userPreferences.notificationTextSizeSp,
+                    allDayEventTextSizeSp = userPreferences.allDayEventTextSizeSp,
+                    remoteViewsFactory = remoteViewsFactory,
+                )
+                Spacer(Modifier.height(12.dp))
                 SpacingSliderRow(
                     labelResourceId = R.string.day_header_start_padding_label,
                     savedValueDp = currentSpacing.dayHeaderStartPaddingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing = previewSpacing.copy(dayHeaderStartPaddingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -565,6 +591,9 @@ fun CalendarStatusScreen(
                 SpacingSliderRow(
                     labelResourceId = R.string.event_start_padding_label,
                     savedValueDp = currentSpacing.eventStartPaddingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing = previewSpacing.copy(eventStartPaddingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -575,6 +604,9 @@ fun CalendarStatusScreen(
                 SpacingSliderRow(
                     labelResourceId = R.string.time_to_title_spacing_label,
                     savedValueDp = currentSpacing.timeToTitleSpacingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing = previewSpacing.copy(timeToTitleSpacingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -585,6 +617,9 @@ fun CalendarStatusScreen(
                 SpacingSliderRow(
                     labelResourceId = R.string.day_header_to_event_spacing_label,
                     savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing = previewSpacing.copy(dayHeaderToEventSpacingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -595,6 +630,9 @@ fun CalendarStatusScreen(
                 SpacingSliderRow(
                     labelResourceId = R.string.between_events_spacing_label,
                     savedValueDp = currentSpacing.betweenEventsSpacingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing = previewSpacing.copy(betweenEventsSpacingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -605,6 +643,10 @@ fun CalendarStatusScreen(
                 SpacingSliderRow(
                     labelResourceId = R.string.between_day_headers_spacing_label,
                     savedValueDp = currentSpacing.betweenDayHeadersSpacingDp,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing =
+                            previewSpacing.copy(betweenDayHeadersSpacingDp = newValueDp)
+                    },
                 ) { newValueDp ->
                     updatePreferences {
                         userPreferencesRepository.updateNotificationSpacing(
@@ -775,6 +817,8 @@ private fun CollapsibleSection(
 private fun SpacingSliderRow(
     labelResourceId: Int,
     savedValueDp: Int,
+    // 드래그 중 임시 값 — 저장 전 단계라 미리보기가 저장을 기다리지 않고 따라온다.
+    onPreviewValueChange: (Int) -> Unit = {},
     onDragFinished: (Int) -> Unit,
 ) {
     // 드래그 중 값은 로컬로 보관한다. Slider 값을 저장값에 직결하면 thumb가 저장값으로
@@ -797,7 +841,10 @@ private fun SpacingSliderRow(
         StepSlider(
             value = draggedValueDp,
             valueRange = adjustableRange,
-            onValueChange = { newValueDp -> draggedValueDp = newValueDp.toFloat() },
+            onValueChange = { newValueDp ->
+                draggedValueDp = newValueDp.toFloat()
+                onPreviewValueChange(newValueDp)
+            },
             // 드래그를 놓을 때만 저장한다. 저장마다 알림 갱신(캘린더 재쿼리)이 따라오므로
             // 드래그 중 저장하면 제스처 하나에 갱신이 수십 번 쌓인다.
             onValueChangeFinished = { onDragFinished(draggedValueDp.roundToInt()) },
