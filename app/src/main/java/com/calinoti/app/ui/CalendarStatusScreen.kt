@@ -71,8 +71,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.calinoti.app.R
+import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
-import com.calinoti.app.data.NotificationClickAction
+import com.calinoti.app.data.InstalledCalendarApp
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
@@ -91,6 +92,7 @@ import kotlin.math.roundToInt
 @Composable
 fun CalendarStatusScreen(
     calendarReader: CalendarReader,
+    calendarAppReader: CalendarAppReader,
     notificationManager: AgendaNotificationManager,
     userPreferencesRepository: UserPreferencesRepository,
     versionLabel: String,
@@ -157,6 +159,12 @@ fun CalendarStatusScreen(
             value = null
             value = withContext(Dispatchers.IO) { calendarReader.loadCalendars() }
         }
+    }
+
+    // 설치 캘린더 앱 목록은 화면 수명 동안 한 번만 조회한다. 섹션을 접었다 펴도 다시 묻지
+    // 않고, 조회 중(null)에는 "찾을 수 없음"을 대신 보여주지 않는다.
+    val installedCalendarApps by produceState<List<InstalledCalendarApp>?>(null) {
+        value = withContext(Dispatchers.IO) { calendarAppReader.loadInstalledCalendarApps() }
     }
 
     val updatePreferences: (suspend () -> Unit) -> Unit = { update ->
@@ -548,43 +556,39 @@ fun CalendarStatusScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // 접힌 헤더에도 현재 클릭 동작·고정 여부가 보이게 요약을 계산한다.
-            val clickActionLabelText =
-                stringResource(userPreferences.notificationClickAction.labelResourceId())
+            // 접힌 헤더에도 현재 지정 캘린더 앱·고정 여부가 보이게 요약을 계산한다.
+            // 목록이 아직 로딩 중이거나 지정 앱이 사라졌으면 기본값 라벨로 둔다.
+            val selectedCalendarAppLabel =
+                installedCalendarApps
+                    ?.firstOrNull { it.packageName == userPreferences.calendarAppPackageName }
+                    ?.label
+                    ?: stringResource(R.string.calendar_app_default_option)
             val notificationActionSummary =
                 if (userPreferences.isNotificationPinned) {
                     stringResource(
                         R.string.notification_action_summary_fixed_format,
-                        clickActionLabelText,
+                        selectedCalendarAppLabel,
                     )
                 } else {
-                    clickActionLabelText
+                    selectedCalendarAppLabel
                 }
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_notification_action),
+                title = stringResource(R.string.settings_section_calendar_app),
                 summary = notificationActionSummary,
                 isExpanded = isNotificationActionSectionExpanded,
                 onToggleExpanded = {
                     isNotificationActionSectionExpanded = !isNotificationActionSectionExpanded
                 },
             ) {
-                Text(
-                    text = stringResource(R.string.click_action_label),
-                    style = MaterialTheme.typography.bodyMedium,
+                CalendarAppSelector(
+                    installedCalendarApps = installedCalendarApps,
+                    selectedPackageName = userPreferences.calendarAppPackageName,
+                    onSelectCalendarApp = { packageName ->
+                        updatePreferences {
+                            userPreferencesRepository.updateCalendarAppPackageName(packageName)
+                        }
+                    },
                 )
-                for (clickAction in NotificationClickAction.entries) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = userPreferences.notificationClickAction == clickAction,
-                            onClick = {
-                                updatePreferences {
-                                    userPreferencesRepository.updateNotificationClickAction(clickAction)
-                                }
-                            },
-                        )
-                        Text(stringResource(clickAction.labelResourceId()))
-                    }
-                }
 
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -903,7 +907,49 @@ private fun negateSignOfIntegerText(text: String): String = when {
     else -> "-$text"
 }
 
-private fun NotificationClickAction.labelResourceId(): Int = when (this) {
-    NotificationClickAction.OPEN_APP -> R.string.click_action_open_app
-    NotificationClickAction.CREATE_EVENT -> R.string.click_action_create_event
+/** 알림을 눌렀을 때 열 캘린더 앱을 고르는 선택 목록. 맨 위 "기본값"은 지정 없음이다. */
+@Composable
+private fun CalendarAppSelector(
+    installedCalendarApps: List<InstalledCalendarApp>?,
+    selectedPackageName: String,
+    onSelectCalendarApp: (String) -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.calendar_app_description),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    when {
+        installedCalendarApps == null -> Unit
+        installedCalendarApps.isEmpty() -> Text(
+            text = stringResource(R.string.no_calendar_apps_found),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        else -> {
+            CalendarAppOptionRow(
+                label = stringResource(R.string.calendar_app_default_option),
+                isSelected =
+                    selectedPackageName == UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME,
+                onClick = {
+                    onSelectCalendarApp(UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME)
+                },
+            )
+            for (calendarApp in installedCalendarApps) {
+                CalendarAppOptionRow(
+                    label = calendarApp.label,
+                    isSelected = selectedPackageName == calendarApp.packageName,
+                    onClick = { onSelectCalendarApp(calendarApp.packageName) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarAppOptionRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = isSelected, onClick = onClick)
+        Text(label)
+    }
 }

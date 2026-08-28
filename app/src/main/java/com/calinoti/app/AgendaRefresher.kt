@@ -41,7 +41,7 @@ class AgendaRefresher(
                     maxVisibleEntries = preferences.maxVisibleEntries,
                     notificationTextSizeSp = preferences.notificationTextSizeSp,
                     allDayEventTextSizeSp = preferences.allDayEventTextSizeSp,
-                    clickAction = preferences.notificationClickAction,
+                    calendarAppPackageName = preferences.calendarAppPackageName,
                     spacing = preferences.notificationSpacing,
                     isNotificationPinned = preferences.isNotificationPinned,
                     currentTimeMilliseconds = currentTimeMilliseconds,

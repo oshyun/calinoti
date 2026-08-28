@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
             CalendarStatusTheme {
                 CalendarStatusScreen(
                     calendarReader = agendaApplication.calendarReader,
+                    calendarAppReader = agendaApplication.calendarAppReader,
                     notificationManager = agendaApplication.notificationManager,
                     userPreferencesRepository = agendaApplication.userPreferencesRepository,
                     versionLabel = versionLabel,

@@ -9,17 +9,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.CalendarContract
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.calinoti.app.MainActivity
 import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
-import com.calinoti.app.data.NotificationClickAction
+import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.NotificationSpacing
+import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.scheduling.AgendaRefreshReceiver
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /** 아젠다 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
 class AgendaNotificationManager(
@@ -59,7 +61,7 @@ class AgendaNotificationManager(
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
-        clickAction: NotificationClickAction,
+        calendarAppPackageName: String,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
         currentTimeMilliseconds: Long,
@@ -70,7 +72,7 @@ class AgendaNotificationManager(
             maxVisibleEntries,
             notificationTextSizeSp,
             allDayEventTextSizeSp,
-            clickAction,
+            calendarAppPackageName,
             spacing,
             isNotificationPinned,
             currentTimeMilliseconds,
@@ -83,7 +85,7 @@ class AgendaNotificationManager(
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
-        clickAction: NotificationClickAction,
+        calendarAppPackageName: String,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
         currentTimeMilliseconds: Long,
@@ -94,6 +96,7 @@ class AgendaNotificationManager(
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
+                    calendarAppPackageName,
                     spacing,
                     notificationTextSizeSp,
                     allDayEventTextSizeSp,
@@ -104,6 +107,7 @@ class AgendaNotificationManager(
                 remoteViewsFactory.createExpandedViews(
                     listEntries,
                     maxVisibleEntries,
+                    calendarAppPackageName,
                     spacing,
                     notificationTextSizeSp,
                     allDayEventTextSizeSp,
@@ -119,7 +123,7 @@ class AgendaNotificationManager(
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setContentIntent(buildContentPendingIntent(clickAction))
+            .setContentIntent(buildContentPendingIntent(calendarAppPackageName, currentTimeMilliseconds))
             .build()
 
     /**
@@ -156,19 +160,37 @@ class AgendaNotificationManager(
                 !entry.isAllDay && entry.beginTimeMilliseconds > currentTimeMilliseconds
             }
 
-    private fun buildContentPendingIntent(clickAction: NotificationClickAction): PendingIntent {
-        val contentIntent = when (clickAction) {
-            NotificationClickAction.OPEN_APP -> Intent(context, MainActivity::class.java)
-            // 캘린더 앱의 새 일정 화면을 띄운다.
-            NotificationClickAction.CREATE_EVENT ->
-                Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+    /**
+     * 알림에서 일정 행을 제외한 나머지 공간을 눌렀을 때 캘린더 앱을 띄운다.
+     * 지정 앱이 있으면 그 앱의 메인 화면(런처 인텐트)을, 없거나 이미 지워졌으면
+     * 시스템이 고른 캘린더 앱을 오늘 시점으로 연다.
+     */
+    private fun buildContentPendingIntent(
+        calendarAppPackageName: String,
+        currentTimeMilliseconds: Long,
+    ): PendingIntent = PendingIntent.getActivity(
+        context,
+        CONTENT_REQUEST_CODE,
+        buildOpenCalendarAppIntent(calendarAppPackageName, currentTimeMilliseconds),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun buildOpenCalendarAppIntent(
+        calendarAppPackageName: String,
+        currentTimeMilliseconds: Long,
+    ): Intent {
+        // 지정 앱이 지워진 뒤 첫 갱신 전까지 남는 구값을 위한 폴백. null이면 암시 인텐트로 돌아간다.
+        if (calendarAppPackageName != UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME) {
+            context.packageManager.getLaunchIntentForPackage(calendarAppPackageName)?.let { return it }
         }
-        return PendingIntent.getActivity(
-            context,
-            CONTENT_REQUEST_CODE,
-            contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        // 시각은 일 시작으로 절단한다. 같은 날에는 인텐트 data가 변하지 않아 갱신마다
+        // PendingIntent 레코드가 새로 생기지 않고, "오늘로 열기"라는 의미도 명확해진다.
+        val startOfDayMilliseconds =
+            LocalDate.ofInstant(Instant.ofEpochMilli(currentTimeMilliseconds), ZoneId.systemDefault())
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        return CalendarIntents.buildCalendarTimeViewIntent(startOfDayMilliseconds)
     }
 
     /** 알림이 스와이프로 지워졌을 때 갱신 리시버로 되돌려 알림을 다시 게시하는 인텐트. */

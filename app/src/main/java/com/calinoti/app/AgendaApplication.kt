@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.util.Log
+import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.UserPreferencesRepository
 import com.calinoti.app.notification.AgendaNotificationManager
@@ -37,6 +38,8 @@ class AgendaApplication : Application() {
         private set
     lateinit var calendarReader: CalendarReader
         private set
+    lateinit var calendarAppReader: CalendarAppReader
+        private set
     lateinit var notificationManager: AgendaNotificationManager
         private set
     lateinit var agendaRefresher: AgendaRefresher
@@ -46,6 +49,7 @@ class AgendaApplication : Application() {
         super.onCreate()
         userPreferencesRepository = UserPreferencesRepository(this)
         calendarReader = CalendarReader(this)
+        calendarAppReader = CalendarAppReader(this)
         val remoteViewsFactory = AgendaRemoteViewsFactory(this)
         notificationManager = AgendaNotificationManager(this, remoteViewsFactory)
         agendaRefresher = AgendaRefresher(
