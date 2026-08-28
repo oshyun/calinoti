@@ -3,6 +3,7 @@ package com.calinoti.app.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -36,6 +37,8 @@ data class UserPreferences(
     val notificationTextSizeSp: Int,
     val notificationClickAction: NotificationClickAction,
     val notificationSpacing: NotificationSpacing,
+    /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
+    val isNotificationPinned: Boolean,
 ) {
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
@@ -50,6 +53,7 @@ data class UserPreferences(
             notificationTextSizeSp = 15,
             notificationClickAction = NotificationClickAction.OPEN_APP,
             notificationSpacing = NotificationSpacing.DEFAULTS,
+            isNotificationPinned = true,
         )
     }
 }
@@ -82,6 +86,7 @@ private val WINDOW_END_DAYS_KEY = intPreferencesKey("window_end_days")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
 private val NOTIFICATION_TEXT_SIZE_KEY = intPreferencesKey("notification_text_size_sp")
 private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
+private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
@@ -159,6 +164,9 @@ class UserPreferencesRepository(private val context: Context) {
                                 NotificationSpacing.DEFAULTS.betweenDayHeadersSpacingDp,
                             ),
                         ),
+                    isNotificationPinned =
+                        storedPreferences[NOTIFICATION_PINNED_KEY]
+                            ?: UserPreferences.DEFAULTS.isNotificationPinned,
                 )
             }
 
@@ -210,6 +218,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationClickAction(clickAction: NotificationClickAction) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_CLICK_ACTION_KEY] = clickAction.name
+        }
+    }
+
+    suspend fun updateNotificationPinned(isPinned: Boolean) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[NOTIFICATION_PINNED_KEY] = isPinned
         }
     }
 

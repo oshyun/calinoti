@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -421,6 +422,28 @@ fun CalendarStatusScreen(
                         Text(stringResource(clickAction.labelResourceId()))
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.notification_pinned_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = userPreferences.isNotificationPinned,
+                        onCheckedChange = { isChecked ->
+                            updatePreferences {
+                                userPreferencesRepository.updateNotificationPinned(isChecked)
+                            }
+                        },
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.notification_pinned_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 Spacer(Modifier.height(12.dp))
                 Text(

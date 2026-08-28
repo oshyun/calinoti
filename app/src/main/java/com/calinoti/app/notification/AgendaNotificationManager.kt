@@ -18,6 +18,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.NotificationClickAction
 import com.calinoti.app.data.NotificationSpacing
+import com.calinoti.app.scheduling.AgendaRefreshReceiver
 
 /** 아젠다 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
 class AgendaNotificationManager(
@@ -58,6 +59,7 @@ class AgendaNotificationManager(
         notificationTextSizeSp: Int,
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
+        isNotificationPinned: Boolean,
     ) {
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(
@@ -66,6 +68,7 @@ class AgendaNotificationManager(
             notificationTextSizeSp,
             clickAction,
             spacing,
+            isNotificationPinned,
         )
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
     }
@@ -76,6 +79,7 @@ class AgendaNotificationManager(
         notificationTextSizeSp: Int,
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
+        isNotificationPinned: Boolean,
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -90,7 +94,12 @@ class AgendaNotificationManager(
                     notificationTextSizeSp,
                 ),
             )
-            .setOngoing(true)
+            // Android 14부터는 ongoing 알림도 스와이프로 지워진다. 고정이 켜져 있으면
+            // dismiss(deleteIntent)로 감지해 갱신 리시버로 되돌려 다시 게시한다.
+            .setOngoing(isNotificationPinned)
+            .setDeleteIntent(
+                if (isNotificationPinned) buildDismissRestorePendingIntent() else null,
+            )
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -112,9 +121,19 @@ class AgendaNotificationManager(
         )
     }
 
+    /** 알림이 스와이프로 지워졌을 때 갱신 리시버로 되돌려 알림을 다시 게시하는 인텐트. */
+    private fun buildDismissRestorePendingIntent(): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            DISMISS_RESTORE_REQUEST_CODE,
+            Intent(context, AgendaRefreshReceiver::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
     private companion object {
         const val AGENDA_CHANNEL_ID = "agenda"
         const val AGENDA_NOTIFICATION_ID = 1001
         const val CONTENT_REQUEST_CODE = 1002
+        const val DISMISS_RESTORE_REQUEST_CODE = 1003
     }
 }

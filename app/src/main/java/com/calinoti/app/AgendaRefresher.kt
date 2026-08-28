@@ -42,6 +42,7 @@ class AgendaRefresher(
                     notificationTextSizeSp = preferences.notificationTextSizeSp,
                     clickAction = preferences.notificationClickAction,
                     spacing = preferences.notificationSpacing,
+                    isNotificationPinned = preferences.isNotificationPinned,
                 )
                 AgendaRefreshScheduler.scheduleNextRefresh(context, agendaEntries, currentTimeMilliseconds)
             } catch (cancelled: CancellationException) {
