@@ -17,7 +17,11 @@
 - 새 APK를 복사할 때 같은 자리의 구버전 `Calinoti-v*-debug.apk` 파일은 삭제해
   어떤 파일이 최신인지 헷갈리지 않게 한다.
 - 기능이나 동작이 바뀌는 빌드를 전달할 때는 versionCode/versionName을 bump한다.
-  bump는 단독 커밋으로 "Bump to vX.Y.Z (versionCode N)" 형식의 메시지를 쓴다.
+  bump는 단독 커밋으로 "Bump to v<versionName> (versionCode N)" 형식의 메시지를 쓴다.
+- versionName은 `X.Y.YYYYMMDDHHMMSS` 형식으로 patch 자리에 빌드 날짜와 시각(초까지)을
+  쓴다 (예: 2026년 8월 28일 14시 35분 27초 빌드 = `1.2.20260828143527`). 일종의 빌드
+  타임스탬프 관리로, 여러 세션이 같은 날 동시에 bump해도 초까지 다르므로 버전
+  충돌·역전을 제대로 감지할 수 있다. major.minor는 기능 단위로만 올린다.
 - bump는 사용자가 머지를 결정한 뒤 그 시점에 진행한다 (작업 브랜치 작업 중 미리
   올려두지 않는다).
 - bump 커밋을 main에 직접 올리지 않는다. 작업 브랜치에 bump 커밋을 추가한 뒤
