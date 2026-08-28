@@ -6,10 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.AbsoluteSizeSpan
+import android.text.style.ForegroundColorSpan
 import android.util.TypedValue
 import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
@@ -19,6 +24,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /** 아젠다 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
 class AgendaRemoteViewsFactory(private val context: Context) {
@@ -28,11 +34,13 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         listEntries: List<AgendaListEntry>,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = COLLAPSED_ITEM_LIMIT,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
+        currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
     /** 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. */
@@ -41,11 +49,13 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         maxVisibleEntries: Int,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = maxVisibleEntries,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
+        currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
     private fun createAgendaViews(
@@ -53,6 +63,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         itemLimit: Int,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        currentTimeMilliseconds: Long,
     ): RemoteViews {
         // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다.
         // 시각·위치·날짜 헤더는 제목보다 2sp 작게 표시한다 (기존 레이아웃의 15/13sp 관계).
@@ -109,6 +120,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         canOpenEventRows,
                         titleTextSizeSp,
                         secondaryTextSizeSp,
+                        currentTimeMilliseconds,
                     )
                     eventItemViews.applyItemPadding(
                         viewId = R.id.notification_event_item,
@@ -129,6 +141,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         canOpenEventRows: Boolean,
         titleTextSizeSp: Float,
         secondaryTextSizeSp: Float,
+        currentTimeMilliseconds: Long,
     ): RemoteViews {
         val itemViews = RemoteViews(context.packageName, R.layout.notification_item_event)
         if (entry.isAllDay) {
@@ -140,7 +153,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
         itemViews.setTextViewText(
             R.id.event_title_text,
-            entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) },
+            createEventTitleText(entry, currentTimeMilliseconds, secondaryTextSizeSp),
         )
         itemViews.setTextViewTextSize(R.id.event_title_text, COMPLEX_UNIT_SP, titleTextSizeSp)
         // 제목 색은 캘린더 앱과 같은 캘린더 색으로 표시한다. 일정별 개별 색(EVENT_COLOR)은
@@ -235,8 +248,77 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             .toLocalTime()
             .format(timeFormatter)
 
+    /**
+     * 일정 줄의 제목 텍스트. 종일 일정이 아니면 제목 뒤에 상대 시간 라벨을
+     * 회색 작은 글씨로 이어 붙인다. 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
+     */
+    private fun createEventTitleText(
+        entry: AgendaEntry,
+        currentTimeMilliseconds: Long,
+        secondaryTextSizeSp: Float,
+    ): CharSequence {
+        val titleText = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
+        val relativeTimeLabel = formatRelativeTimeLabel(entry, currentTimeMilliseconds)
+            ?: return titleText
+        val labelTextStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
+        val titleWithLabel = SpannableStringBuilder(titleText)
+            .append(RELATIVE_TIME_LABEL_SEPARATOR)
+            .append(relativeTimeLabel)
+        // 라벨 구간만 시간·위치 텍스트와 같은 secondary 톤(색·크기)으로 낮춘다.
+        titleWithLabel.setSpan(
+            ForegroundColorSpan(
+                ContextCompat.getColor(context, R.color.notification_text_secondary),
+            ),
+            labelTextStartIndex,
+            titleWithLabel.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        titleWithLabel.setSpan(
+            AbsoluteSizeSpan(
+                TypedValue.applyDimension(
+                    COMPLEX_UNIT_SP,
+                    secondaryTextSizeSp,
+                    context.resources.displayMetrics,
+                ).toInt(),
+            ),
+            labelTextStartIndex,
+            titleWithLabel.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        return titleWithLabel
+    }
+
+    /** 제목 뒤에 붙일 상대 시간 라벨. 종일 일정은 시각 개념이 없어 표시하지 않는다(null). */
+    private fun formatRelativeTimeLabel(
+        entry: AgendaEntry,
+        currentTimeMilliseconds: Long,
+    ): String? {
+        if (entry.isAllDay) return null
+        val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
+        return when {
+            remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
+            remainingMilliseconds < TimeUnit.MINUTES.toMillis(1) ->
+                context.getString(R.string.agenda_relative_soon)
+            remainingMilliseconds < TimeUnit.HOURS.toMillis(1) -> context.getString(
+                R.string.agenda_relative_minutes_format,
+                TimeUnit.MILLISECONDS.toMinutes(remainingMilliseconds),
+            )
+            remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.getString(
+                R.string.agenda_relative_hours_format,
+                TimeUnit.MILLISECONDS.toHours(remainingMilliseconds),
+            )
+            else -> context.getString(
+                R.string.agenda_relative_days_format,
+                TimeUnit.MILLISECONDS.toDays(remainingMilliseconds),
+            )
+        }
+    }
+
     private companion object {
         const val COLLAPSED_ITEM_LIMIT = 3
+
+        // 제목과 상대 시간 라벨 사이 구분자. 라벨 span 시작 인덱스 계산에도 쓰므로 상수로 둔다.
+        const val RELATIVE_TIME_LABEL_SEPARATOR = " "
 
         // 항목의 End(오른쪽) 고정 여백과 알림 맨 위/맨 아래 바깥 여백. 사용자가 조절하지 않는
         // 렌더링 상수로, v1.2.4까지 레이아웃 XML에 있던 값을 옮겨온 것과 같다.
@@ -248,9 +330,11 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         const val SECONDARY_TEXT_SIZE_OFFSET_SP = 2
 
         // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
-        // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002)와 겹치지 않는 고정값이고, 접힘·펼침 뷰가
-        // 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로 같은 레코드가 갱신 재사용된다.
-        const val EVENT_CLICK_REQUEST_CODE = 1003
+        // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002), 해제 복구 브로드캐스트의
+        // DISMISS_RESTORE_REQUEST_CODE(1003, AgendaNotificationManager)와 겹치지 않는
+        // 고정값이고, 접힘·펼침 뷰가 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로
+        // 같은 레코드가 갱신 재사용된다.
+        const val EVENT_CLICK_REQUEST_CODE = 1004
 
         // 일정 열기 capability 확인용 탐침 id. 실제 일정 id가 아니라 인텐트 shape만 맞으면 충분하다.
         const val PROBE_EVENT_ID = 0L

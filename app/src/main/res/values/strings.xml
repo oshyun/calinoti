@@ -8,6 +8,11 @@
 
     <string name="agenda_empty_text">표시할 일정이 없습니다</string>
     <string name="agenda_untitled_event">제목 없는 일정</string>
+    <string name="agenda_relative_days_format">(%1$d일 뒤)</string>
+    <string name="agenda_relative_hours_format">(%1$d시간 뒤)</string>
+    <string name="agenda_relative_minutes_format">(%1$d분 뒤)</string>
+    <string name="agenda_relative_soon">(곧)</string>
+    <string name="agenda_in_progress">진행 중</string>
 
     <string name="calendar_permission_title">캘린더 권한 필요</string>
     <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>

@@ -60,6 +60,7 @@ class AgendaNotificationManager(
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
+        currentTimeMilliseconds: Long,
     ) {
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(
@@ -69,6 +70,7 @@ class AgendaNotificationManager(
             clickAction,
             spacing,
             isNotificationPinned,
+            currentTimeMilliseconds,
         )
         NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
     }
@@ -80,11 +82,17 @@ class AgendaNotificationManager(
         clickAction: NotificationClickAction,
         spacing: NotificationSpacing,
         isNotificationPinned: Boolean,
+        currentTimeMilliseconds: Long,
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setCustomContentView(
-                remoteViewsFactory.createCollapsedViews(listEntries, spacing, notificationTextSizeSp),
+                remoteViewsFactory.createCollapsedViews(
+                    listEntries,
+                    spacing,
+                    notificationTextSizeSp,
+                    currentTimeMilliseconds,
+                ),
             )
             .setCustomBigContentView(
                 remoteViewsFactory.createExpandedViews(
@@ -92,6 +100,7 @@ class AgendaNotificationManager(
                     maxVisibleEntries,
                     spacing,
                     notificationTextSizeSp,
+                    currentTimeMilliseconds,
                 ),
             )
             // Android 14부터는 ongoing 알림도 스와이프로 지워진다. 고정이 켜져 있으면
