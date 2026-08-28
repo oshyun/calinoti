@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -497,17 +498,7 @@ fun CalendarStatusScreen(
 
             // 알림 표시방식 섹션. 글자 크기와 여백은 알림을 그리는 방식을 꾸미는 설정이라
             // 미리보기와 한 섹션에 둔다 — 어느 값이 알림의 어느 부분을 바꾸는지 미리보기로
-            // 바로 대응해 볼 수 있다. 시간·종일 일정 제목 크기는 독립 설정이지만 허용 범위와
-            // 오류 문구는 같은 검증 규칙을 공유한다 — 출처는 이 둘이다.
-            val textSizeInvalidText = stringResource(
-                R.string.text_size_invalid_message,
-                UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
-                UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP,
-            )
-            val isValidTextSize: (Int) -> Boolean = { textSizeSp ->
-                textSizeSp in
-                    UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
-            }
+            // 바로 대응해 볼 수 있다.
             CollapsibleSection(
                 title = stringResource(R.string.settings_section_notification_display),
                 summary = stringResource(
@@ -521,10 +512,19 @@ fun CalendarStatusScreen(
                 },
             ) {
                 val currentSpacing = userPreferences.notificationSpacing
-                // 드래그 중에도 미리보기에 즉시 반영하는 로컬 상태다. 저장값이 바뀌면(드래그를
-                // 놓아 저장된 순간) 키가 바뀌며 저장값으로 초기화된다. 여기서 저장하지는
-                // 않는다 — 저장은 각 슬라이더의 onDragFinished만 한다.
-                var previewSpacing by remember(currentSpacing) { mutableStateOf(currentSpacing) }
+                // 드래그 중 임시값. 저장이 도착할 때마다 저장값으로 통째 되돌리지 않는다 —
+                // 되돌리면 한 슬라이더의 저장이 직전에 조정한 다른 슬라이더의 값을 원래대로
+                // 튀게 해 여백끼리 연동되는 것처럼 보인다. 임시값은 마지막 드래그 값을 유지
+                // 하고, null은 드래그가 없어 저장값을 그대로 씀을 뜻한다. 여백·글자 크기는
+                // 이 화면의 슬라이더로만 바뀌므로 임시값을 유지해도 저장 도착과 어긋나지 않는다.
+                var previewSpacing by remember { mutableStateOf<NotificationSpacing?>(null) }
+                var previewTimedEventTextSizeSp by remember { mutableStateOf<Int?>(null) }
+                var previewAllDayEventTextSizeSp by remember { mutableStateOf<Int?>(null) }
+                val effectiveSpacing = previewSpacing ?: currentSpacing
+                val effectiveTimedEventTextSizeSp =
+                    previewTimedEventTextSizeSp ?: userPreferences.notificationTextSizeSp
+                val effectiveAllDayEventTextSizeSp =
+                    previewAllDayEventTextSizeSp ?: userPreferences.allDayEventTextSizeSp
                 Text(
                     text = stringResource(R.string.settings_display_preview_caption),
                     style = MaterialTheme.typography.titleSmall,
@@ -536,45 +536,50 @@ fun CalendarStatusScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 NotificationSpacingPreview(
-                    spacing = previewSpacing,
-                    notificationTextSizeSp = userPreferences.notificationTextSizeSp,
-                    allDayEventTextSizeSp = userPreferences.allDayEventTextSizeSp,
+                    spacing = effectiveSpacing,
+                    notificationTextSizeSp = effectiveTimedEventTextSizeSp,
+                    allDayEventTextSizeSp = effectiveAllDayEventTextSizeSp,
                     remoteViewsFactory = remoteViewsFactory,
                 )
                 Spacer(Modifier.height(12.dp))
-                IntegerSettingField(
-                    fieldLabelResourceId = R.string.timed_event_text_size_label,
-                    unitSuffixResourceId = R.string.text_size_unit_suffix,
-                    storedValue = userPreferences.notificationTextSizeSp,
-                    invalidValueText = textSizeInvalidText,
-                    isValidValue = isValidTextSize,
-                    onValidValueChange = { textSizeSp ->
-                        updatePreferences {
-                            userPreferencesRepository.updateNotificationTextSize(textSizeSp)
-                        }
+                StepSettingSliderRow(
+                    labelResourceId = R.string.timed_event_text_size_label,
+                    currentValue = effectiveTimedEventTextSizeSp,
+                    adjustableRange = UserPreferences.NOTIFICATION_TEXT_SIZE_RANGE_SP,
+                    valueFormatResourceId = R.string.text_size_sp_format,
+                    onPreviewValueChange = { textSizeSp ->
+                        previewTimedEventTextSizeSp = textSizeSp
                     },
-                )
+                ) { textSizeSp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationTextSize(textSizeSp)
+                    }
+                }
 
                 Spacer(Modifier.height(12.dp))
-                IntegerSettingField(
-                    fieldLabelResourceId = R.string.all_day_event_text_size_label,
-                    unitSuffixResourceId = R.string.text_size_unit_suffix,
-                    storedValue = userPreferences.allDayEventTextSizeSp,
-                    invalidValueText = textSizeInvalidText,
-                    isValidValue = isValidTextSize,
-                    onValidValueChange = { textSizeSp ->
-                        updatePreferences {
-                            userPreferencesRepository.updateAllDayEventTextSize(textSizeSp)
-                        }
+                StepSettingSliderRow(
+                    labelResourceId = R.string.all_day_event_text_size_label,
+                    currentValue = effectiveAllDayEventTextSizeSp,
+                    adjustableRange = UserPreferences.NOTIFICATION_TEXT_SIZE_RANGE_SP,
+                    valueFormatResourceId = R.string.text_size_sp_format,
+                    onPreviewValueChange = { textSizeSp ->
+                        previewAllDayEventTextSizeSp = textSizeSp
                     },
-                )
+                ) { textSizeSp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateAllDayEventTextSize(textSizeSp)
+                    }
+                }
 
                 Spacer(Modifier.height(12.dp))
-                SpacingSliderRow(
+                StepSettingSliderRow(
                     labelResourceId = R.string.day_header_start_padding_label,
-                    savedValueDp = currentSpacing.dayHeaderStartPaddingDp,
+                    currentValue = effectiveSpacing.dayHeaderStartPaddingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
                     onPreviewValueChange = { newValueDp ->
-                        previewSpacing = previewSpacing.copy(dayHeaderStartPaddingDp = newValueDp)
+                        previewSpacing =
+                            effectiveSpacing.copy(dayHeaderStartPaddingDp = newValueDp)
                     },
                 ) { newValueDp ->
                     updatePreferences {
@@ -583,11 +588,13 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
-                SpacingSliderRow(
+                StepSettingSliderRow(
                     labelResourceId = R.string.time_to_title_spacing_label,
-                    savedValueDp = currentSpacing.timeToTitleSpacingDp,
+                    currentValue = effectiveSpacing.timeToTitleSpacingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
                     onPreviewValueChange = { newValueDp ->
-                        previewSpacing = previewSpacing.copy(timeToTitleSpacingDp = newValueDp)
+                        previewSpacing = effectiveSpacing.copy(timeToTitleSpacingDp = newValueDp)
                     },
                 ) { newValueDp ->
                     updatePreferences {
@@ -596,11 +603,14 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
-                SpacingSliderRow(
+                StepSettingSliderRow(
                     labelResourceId = R.string.day_header_to_event_spacing_label,
-                    savedValueDp = currentSpacing.dayHeaderToEventSpacingDp,
+                    currentValue = effectiveSpacing.dayHeaderToEventSpacingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
                     onPreviewValueChange = { newValueDp ->
-                        previewSpacing = previewSpacing.copy(dayHeaderToEventSpacingDp = newValueDp)
+                        previewSpacing =
+                            effectiveSpacing.copy(dayHeaderToEventSpacingDp = newValueDp)
                     },
                 ) { newValueDp ->
                     updatePreferences {
@@ -609,11 +619,13 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
-                SpacingSliderRow(
+                StepSettingSliderRow(
                     labelResourceId = R.string.between_events_spacing_label,
-                    savedValueDp = currentSpacing.betweenEventsSpacingDp,
+                    currentValue = effectiveSpacing.betweenEventsSpacingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
                     onPreviewValueChange = { newValueDp ->
-                        previewSpacing = previewSpacing.copy(betweenEventsSpacingDp = newValueDp)
+                        previewSpacing = effectiveSpacing.copy(betweenEventsSpacingDp = newValueDp)
                     },
                 ) { newValueDp ->
                     updatePreferences {
@@ -622,12 +634,14 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
-                SpacingSliderRow(
+                StepSettingSliderRow(
                     labelResourceId = R.string.between_day_headers_spacing_label,
-                    savedValueDp = currentSpacing.betweenDayHeadersSpacingDp,
+                    currentValue = effectiveSpacing.betweenDayHeadersSpacingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
                     onPreviewValueChange = { newValueDp ->
                         previewSpacing =
-                            previewSpacing.copy(betweenDayHeadersSpacingDp = newValueDp)
+                            effectiveSpacing.copy(betweenDayHeadersSpacingDp = newValueDp)
                     },
                 ) { newValueDp ->
                     updatePreferences {
@@ -795,18 +809,23 @@ private fun CollapsibleSection(
     }
 }
 
+/**
+ * 라벨과 현재 값, 정수 스냅 슬라이더 한 줄. 여백(dp)과 글자 크기(sp)가 같은 규격을 공유한다.
+ * 값의 단일 출처는 상위다 — [currentValue]는 저장값 또는 드래그 중 임시값이고, 이 행은
+ * 상태를 따로 두지 않는다(상위 임시값이 저장 도착에 튀지 않으므로 직결이 안전하다).
+ *
+ * [onPreviewValueChange]는 드래그 중 임시값을, [onChanged]는 드래그를 놓아 확정된 값을 받는다.
+ * 저장마다 알림 갱신(캘린더 재쿼리)이 따라오므로 저장은 드래그를 놓을 때만 일어난다.
+ */
 @Composable
-private fun SpacingSliderRow(
+private fun StepSettingSliderRow(
     labelResourceId: Int,
-    savedValueDp: Int,
-    // 드래그 중 임시 값 — 저장 전 단계라 미리보기가 저장을 기다리지 않고 따라온다.
-    onPreviewValueChange: (Int) -> Unit = {},
-    onDragFinished: (Int) -> Unit,
+    currentValue: Int,
+    adjustableRange: IntRange,
+    valueFormatResourceId: Int,
+    onPreviewValueChange: (Int) -> Unit,
+    onChanged: (Int) -> Unit,
 ) {
-    // 드래그 중 값은 로컬로 보관한다. Slider 값을 저장값에 직결하면 thumb가 저장값으로
-    // 되돌아가 튄다. 키를 savedValueDp로 두면 저장이 반영된 순간 로컬 값도 따라온다.
-    var draggedValueDp by remember(savedValueDp) { mutableStateOf(savedValueDp.toFloat()) }
-    val adjustableRange = NotificationSpacing.RANGE_DP
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -815,21 +834,16 @@ private fun SpacingSliderRow(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = stringResource(R.string.spacing_dp_format, draggedValueDp.roundToInt()),
+                text = stringResource(valueFormatResourceId, currentValue),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         StepSlider(
-            value = draggedValueDp,
+            value = currentValue.toFloat(),
             valueRange = adjustableRange,
-            onValueChange = { newValueDp ->
-                draggedValueDp = newValueDp.toFloat()
-                onPreviewValueChange(newValueDp)
-            },
-            // 드래그를 놓을 때만 저장한다. 저장마다 알림 갱신(캘린더 재쿼리)이 따라오므로
-            // 드래그 중 저장하면 제스처 하나에 갱신이 수십 번 쌓인다.
-            onValueChangeFinished = { onDragFinished(draggedValueDp.roundToInt()) },
+            onValueChange = onPreviewValueChange,
+            onValueChangeFinished = onChanged,
         )
     }
 }
@@ -852,10 +866,14 @@ private fun StepSlider(
     value: Float,
     valueRange: IntRange,
     onValueChange: (Int) -> Unit,
-    onValueChangeFinished: () -> Unit,
+    onValueChangeFinished: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var isThumbDragged by remember { mutableStateOf(false) }
+    // pointerInput은 [valueRange]를 키로 둬 값이 바뀌어도 제스처 감시를 재시작하지 않는다 —
+    // 그래서 이 블록에 잡힌 람다가 늘 최신 값을 보게 다리를 놓는다. 값 직결 구조에서
+    // 옛 값을 붙잡으면 드래그를 놓는 순간 저장되는 값이 튄다.
+    val latestValue by rememberUpdatedState(value)
     val thumbRadius by animateDpAsState(
         targetValue = if (isThumbDragged) DRAGGED_THUMB_RADIUS_DP else THUMB_RADIUS_DP,
         animationSpec = spring(
@@ -888,10 +906,10 @@ private fun StepSlider(
             }
             .pointerInput(valueRange) {
                 detectTapGestures { gesturePosition ->
-                    onValueChange(
-                        snapValueToPosition(gesturePosition.x, TRACK_INSET_DP.toPx(), size.width.toFloat()),
-                    )
-                    onValueChangeFinished()
+                    val snappedValue =
+                        snapValueToPosition(gesturePosition.x, TRACK_INSET_DP.toPx(), size.width.toFloat())
+                    onValueChange(snappedValue)
+                    onValueChangeFinished(snappedValue)
                 }
             }
             .pointerInput(valueRange) {
@@ -899,7 +917,7 @@ private fun StepSlider(
                     onDragStart = { _ -> isThumbDragged = true },
                     onDragEnd = {
                         isThumbDragged = false
-                        onValueChangeFinished()
+                        onValueChangeFinished(latestValue.roundToInt())
                     },
                     onDragCancel = { isThumbDragged = false },
                 ) { change, _ ->
