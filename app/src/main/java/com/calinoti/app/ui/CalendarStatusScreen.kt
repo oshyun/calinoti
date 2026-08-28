@@ -33,9 +33,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -86,6 +91,7 @@ import com.calinoti.app.notification.AgendaRemoteViewsFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 /**
@@ -529,7 +535,28 @@ fun CalendarStatusScreen(
                     spacing = effectiveSpacing,
                     notificationTextSizeSp = effectiveTimedEventTextSizeSp,
                     allDayEventTextSizeSp = effectiveAllDayEventTextSizeSp,
+                    dayHeaderFormatPattern = userPreferences.dayHeaderFormatPattern,
                     remoteViewsFactory = remoteViewsFactory,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.day_header_format_label),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.day_header_format_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                DayHeaderFormatSelector(
+                    storedPattern = userPreferences.dayHeaderFormatPattern,
+                    onSelectPattern = { selectedPattern ->
+                        updatePreferences {
+                            userPreferencesRepository.updateDayHeaderFormatPattern(selectedPattern)
+                        }
+                    },
                 )
                 Spacer(Modifier.height(12.dp))
                 StepSettingSliderRow(
@@ -1032,6 +1059,130 @@ private fun negateSignOfIntegerText(text: String): String = when {
     text.startsWith("-") -> text.removePrefix("-")
     else -> "-$text"
 }
+
+/**
+ * 날짜 헤더 표시 형식을 고르는 프리셋 드롭다운과 직접 입력 필드. 저장 패턴 하나가 유일한
+ * 출처라 두 입력이 서로를 따라간다 — 저장값이 프리셋 중 하나면 그 항목이, 아니면
+ * 드롭다운에는 직접 입력이 선택된 것으로 보이고, 직접 입력은 저장값이 바뀔 때만 필드를
+ * 저장값으로 맞춘다(IntegerSettingField와 같은 규칙).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayHeaderFormatSelector(
+    storedPattern: String,
+    onSelectPattern: (String) -> Unit,
+) {
+    // 드롭다운을 열어 둔 사이 날짜가 바뀌어도 미리보기가 갑자기 바뀌지 않게 컴포지션
+    // 시점의 오늘을 고정한다(NotificationSpacingPreview와 같은 규칙).
+    val sampleDate = remember { LocalDate.now() }
+    val selectedPreset = dayHeaderFormatPresets.firstOrNull { it.formatPattern == storedPattern }
+    var isDropdownExpanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = isDropdownExpanded,
+        onExpandedChange = { isDropdownExpanded = it },
+    ) {
+        OutlinedTextField(
+            value = selectedPreset?.let { preset -> stringResource(preset.labelResourceId) }
+                ?: stringResource(R.string.day_header_format_custom_option),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.day_header_format_preset_label)) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = isDropdownExpanded,
+            onDismissRequest = { isDropdownExpanded = false },
+        ) {
+            for (preset in dayHeaderFormatPresets) {
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(stringResource(preset.labelResourceId))
+                            // 프리셋 패턴은 유효성이 보장되지만, 그 불변식이 깨져도
+                            // 패턴 문자열 자체는 보이게 둔다.
+                            Text(
+                                text = AgendaRemoteViewsFactory.formatDayHeaderSample(
+                                    preset.formatPattern,
+                                    sampleDate,
+                                ) ?: preset.formatPattern,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    onClick = {
+                        isDropdownExpanded = false
+                        onSelectPattern(preset.formatPattern)
+                    },
+                )
+            }
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Text(
+        text = stringResource(R.string.day_header_format_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(8.dp))
+    var inputPattern by remember(storedPattern) { mutableStateOf(storedPattern) }
+    val inputSampleText =
+        AgendaRemoteViewsFactory.formatDayHeaderSample(inputPattern, sampleDate)
+    OutlinedTextField(
+        value = inputPattern,
+        onValueChange = { typedPattern ->
+            inputPattern = typedPattern
+            // 유효한 입력만 저장한다. 무효한 입력은 오류 문구만 보여주고 저장하지 않는다.
+            if (AgendaRemoteViewsFactory.isValidDayHeaderFormatPattern(typedPattern) &&
+                typedPattern != storedPattern
+            ) {
+                onSelectPattern(typedPattern)
+            }
+        },
+        label = { Text(stringResource(R.string.day_header_format_custom_option)) },
+        isError = inputSampleText == null,
+        supportingText = {
+            Text(
+                text = inputSampleText
+                    ?.let { formattedSample ->
+                        stringResource(R.string.day_header_format_preview_format, formattedSample)
+                    }
+                    ?: stringResource(R.string.day_header_format_invalid_message),
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+}
+
+/**
+ * 날짜 헤더 표시 형식 프리셋 한 항목. [labelResourceId]는 드롭다운에 보일 이름이다.
+ */
+private data class DayHeaderFormatPreset(
+    val labelResourceId: Int,
+    val formatPattern: String,
+)
+
+/**
+ * 날짜 헤더 표시 형식 프리셋. 항목을 한 줄 추가하면 드롭다운에 자동으로 나타난다 —
+ * 선택값은 [DayHeaderFormatPreset.formatPattern] 문자열 그대로 저장되고, 항목의 미리보기는
+ * AgendaRemoteViewsFactory.formatDayHeaderSample로 실제 오늘 날짜를 포맷해 만든다.
+ * 패턴은 반드시 유효해야 한다(무효 패턴은 isValidDayHeaderFormatPattern을 통과해 저장될 수 없다).
+ */
+private val dayHeaderFormatPresets = listOf(
+    DayHeaderFormatPreset(R.string.day_header_format_preset_basic, "MM.dd, EEEE"),
+    DayHeaderFormatPreset(R.string.day_header_format_preset_weekday_short, "MM.dd (E)"),
+    DayHeaderFormatPreset(R.string.day_header_format_preset_korean, "M월 d일 (E)"),
+    DayHeaderFormatPreset(R.string.day_header_format_preset_with_year, "yyyy.MM.dd (E)"),
+    DayHeaderFormatPreset(R.string.day_header_format_preset_compact, "MM.dd"),
+)
 
 /**
  * 클릭 동작(일정 클릭·알림 클릭)이 열 앱을 고르는 공용 선택 목록.

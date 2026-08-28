@@ -75,11 +75,19 @@ data class UserPreferences(
      * 접힌 알림에 적용한 규칙을 펼친 알림이 따라오지 않는다.
      */
     val expandedHiddenItemTypes: Set<HiddenItemType>,
+    /**
+     * 날짜 헤더의 표시 형식(DateTimeFormatter 패턴 문법). 예: "MM.dd (E)" → "08.29 (금)".
+     * 저장은 설정 화면에서만 일어나며 유효성 검사를 거치므로 항상 유효한 패턴이다.
+     */
+    val dayHeaderFormatPattern: String,
 ) {
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
         const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
         const val NOTIFICATION_TEXT_SIZE_MAX_SP = 32
+
+        /** 날짜 헤더 형식의 기본 패턴. 초기 버전부터 쓰던 표시("08.29, 금요일")다. */
+        const val DEFAULT_DAY_HEADER_FORMAT_PATTERN = "MM.dd, EEEE"
 
         /** 글자 크기 슬라이더의 조절 범위. 단일 객체로 둬 슬라이더가 이를 안정적으로 참조한다. */
         val NOTIFICATION_TEXT_SIZE_RANGE_SP =
@@ -101,6 +109,7 @@ data class UserPreferences(
             isNotificationPinned = true,
             collapsedHiddenItemTypes = emptySet(),
             expandedHiddenItemTypes = emptySet(),
+            dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
         )
     }
 }
@@ -154,6 +163,7 @@ private val HIDDEN_ITEM_TYPES_COLLAPSED_KEY =
     stringSetPreferencesKey("hidden_item_types_collapsed")
 private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
     stringSetPreferencesKey("hidden_item_types_expanded")
+private val DAY_HEADER_FORMAT_PATTERN_KEY = stringPreferencesKey("day_header_format_pattern")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
 private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
@@ -252,6 +262,9 @@ class UserPreferencesRepository(private val context: Context) {
                         storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_COLLAPSED_KEY),
                     expandedHiddenItemTypes =
                         storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_EXPANDED_KEY),
+                    dayHeaderFormatPattern =
+                        storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY]
+                            ?: UserPreferences.DEFAULTS.dayHeaderFormatPattern,
                 )
             }
 
@@ -355,6 +368,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationPinned(isPinned: Boolean) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_PINNED_KEY] = isPinned
+        }
+    }
+
+    suspend fun updateDayHeaderFormatPattern(formatPattern: String) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY] = formatPattern
         }
     }
 
