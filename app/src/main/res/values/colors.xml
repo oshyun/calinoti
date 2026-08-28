@@ -6,4 +6,9 @@
          일정 제목 색은 여기에 없다 — 캘린더 색을 AgendaRemoteViewsFactory가 런타임에 적용한다. -->
     <color name="notification_text_primary">#DE000000</color>
     <color name="notification_text_secondary">#8A000000</color>
+
+    <!-- 설정 화면 여백 미리보기의 카드 배경. 시스템이 그리는 알림 카드의 근사치다. 실제
+         카드처럼 밝기는 시스템 테마를 따라야 하므로(알림 텍스트 색과 같은 규칙) values-night에서
+         어긋난다. One UI는 커스텀 알림 카드를 표준보다 연하게 그리므로 너무 검게 하지 않는다. -->
+    <color name="notification_preview_card_background">#FFFFFFFF</color>
 </resources>

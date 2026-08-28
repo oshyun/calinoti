@@ -73,6 +73,8 @@
     <string name="text_size_invalid_message">%1$d 이상 %2$d 이하의 수를 입력하세요</string>
 
     <string name="settings_section_spacing">알림 여백</string>
+    <string name="settings_spacing_preview_caption">미리보기</string>
+    <string name="settings_spacing_preview_description">실제 알림과 같은 배열입니다. 슬라이더를 움직이면 바로 반영됩니다. (표시 항목 수·감춤 설정은 반영하지 않습니다)</string>
 
     <string name="settings_section_notification_actions">알림 동작</string>
     <string name="notification_action_summary_format">일정 %1$s · 알림 %2$s</string>

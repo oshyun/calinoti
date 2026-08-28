@@ -45,12 +45,16 @@ class AgendaApplication : Application() {
     lateinit var agendaRefresher: AgendaRefresher
         private set
 
+    /** 설정 화면의 여백 미리보기가 실제 알림과 같은 조립 경로를 쓰게 공유한다. */
+    lateinit var remoteViewsFactory: AgendaRemoteViewsFactory
+        private set
+
     override fun onCreate() {
         super.onCreate()
         userPreferencesRepository = UserPreferencesRepository(this)
         calendarReader = CalendarReader(this)
         calendarAppReader = CalendarAppReader(this)
-        val remoteViewsFactory = AgendaRemoteViewsFactory(this)
+        remoteViewsFactory = AgendaRemoteViewsFactory(this)
         notificationManager = AgendaNotificationManager(this, remoteViewsFactory)
         agendaRefresher = AgendaRefresher(
             context = this,

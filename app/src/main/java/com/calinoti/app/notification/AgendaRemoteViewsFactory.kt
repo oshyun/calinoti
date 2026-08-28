@@ -51,7 +51,30 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         filterHiddenEntries(listEntries, hiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
-        eventClickTargetPackageName = eventClickTargetPackageName,
+        eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
+        spacing = spacing,
+        notificationTextSizeSp = notificationTextSizeSp,
+        allDayEventTextSizeSp = allDayEventTextSizeSp,
+        currentTimeMilliseconds = currentTimeMilliseconds,
+    )
+
+    /**
+     * 설정 화면 미리보기용 뷰. 실제 알림과 같은 조립 경로를 쓰되 행 클릭은 걸지 않는다 —
+     * 설정 창에서 PendingIntent를 만들어 두면 쓸모 없는 시스템 등록만 남는다. 탐침이
+     * 필요 없는 [EventRowClickTarget.None]을 넘기므로 PackageManager 쿼리도 일어나지
+     * 않는다. 항목 수 제한(maxVisibleEntries)과 감춤 규칙도 반영하지 않는다. 표본 목록의
+     * 모든 항목을 보여줘야 각 여백 설정이 어느 부분인지 드러나기 때문이다.
+     */
+    fun createPreviewViews(
+        listEntries: List<AgendaListEntry>,
+        spacing: NotificationSpacing,
+        notificationTextSizeSp: Int,
+        allDayEventTextSizeSp: Int,
+        currentTimeMilliseconds: Long,
+    ): RemoteViews = createAgendaViews(
+        listEntries,
+        itemLimit = Int.MAX_VALUE,
+        eventRowClickTarget = EventRowClickTarget.None,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -74,7 +97,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         filterHiddenEntries(listEntries, hiddenItemTypes, currentTimeMilliseconds),
         itemLimit = maxVisibleEntries,
-        eventClickTargetPackageName = eventClickTargetPackageName,
+        eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -146,7 +169,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     private fun createAgendaViews(
         listEntries: List<AgendaListEntry>,
         itemLimit: Int,
-        eventClickTargetPackageName: String,
+        /**
+         * 일정 행 클릭 대상. [EventRowClickTarget.None]이면 행 클릭 없이 조립한다(설정
+         * 화면 미리보기). 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만
+         * 하므로 호출부가 넘긴다.
+         */
+        eventRowClickTarget: EventRowClickTarget,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -166,8 +194,6 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             rootViews.addView(R.id.notification_agenda_container, emptyViews)
             return rootViews
         }
-        // 일정 행 클릭 대상 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
-        val eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName)
         // 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로 배분한다. AgendaListBuilder가 헤더를
         // 일정 직전에만 추가하므로 첫 항목은 항상 헤더고, 세 수직 간격이 서로 겹치지 않는다.
         val visibleEntries = listEntries.take(itemLimit)

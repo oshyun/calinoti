@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
                     calendarReader = agendaApplication.calendarReader,
                     calendarAppReader = agendaApplication.calendarAppReader,
                     notificationManager = agendaApplication.notificationManager,
+                    remoteViewsFactory = agendaApplication.remoteViewsFactory,
                     userPreferencesRepository = agendaApplication.userPreferencesRepository,
                     versionLabel = versionLabel,
                     refreshAgenda = agendaApplication::launchAgendaRefresh,

@@ -2,4 +2,6 @@
 <resources>
     <color name="notification_text_primary">#DEFFFFFF</color>
     <color name="notification_text_secondary">#A6FFFFFF</color>
+
+    <color name="notification_preview_card_background">#FF1D1D1D</color>
 </resources>
