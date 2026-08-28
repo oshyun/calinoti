@@ -10,7 +10,8 @@ data class InstalledCalendarApp(val packageName: String, val label: String)
 class CalendarAppReader(private val context: Context) {
 
     /**
-     * 일정 상세(ACTION_VIEW + 캘린더 content URI)를 열 수 있는 설치 앱 목록. 라벨순.
+     * 일정 상세(ACTION_VIEW + 캘린더 content URI)를 열 수 있는 설치 앱 목록.
+     * 라벨순이되 같은 라벨(예: 서로 다른 제조사의 "캘린더")은 패키지 이름순으로 구분해 정렬한다.
      * 이 인텐트는 AndroidManifest의 <queries>와 같아서, 여기 걸린 패키지는
      * getLaunchIntentForPackage로도 조회 가능하다(API 30+ 패키지 가시성).
      */
@@ -30,6 +31,11 @@ class CalendarAppReader(private val context: Context) {
                         .ifEmpty { resolveInfo.activityInfo.packageName },
                 )
             }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+            .sortedWith(
+                compareBy<InstalledCalendarApp, String>(String.CASE_INSENSITIVE_ORDER) { it.label }
+                    .thenComparator { first, second ->
+                        first.packageName.compareTo(second.packageName)
+                    },
+            )
     }
 }

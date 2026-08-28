@@ -43,7 +43,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     fun createCollapsedViews(
         listEntries: List<AgendaListEntry>,
         hiddenItemTypes: Set<CollapsedHiddenItemType>,
-        calendarAppPackageName: String,
+        eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -51,7 +51,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         filterEntriesVisibleInCollapsedView(listEntries, hiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
-        calendarAppPackageName = calendarAppPackageName,
+        eventClickTargetPackageName = eventClickTargetPackageName,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -62,7 +62,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     fun createExpandedViews(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
-        calendarAppPackageName: String,
+        eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -70,7 +70,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = maxVisibleEntries,
-        calendarAppPackageName = calendarAppPackageName,
+        eventClickTargetPackageName = eventClickTargetPackageName,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -135,7 +135,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     private fun createAgendaViews(
         listEntries: List<AgendaListEntry>,
         itemLimit: Int,
-        calendarAppPackageName: String,
+        eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -156,7 +156,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             return rootViews
         }
         // 일정 행 클릭 대상 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
-        val eventClickTarget = resolveEventClickTarget(calendarAppPackageName)
+        val eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName)
         // 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로 배분한다. AgendaListBuilder가 헤더를
         // 일정 직전에만 추가하므로 첫 항목은 항상 헤더고, 세 수직 간격이 서로 겹치지 않는다.
         val visibleEntries = listEntries.take(itemLimit)
@@ -198,7 +198,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 is AgendaListEntry.Event -> {
                     val eventItemViews = createEventItemViews(
                         listEntry.entry,
-                        eventClickTarget,
+                        eventRowClickTarget,
                         // 종일 일정 제목은 종일 전용 설정 크기를 쓴다.
                         titleTextSizeSp =
                             if (listEntry.entry.isAllDay) allDayTitleTextSizeSp else titleTextSizeSp,
@@ -222,7 +222,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     private fun createEventItemViews(
         entry: AgendaEntry,
-        eventClickTarget: EventClickTarget,
+        eventRowClickTarget: EventRowClickTarget,
         titleTextSizeSp: Float,
         secondaryTextSizeSp: Float,
         currentTimeMilliseconds: Long,
@@ -269,15 +269,24 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             itemViews.setTextViewText(R.id.event_location_text, entry.location)
             itemViews.setTextViewTextSize(R.id.event_location_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
-        if (eventClickTarget.canOpenEventRows) {
-            // 클릭은 시간·제목·위치 텍스트에만 건다. 텍스트가 없는 행의 오른쪽 여백은
-            // 클릭이 없어 알림 전체 contentIntent(지정 캘린더 앱 열기)로 넘어간다. 캘린더
-            // 앱이 없는 기기에서는 걸지 않아 텍스트까지 알림 전체가 contentIntent다.
-            val openEventPendingIntent =
-                createOpenEventPendingIntent(entry.eventId, eventClickTarget.packageName)
-            itemViews.setOnClickPendingIntent(R.id.event_time_text, openEventPendingIntent)
-            itemViews.setOnClickPendingIntent(R.id.event_title_text, openEventPendingIntent)
-            itemViews.setOnClickPendingIntent(R.id.event_location_text, openEventPendingIntent)
+        // 클릭은 시간·제목·위치 텍스트에만 건다. 텍스트가 없는 행의 오른쪽 여백은
+        // 클릭이 없어 알림 전체 contentIntent(알림 클릭 동작)로 넘어간다. 행 클릭 대상이
+        // 없는(None) 기기에서는 걸지 않아 텍스트까지 알림 전체가 contentIntent다.
+        when (eventRowClickTarget) {
+            EventRowClickTarget.None -> Unit
+            EventRowClickTarget.SelfApp -> {
+                val openSelfAppPendingIntent = createOpenSelfAppPendingIntent()
+                itemViews.setOnClickPendingIntent(R.id.event_time_text, openSelfAppPendingIntent)
+                itemViews.setOnClickPendingIntent(R.id.event_title_text, openSelfAppPendingIntent)
+                itemViews.setOnClickPendingIntent(R.id.event_location_text, openSelfAppPendingIntent)
+            }
+            is EventRowClickTarget.CalendarEventDetail -> {
+                val openEventPendingIntent =
+                    createOpenEventPendingIntent(entry.eventId, eventRowClickTarget.packageName)
+                itemViews.setOnClickPendingIntent(R.id.event_time_text, openEventPendingIntent)
+                itemViews.setOnClickPendingIntent(R.id.event_title_text, openEventPendingIntent)
+                itemViews.setOnClickPendingIntent(R.id.event_location_text, openEventPendingIntent)
+            }
         }
         return itemViews
     }
@@ -291,28 +300,48 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
 
-    /** 일정 행 클릭 대상. [packageName]이 null이면 암시적 인텐트로 시스템이 처리 앱을 고른다. */
-    private data class EventClickTarget(val packageName: String?, val canOpenEventRows: Boolean)
+    /** 일정 행 클릭 대상. 행을 눌렀을 때 무엇을 여는지 세 갈래로 나뉜다. */
+    private sealed interface EventRowClickTarget {
+
+        /** 처리 앱이 없어 행 클릭을 걸지 않는다 — 클릭은 알림 전체 contentIntent가 받는다. */
+        data object None : EventRowClickTarget
+
+        /** Calinoti 자신을 연다. 일정 상세 화면이 없어 이 값이 지정되면 행 클릭도 앱을 연다. */
+        data object SelfApp : EventRowClickTarget
+
+        /** 캘린더 앱의 일정 상세. [packageName]이 null이면 암시적 인텐트로 시스템이 고른다. */
+        data class CalendarEventDetail(val packageName: String?) : EventRowClickTarget
+    }
 
     /**
-     * 지정 캘린더 앱이 일정 상세를 열 수 있으면 그 앱으로 한정하고, 지정이 없거나 이미
-     * 지워졌으면 암시적 인텐트로 돌아간다. 어느 쪽도 처리 앱이 없으면 행 클릭을 걸지 않아
-     * 알림 전체 contentIntent가 행을 포함해 동작하게 둔다.
+     * 일정 클릭 동작 설정값을 행 클릭 대상으로 바꾼다. Calinoti 자신이 지정되면 SelfApp으로
+     * 연다(자기 런처 인텐트는 항상 존재해 탐침이 없다). 캘린더 앱이 지정되면 그 앱이 일정
+     * 상세를 열 수 있는지 탐친다. 지정이 없거나 이미 지워졌으면 암시적 인텐트로 돌아가고,
+     * 어느 쪽도 처리 앱이 없으면 행 클릭을 걸지 않아 알림 전체 contentIntent가 행을 포함해
+     * 동작하게 둔다.
      */
-    private fun resolveEventClickTarget(calendarAppPackageName: String): EventClickTarget {
-        if (calendarAppPackageName != UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME) {
+    private fun resolveEventRowClickTarget(
+        eventClickTargetPackageName: String,
+    ): EventRowClickTarget {
+        if (eventClickTargetPackageName == context.packageName) {
+            return EventRowClickTarget.SelfApp
+        }
+        if (eventClickTargetPackageName != UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME) {
             val selectedAppIntent =
                 CalendarIntents.buildEventViewIntent(CalendarIntents.EVENT_PROBE_ID)
-                    .setPackage(calendarAppPackageName)
+                    .setPackage(eventClickTargetPackageName)
             if (hasResolvingActivity(selectedAppIntent)) {
-                return EventClickTarget(packageName = calendarAppPackageName, canOpenEventRows = true)
+                return EventRowClickTarget.CalendarEventDetail(
+                    packageName = eventClickTargetPackageName,
+                )
             }
         }
         val implicitIntent = CalendarIntents.buildEventViewIntent(CalendarIntents.EVENT_PROBE_ID)
-        return EventClickTarget(
-            packageName = null,
-            canOpenEventRows = hasResolvingActivity(implicitIntent),
-        )
+        return if (hasResolvingActivity(implicitIntent)) {
+            EventRowClickTarget.CalendarEventDetail(packageName = null)
+        } else {
+            EventRowClickTarget.None
+        }
     }
 
     private fun hasResolvingActivity(intent: Intent): Boolean =
@@ -366,6 +395,19 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             CalendarIntents.buildEventViewIntent(eventId).apply {
                 if (targetPackageName != null) setPackage(targetPackageName)
             },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    /**
+     * 행 클릭에 Calinoti 자신을 여는 PendingIntent. 대상이 자기 패키지라 런처 인텐트는
+     * 항상 존재해 null 검사가 없다. 일정별 인텐트가 아니므로 모든 행이 하나의 레코드를
+     * 갱신 재사용한다.
+     */
+    private fun createOpenSelfAppPendingIntent(): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            EVENT_CLICK_REQUEST_CODE,
+            context.packageManager.getLaunchIntentForPackage(context.packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

@@ -60,6 +60,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -618,36 +619,65 @@ fun CalendarStatusScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // 접힌 헤더에도 현재 지정 캘린더 앱·고정 여부가 보이게 요약을 계산한다.
+            // 접힌 헤더에도 두 클릭 동작의 지정 앱·고정 여부가 보이게 요약을 계산한다.
             // 목록이 아직 로딩 중이거나 지정 앱이 사라졌으면 기본값 라벨로 둔다.
-            val selectedCalendarAppLabel =
-                installedCalendarApps
-                    ?.firstOrNull { it.packageName == userPreferences.calendarAppPackageName }
-                    ?.label
-                    ?: stringResource(R.string.calendar_app_default_option)
+            val selfClickTargetPackageName = LocalContext.current.packageName
+            val eventClickTargetLabel = clickTargetSummaryLabel(
+                clickTargetPackageName = userPreferences.eventClickTargetPackageName,
+                selfClickTargetPackageName = selfClickTargetPackageName,
+                installedCalendarApps = installedCalendarApps,
+            )
+            val notificationClickTargetLabel = clickTargetSummaryLabel(
+                clickTargetPackageName = userPreferences.notificationClickTargetPackageName,
+                selfClickTargetPackageName = selfClickTargetPackageName,
+                installedCalendarApps = installedCalendarApps,
+            )
             val notificationActionSummary =
                 if (userPreferences.isNotificationPinned) {
                     stringResource(
                         R.string.notification_action_summary_fixed_format,
-                        selectedCalendarAppLabel,
+                        eventClickTargetLabel,
+                        notificationClickTargetLabel,
                     )
                 } else {
-                    selectedCalendarAppLabel
+                    stringResource(
+                        R.string.notification_action_summary_format,
+                        eventClickTargetLabel,
+                        notificationClickTargetLabel,
+                    )
                 }
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_calendar_app),
+                title = stringResource(R.string.settings_section_notification_actions),
                 summary = notificationActionSummary,
                 isExpanded = isNotificationActionSectionExpanded,
                 onToggleExpanded = {
                     isNotificationActionSectionExpanded = !isNotificationActionSectionExpanded
                 },
             ) {
-                CalendarAppSelector(
+                ClickTargetSelector(
+                    selectorTitleResourceId = R.string.event_click_action_title,
+                    selectorDescriptionResourceId = R.string.event_click_action_description,
                     installedCalendarApps = installedCalendarApps,
-                    selectedPackageName = userPreferences.calendarAppPackageName,
-                    onSelectCalendarApp = { packageName ->
+                    selfClickTargetPackageName = selfClickTargetPackageName,
+                    selectedPackageName = userPreferences.eventClickTargetPackageName,
+                    onSelectClickTarget = { packageName ->
                         updatePreferences {
-                            userPreferencesRepository.updateCalendarAppPackageName(packageName)
+                            userPreferencesRepository.updateEventClickTargetPackageName(packageName)
+                        }
+                    },
+                )
+
+                Spacer(Modifier.height(16.dp))
+                ClickTargetSelector(
+                    selectorTitleResourceId = R.string.notification_click_action_title,
+                    selectorDescriptionResourceId = R.string.notification_click_action_description,
+                    installedCalendarApps = installedCalendarApps,
+                    selfClickTargetPackageName = selfClickTargetPackageName,
+                    selectedPackageName = userPreferences.notificationClickTargetPackageName,
+                    onSelectClickTarget = { packageName ->
+                        updatePreferences {
+                            userPreferencesRepository
+                                .updateNotificationClickTargetPackageName(packageName)
                         }
                     },
                 )
@@ -969,17 +999,45 @@ private fun negateSignOfIntegerText(text: String): String = when {
     else -> "-$text"
 }
 
-/** 알림을 눌렀을 때 열 캘린더 앱을 고르는 선택 목록. 맨 위 "기본값"은 지정 없음이다. */
+/**
+ * 클릭 동작(일정 클릭·알림 클릭)이 열 앱을 고르는 공용 선택 목록.
+ * 서브섹션 제목·설명을 함께 보여주며, 옵션은 기본값(시스템 선택)·Calinoti 열기·
+ * 설치 캘린더 앱 순이다. [selfClickTargetPackageName]은 Calinoti 열기 옵션의 저장값으로
+ * 쓰는 자기 자신의 패키지 이름이다.
+ */
 @Composable
-private fun CalendarAppSelector(
+private fun ClickTargetSelector(
+    selectorTitleResourceId: Int,
+    selectorDescriptionResourceId: Int,
     installedCalendarApps: List<InstalledCalendarApp>?,
+    selfClickTargetPackageName: String,
     selectedPackageName: String,
-    onSelectCalendarApp: (String) -> Unit,
+    onSelectClickTarget: (String) -> Unit,
 ) {
     Text(
-        text = stringResource(R.string.calendar_app_description),
+        text = stringResource(selectorTitleResourceId),
+        style = MaterialTheme.typography.titleSmall,
+    )
+    Spacer(Modifier.height(2.dp))
+    Text(
+        text = stringResource(selectorDescriptionResourceId),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(4.dp))
+    // 기본값과 Calinoti 열기는 캘린더 앱이 없는 기기에서도 유효한 선택지라 항상 보여준다.
+    ClickTargetOptionRow(
+        label = stringResource(R.string.calendar_app_default_option),
+        isSelected =
+            selectedPackageName == UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
+        onClick = {
+            onSelectClickTarget(UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME)
+        },
+    )
+    ClickTargetOptionRow(
+        label = stringResource(R.string.click_target_self_option),
+        isSelected = selectedPackageName == selfClickTargetPackageName,
+        onClick = { onSelectClickTarget(selfClickTargetPackageName) },
     )
     when {
         installedCalendarApps == null -> Unit
@@ -989,31 +1047,63 @@ private fun CalendarAppSelector(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         else -> {
-            CalendarAppOptionRow(
-                label = stringResource(R.string.calendar_app_default_option),
-                isSelected =
-                    selectedPackageName == UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME,
-                onClick = {
-                    onSelectCalendarApp(UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME)
-                },
-            )
             for (calendarApp in installedCalendarApps) {
-                CalendarAppOptionRow(
+                ClickTargetOptionRow(
                     label = calendarApp.label,
+                    // 라벨만으로 구분되지 않는 동명 앱이 많아 제작자 힌트로 패키지 이름을 함께 보여준다.
+                    hint = calendarApp.packageName,
                     isSelected = selectedPackageName == calendarApp.packageName,
-                    onClick = { onSelectCalendarApp(calendarApp.packageName) },
+                    onClick = { onSelectClickTarget(calendarApp.packageName) },
                 )
             }
         }
     }
 }
 
+/** 클릭 동작 옵션 한 행. [hint]는 동명 앱을 구분하게 하는 패키지 이름 같은 보조 텍스트다. */
 @Composable
-private fun CalendarAppOptionRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun ClickTargetOptionRow(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    hint: String? = null,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         RadioButton(selected = isSelected, onClick = onClick)
-        Text(label)
+        Column {
+            Text(label)
+            if (hint != null) {
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
+}
+
+/**
+ * 클릭 동작 설정값을 접힌 헤더 요약 라벨로 바꾼다. Calinoti 자신이면 "Calinoti 열기",
+ * 미지정이거나 설치 목록에서 찾을 수 없는(이미 지워진) 앱이면 기본값 라벨로 돌아간다.
+ */
+@Composable
+private fun clickTargetSummaryLabel(
+    clickTargetPackageName: String,
+    selfClickTargetPackageName: String,
+    installedCalendarApps: List<InstalledCalendarApp>?,
+): String = when {
+    clickTargetPackageName == selfClickTargetPackageName ->
+        stringResource(R.string.click_target_self_option)
+
+    clickTargetPackageName == UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME ->
+        stringResource(R.string.calendar_app_default_option)
+
+    else ->
+        installedCalendarApps
+            ?.firstOrNull { it.packageName == clickTargetPackageName }
+            ?.label
+            ?: stringResource(R.string.calendar_app_default_option)
 }
 
 private fun CollapsedHiddenItemType.labelResourceId(): Int = when (this) {
