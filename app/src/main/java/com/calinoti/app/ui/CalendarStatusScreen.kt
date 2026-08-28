@@ -439,19 +439,9 @@ fun CalendarStatusScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // 접힌 헤더에도 현재 감춤 규모가 보이게 요약을 계산한다.
-            val collapsedHiddenItemsSectionSummary =
-                if (userPreferences.hiddenItemTypes.isEmpty()) {
-                    stringResource(R.string.collapsed_hidden_items_summary_none)
-                } else {
-                    stringResource(
-                        R.string.collapsed_hidden_items_summary_format,
-                        userPreferences.hiddenItemTypes.size,
-                    )
-                }
             CollapsibleSection(
                 title = stringResource(R.string.settings_section_collapsed_hidden_items),
-                summary = collapsedHiddenItemsSectionSummary,
+                summary = stringResource(R.string.collapsed_hidden_items_summary),
                 isExpanded = isCollapsedHiddenItemsSectionExpanded,
                 onToggleExpanded = {
                     isCollapsedHiddenItemsSectionExpanded = !isCollapsedHiddenItemsSectionExpanded
@@ -501,11 +491,7 @@ fun CalendarStatusScreen(
             // 바로 대응해 볼 수 있다.
             CollapsibleSection(
                 title = stringResource(R.string.settings_section_notification_display),
-                summary = stringResource(
-                    R.string.font_size_summary_format,
-                    userPreferences.notificationTextSizeSp,
-                    userPreferences.allDayEventTextSizeSp,
-                ),
+                summary = stringResource(R.string.notification_display_summary),
                 isExpanded = isNotificationDisplaySectionExpanded,
                 onToggleExpanded = {
                     isNotificationDisplaySectionExpanded = !isNotificationDisplaySectionExpanded
@@ -759,7 +745,7 @@ fun CalendarStatusScreen(
 
 /**
  * 헤더(제목·요약·펼침 화살표)를 눌러 내용을 펼치거나 접는 섹션.
- * [summary]는 접힌 상태에서도 현재 상태를 알 수 있게 하는 한 줄 요약이다 (null이면 표시하지 않는다).
+ * [summary]는 접힌 상태에서도 현재 상태나 섹션의 용도를 알 수 있게 하는 한 줄 요약이다 (null이면 표시하지 않는다).
  */
 @Composable
 private fun CollapsibleSection(
