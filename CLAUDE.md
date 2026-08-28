@@ -9,6 +9,8 @@
 
 - APK 빌드는 작업 브랜치의 main 머지가 끝난 뒤 main tree에서 실행한다.
   머지 전 worktree에서 미리 빌드한 APK는 전달하지 않는다.
+- 머지가 완료되면 APK 생성 여부를 묻지 않는다. bump부터 빌드·Desktop 복사까지
+  확인 없이 자동으로 한 흐름으로 진행한다.
 - 빌드 후 `app/build/outputs/apk/debug/app-debug.apk`를
   `~/Desktop/Calinoti-v<versionName>-debug.apk`로 복사해 사용자에게 전달한다.
 - 데스크탑에 두는 파일 이름에는 항상 versionName을 포함한다 (예: `Calinoti-v1.2.1-debug.apk`).
