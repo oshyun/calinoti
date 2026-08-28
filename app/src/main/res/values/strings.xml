@@ -16,8 +16,9 @@
     <string name="today_label">(오늘)</string>
     <string name="agenda_in_progress">(진행 중)</string>
     <string name="agenda_finished">(종료됨)</string>
-    <!-- 여러 날에 걸친 종일 일정의 제목: "제목 (~08.30까지)" -->
-    <string name="agenda_multiday_title_format">%1$s (~%2$s까지)</string>
+    <!-- 여러 날에 걸친 종일 일정 제목 뒤에 붙이는 종료일 표기: "제목 (~08.30까지)"의 "(~08.30까지)" 부분.
+         제목과 톤(색·크기)을 나눠 입히므로 제목을 포함하지 않는다. -->
+    <string name="agenda_multiday_end_date_suffix_format">(~%1$s까지)</string>
 
     <string name="calendar_permission_title">캘린더 권한 필요</string>
     <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>

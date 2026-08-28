@@ -507,8 +507,8 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     /**
      * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
-     * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다. 라벨이 없으면
-     * 제목만 그린다.
+     * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다. 종료일 표기(~08.30까지)도
+     * 라벨과 같은 secondary 톤으로 낮춘다. 라벨이 없으면 제목만 그린다.
      * 이미 끝난 일정은 제목에 취소선을 긋고 (종료됨) 라벨을 붙인다.
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
@@ -520,13 +520,22 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 여러 날에 걸친 종일 일정은 시작일 그룹에 표시하되 제목에 종료일을 붙인다.
         val baseTitle = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
         val multidayAllDayLastDay = findAllDayLastDayOrNull(entry)
-        val titleText =
-            if (multidayAllDayLastDay == null) baseTitle
-            else context.getString(
-                R.string.agenda_multiday_title_format,
-                baseTitle,
+        val titleText = SpannableStringBuilder(baseTitle)
+        if (multidayAllDayLastDay != null) {
+            val endDateSuffix = context.getString(
+                R.string.agenda_multiday_end_date_suffix_format,
                 multidayAllDayLastDay.format(multidayEndDateFormatter),
             )
+            val endDateSuffixStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
+            titleText
+                .append(RELATIVE_TIME_LABEL_SEPARATOR)
+                .append(endDateSuffix)
+            titleText.applySecondaryTextTone(
+                startIndex = endDateSuffixStartIndex,
+                endIndex = titleText.length,
+                textSizeSp = secondaryTextSizeSp,
+            )
+        }
         val isEventFinished = entry.finishTimeMilliseconds <= currentTimeMilliseconds
         val relativeTimeLabel =
             if (isEventFinished) context.getString(R.string.agenda_finished)
@@ -549,27 +558,44 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             )
         }
         // 라벨 구간만 시간·위치 텍스트와 같은 secondary 톤(색·크기)으로 낮춘다.
-        titleWithLabel.setSpan(
+        titleWithLabel.applySecondaryTextTone(
+            startIndex = labelTextStartIndex,
+            endIndex = titleWithLabel.length,
+            textSizeSp = secondaryTextSizeSp,
+        )
+        return titleWithLabel
+    }
+
+    /**
+     * [startIndex]부터 [endIndex] 앞까지 상대 시간 라벨의 secondary 톤 — 시간·위치 텍스트와
+     * 같은 회색, 제목보다 2sp 작은 크기 — 를 입힌다. 여러 날 종일 일정의 종료일 표기와
+     * 상대 시간 라벨이 함께 쓴다.
+     */
+    private fun SpannableStringBuilder.applySecondaryTextTone(
+        startIndex: Int,
+        endIndex: Int,
+        textSizeSp: Float,
+    ) {
+        setSpan(
             ForegroundColorSpan(
                 ContextCompat.getColor(context, R.color.notification_text_secondary),
             ),
-            labelTextStartIndex,
-            titleWithLabel.length,
+            startIndex,
+            endIndex,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
-        titleWithLabel.setSpan(
+        setSpan(
             AbsoluteSizeSpan(
                 TypedValue.applyDimension(
                     COMPLEX_UNIT_SP,
-                    secondaryTextSizeSp,
+                    textSizeSp,
                     context.resources.displayMetrics,
                 ).toInt(),
             ),
-            labelTextStartIndex,
-            titleWithLabel.length,
+            startIndex,
+            endIndex,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
-        return titleWithLabel
     }
 
     /**
