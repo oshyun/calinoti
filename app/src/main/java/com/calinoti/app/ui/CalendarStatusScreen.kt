@@ -336,7 +336,8 @@ fun CalendarStatusScreen(
                 title = stringResource(R.string.settings_section_display),
                 summary = stringResource(
                     R.string.display_settings_summary_format,
-                    userPreferences.daysToLookAhead,
+                    userPreferences.windowStartDays,
+                    userPreferences.windowEndDays,
                     userPreferences.maxVisibleEntries,
                 ),
                 isExpanded = isDisplaySettingsSectionExpanded,
@@ -345,12 +346,27 @@ fun CalendarStatusScreen(
                 },
             ) {
                 IntegerSettingField(
-                    fieldLabelResourceId = R.string.days_to_look_ahead_label,
+                    fieldLabelResourceId = R.string.window_start_days_label,
                     unitSuffixResourceId = R.string.days_unit_suffix,
-                    storedValue = userPreferences.daysToLookAhead,
-                    guidanceText = stringResource(R.string.days_to_look_ahead_negative_hint),
-                    onValidValueChange = { days ->
-                        updatePreferences { userPreferencesRepository.updateDaysToLookAhead(days) }
+                    storedValue = userPreferences.windowStartDays,
+                    guidanceText = stringResource(R.string.window_start_days_hint),
+                    invalidValueText = stringResource(R.string.display_window_order_invalid_message),
+                    isValidValue = { startDays -> startDays <= userPreferences.windowEndDays },
+                    onValidValueChange = { startDays ->
+                        updatePreferences { userPreferencesRepository.updateWindowStartDays(startDays) }
+                    },
+                )
+
+                Spacer(Modifier.height(12.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.window_end_days_label,
+                    unitSuffixResourceId = R.string.days_unit_suffix,
+                    storedValue = userPreferences.windowEndDays,
+                    guidanceText = stringResource(R.string.window_end_days_hint),
+                    invalidValueText = stringResource(R.string.display_window_order_invalid_message),
+                    isValidValue = { endDays -> endDays >= userPreferences.windowStartDays },
+                    onValidValueChange = { endDays ->
+                        updatePreferences { userPreferencesRepository.updateWindowEndDays(endDays) }
                     },
                 )
 

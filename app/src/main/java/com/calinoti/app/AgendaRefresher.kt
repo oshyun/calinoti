@@ -31,7 +31,8 @@ class AgendaRefresher(
                 val preferences = userPreferencesRepository.userPreferences.first()
                 val agendaEntries = calendarReader.loadAgendaEntries(
                     selectedCalendarIds = preferences.selectedCalendarIds,
-                    daysToLookAhead = preferences.daysToLookAhead,
+                    windowStartDays = preferences.windowStartDays,
+                    windowEndDays = preferences.windowEndDays,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 val listEntries = AgendaListBuilder.buildDayGroupedEntries(agendaEntries)

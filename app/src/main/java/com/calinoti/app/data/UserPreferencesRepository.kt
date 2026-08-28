@@ -23,8 +23,13 @@ data class UserPreferences(
      * 그 외는 해당 캘린더만 표시한다.
      */
     val selectedCalendarIds: Set<Long>?,
-    /** 표시 기간(일). 양수는 앞으로 그 날수까지, 음수는 그 날수 이전부터 지금까지를 뜻한다. */
-    val daysToLookAhead: Int,
+    /**
+     * 표시 창의 양끝(일 단위, 오늘 기준 상대 오프셋). [windowStartDays]는 창의 시작,
+     * [windowEndDays]는 끝으로 항상 [windowStartDays] 이하다. 예: -3 ~ 7이면
+     * 3일 전부터 7일 뒤까지, -7 ~ -1이면 지난주만, 0 ~ 0이면 오늘 겹치는 일정만.
+     */
+    val windowStartDays: Int,
+    val windowEndDays: Int,
     /** 알림에 표시할 최대 항목 수. 항상 1 이상이다. */
     val maxVisibleEntries: Int,
     /** 알림 제목 글자 크기(sp). 시각·위치·날짜 헤더는 이보다 2sp 작게 표시된다. */
@@ -39,7 +44,8 @@ data class UserPreferences(
 
         val DEFAULTS = UserPreferences(
             selectedCalendarIds = null,
-            daysToLookAhead = 7,
+            windowStartDays = 0,
+            windowEndDays = 7,
             maxVisibleEntries = 10,
             notificationTextSizeSp = 15,
             notificationClickAction = NotificationClickAction.OPEN_APP,
@@ -69,7 +75,10 @@ private const val SELECTED_CALENDAR_IDS_SEPARATOR = ","
 // 선택 집합은 쉼표 목록으로 직렬화한다. 키가 없으면 null(모든 캘린더), 빈 집합은 ""(선택 없음)이다.
 // 참고: v1.2.1까지 ""는 "모든 캘린더"를 뜻했지만 초기 단계라 마이그레이션 없이 새 해석만 쓴다.
 private val SELECTED_CALENDAR_IDS_KEY = stringPreferencesKey("selected_calendar_ids")
-private val DAYS_TO_LOOK_AHEAD_KEY = intPreferencesKey("days_to_look_ahead")
+// 참고: v1.2.8까지 단일 days_to_look_ahead 키를 썼다. 범위 모델로 바뀌며 마이그레이션 없이
+// 새 키로 갈아탔다(초기 단계라 기존 저장값은 버려도 이롭지 않다).
+private val WINDOW_START_DAYS_KEY = intPreferencesKey("window_start_days")
+private val WINDOW_END_DAYS_KEY = intPreferencesKey("window_end_days")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
 private val NOTIFICATION_TEXT_SIZE_KEY = intPreferencesKey("notification_text_size_sp")
 private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
@@ -108,9 +117,12 @@ class UserPreferencesRepository(private val context: Context) {
             .map { storedPreferences ->
                 UserPreferences(
                     selectedCalendarIds = storedPreferences.parseSelectedCalendarIds(),
-                    daysToLookAhead =
-                        storedPreferences[DAYS_TO_LOOK_AHEAD_KEY]
-                            ?: UserPreferences.DEFAULTS.daysToLookAhead,
+                    windowStartDays =
+                        storedPreferences[WINDOW_START_DAYS_KEY]
+                            ?: UserPreferences.DEFAULTS.windowStartDays,
+                    windowEndDays =
+                        storedPreferences[WINDOW_END_DAYS_KEY]
+                            ?: UserPreferences.DEFAULTS.windowEndDays,
                     maxVisibleEntries =
                         storedPreferences[MAX_VISIBLE_ENTRIES_KEY]
                             ?: UserPreferences.DEFAULTS.maxVisibleEntries,
@@ -171,9 +183,15 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateDaysToLookAhead(daysToLookAhead: Int) {
+    suspend fun updateWindowStartDays(windowStartDays: Int) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[DAYS_TO_LOOK_AHEAD_KEY] = daysToLookAhead
+            storedPreferences[WINDOW_START_DAYS_KEY] = windowStartDays
+        }
+    }
+
+    suspend fun updateWindowEndDays(windowEndDays: Int) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[WINDOW_END_DAYS_KEY] = windowEndDays
         }
     }
 
