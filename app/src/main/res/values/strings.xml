@@ -12,7 +12,7 @@
     <string name="agenda_relative_hours_format">(%1$d시간 뒤)</string>
     <string name="agenda_relative_minutes_format">(%1$d분 뒤)</string>
     <string name="agenda_relative_soon">(곧)</string>
-    <string name="agenda_in_progress">진행 중</string>
+    <string name="agenda_in_progress">(진행 중)</string>
     <!-- 여러 날에 걸친 종일 일정의 제목: "제목 (~08.30까지)" -->
     <string name="agenda_multiday_title_format">%1$s (~%2$s까지)</string>
 
