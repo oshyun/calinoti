@@ -129,20 +129,23 @@ class CalendarReader(private val context: Context) {
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = cursor.getLong(endColumnIndex)
+                val entry = AgendaEntry(
+                    eventId = cursor.getLong(eventIdColumnIndex),
+                    title = cursor.getString(titleColumnIndex).orEmpty(),
+                    beginTimeMilliseconds = beginTimeMilliseconds,
+                    endTimeMilliseconds = endTimeMilliseconds,
+                    isAllDay = cursor.getInt(allDayColumnIndex) != 0,
+                    location = cursor.getString(locationColumnIndex),
+                    calendarColor = cursor.getInt(calendarColorColumnIndex),
+                )
                 // 창 시작 전에 완전히 끝난 일정은 표시 창과 안 겹치므로 제외한다.
                 // 창이 지금을 지나면(시작 ≤ now) 이 조건은 진행 중·예정 일정만 남긴다.
-                if (endTimeMilliseconds <= searchStartMilliseconds) continue
-                entries.add(
-                    AgendaEntry(
-                        eventId = cursor.getLong(eventIdColumnIndex),
-                        title = cursor.getString(titleColumnIndex).orEmpty(),
-                        beginTimeMilliseconds = beginTimeMilliseconds,
-                        endTimeMilliseconds = endTimeMilliseconds,
-                        isAllDay = cursor.getInt(allDayColumnIndex) != 0,
-                        location = cursor.getString(locationColumnIndex),
-                        calendarColor = cursor.getInt(calendarColorColumnIndex),
-                    ),
-                )
+                // 원시 종료 시각이 아니라 보정된 종료 판정 시각으로 비교한다 — 종일 일정의
+                // end는 UTC 자정이라 그대로 비교하면 UTC보다 뒤인 지역(한국, UTC+9)에서
+                // 어제 종일 일정이 다음 날 오전 9시까지 창에 새어 나온다
+                // (AgendaEntry.finishTimeMilliseconds 주석 참조).
+                if (entry.finishTimeMilliseconds <= searchStartMilliseconds) continue
+                entries.add(entry)
             }
         }
 
@@ -244,18 +247,18 @@ class CalendarReader(private val context: Context) {
                     durationText = cursor.getString(durationColumnIndex),
                     beginTimeMilliseconds = beginTimeMilliseconds,
                 )
-                if (endTimeMilliseconds <= searchStartMilliseconds) continue
-                entries.add(
-                    AgendaEntry(
-                        eventId = cursor.getLong(eventIdColumnIndex),
-                        title = cursor.getString(titleColumnIndex).orEmpty(),
-                        beginTimeMilliseconds = beginTimeMilliseconds,
-                        endTimeMilliseconds = endTimeMilliseconds,
-                        isAllDay = cursor.getInt(allDayColumnIndex) != 0,
-                        location = cursor.getString(locationColumnIndex),
-                        calendarColor = cursor.getInt(calendarColorColumnIndex),
-                    ),
+                val entry = AgendaEntry(
+                    eventId = cursor.getLong(eventIdColumnIndex),
+                    title = cursor.getString(titleColumnIndex).orEmpty(),
+                    beginTimeMilliseconds = beginTimeMilliseconds,
+                    endTimeMilliseconds = endTimeMilliseconds,
+                    isAllDay = cursor.getInt(allDayColumnIndex) != 0,
+                    location = cursor.getString(locationColumnIndex),
+                    calendarColor = cursor.getInt(calendarColorColumnIndex),
                 )
+                // Instances 경로와 같은 이유로 보정된 종료 판정 시각으로 비교한다.
+                if (entry.finishTimeMilliseconds <= searchStartMilliseconds) continue
+                entries.add(entry)
             }
         }
         return entries

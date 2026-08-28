@@ -134,10 +134,10 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return when {
             startDate == today -> HiddenItemType.ALL_DAY_STARTED_TODAY
             startDate.isAfter(today) -> HiddenItemType.ALL_DAY_UPCOMING
-            // 종료 판정은 제목의 (종료됨) 취소선과 같은 출처(findEventFinishTimeMilliseconds)를
+            // 종료 판정은 제목의 (종료됨) 취소선과 같은 출처(AgendaEntry.finishTimeMilliseconds)를
             // 쓴다 — UTC 자정 종료 보정이 포함돼 있어 한국에서 어제 종일 일정이 오전 내내
             // 진행 중으로 분류되는 일이 없다.
-            findEventFinishTimeMilliseconds(entry) <= currentTimeMilliseconds ->
+            entry.finishTimeMilliseconds <= currentTimeMilliseconds ->
                 HiddenItemType.ALL_DAY_FINISHED
             else -> HiddenItemType.ALL_DAY_IN_PROGRESS
         }
@@ -472,7 +472,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 baseTitle,
                 multidayAllDayLastDay.format(multidayEndDateFormatter),
             )
-        val isEventFinished = findEventFinishTimeMilliseconds(entry) <= currentTimeMilliseconds
+        val isEventFinished = entry.finishTimeMilliseconds <= currentTimeMilliseconds
         val relativeTimeLabel =
             if (isEventFinished) context.getString(R.string.agenda_finished)
             else formatRelativeTimeLabel(entry, currentTimeMilliseconds)
@@ -589,20 +589,6 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         Instant.ofEpochMilli(timeMilliseconds)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
-
-    /**
-     * 일정이 끝난 것으로 판정되는 시각. 시간 있는 일정은 종료 시각 그대로고, 종일 일정은
-     * [findAllDayLastDay]로 마지막 날을 구해 그 날이 시스템 표준 시간대 기준으로 완전히 지난
-     * 순간으로 바꿔 계산한다. 종일 종료 시각이 UTC 자정으로 저장되는 탓에 이 보정이 없으면
-     * UTC보다 뒤인 지역(한국, UTC+9)에서 어제의 종일 일정이 다음 날 오전 내내 끝나지 않은 것으로 판정된다.
-     */
-    private fun findEventFinishTimeMilliseconds(entry: AgendaEntry): Long {
-        if (!entry.isAllDay) return entry.endTimeMilliseconds
-        return findAllDayLastDay(entry).plusDays(1)
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-    }
 
     private companion object {
         const val COLLAPSED_ITEM_LIMIT = 3
