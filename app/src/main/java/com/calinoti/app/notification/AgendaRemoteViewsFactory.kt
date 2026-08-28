@@ -674,7 +674,10 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             .toLocalDate()
 
     private companion object {
-        const val COLLAPSED_ITEM_LIMIT = 3
+        // 접힌 뷰에 담을 항목 수 한도. 접힌 알림 카드의 높이는 시스템이 고정하므로 항목이
+        // 넘치면 시스템이 잘라낸다. 글자 크기를 줄인 설정에서 더 많은 항목이 보이도록
+        // 한도는 넉넉히 잡는다.
+        const val COLLAPSED_ITEM_LIMIT = 9
 
         // 제목과 상대 시간 라벨 사이 구분자. 라벨 span 시작 인덱스 계산에도 쓰므로 상수로 둔다.
         const val RELATIVE_TIME_LABEL_SEPARATOR = " "
