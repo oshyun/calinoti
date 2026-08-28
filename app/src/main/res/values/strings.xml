@@ -65,16 +65,14 @@
     <string name="hidden_items_apply_to_expanded_label">펼친 알림에서도 감추기</string>
     <string name="hidden_items_apply_to_expanded_description">감춤 규칙을 펼친 알림에도 적용합니다. 꺼져 있으면 펼쳤을 때 모두 표시됩니다.</string>
 
-    <string name="settings_section_font_size">폰트 크기</string>
+    <string name="settings_section_notification_display">알림 표시방식</string>
     <string name="font_size_summary_format">시간 %1$dsp · 종일 %2$dsp</string>
     <string name="timed_event_text_size_label">시간 일정 글자 크기</string>
     <string name="all_day_event_text_size_label">종일 일정 글자 크기</string>
     <string name="text_size_unit_suffix">sp</string>
     <string name="text_size_invalid_message">%1$d 이상 %2$d 이하의 수를 입력하세요</string>
-
-    <string name="settings_section_spacing">알림 여백</string>
-    <string name="settings_spacing_preview_caption">미리보기</string>
-    <string name="settings_spacing_preview_description">실제 알림과 같은 배열입니다. 슬라이더를 움직이면 바로 반영됩니다. (표시 항목 수·감춤 설정은 반영하지 않습니다)</string>
+    <string name="settings_display_preview_caption">미리보기</string>
+    <string name="settings_display_preview_description">실제 알림과 같은 배열입니다. 아래 설정을 바꾸면 바로 반영됩니다. (표시 항목 수·감춤 설정은 반영하지 않습니다)</string>
 
     <string name="settings_section_notification_actions">알림 동작</string>
     <string name="notification_action_summary_format">일정 %1$s · 알림 %2$s</string>

@@ -191,8 +191,7 @@ fun CalendarStatusScreen(
     var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isEventRangeSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isCollapsedHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isFontSizeSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isSpacingSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isNotificationDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
@@ -496,8 +495,10 @@ fun CalendarStatusScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // 폰트 크기 섹션. 시간·종일 일정 제목 크기는 독립 설정이지만 허용 범위와 오류
-            // 문구는 같은 검증 규칙을 공유한다 — 출처는 이 둘이다.
+            // 알림 표시방식 섹션. 글자 크기와 여백은 알림을 그리는 방식을 꾸미는 설정이라
+            // 미리보기와 한 섹션에 둔다 — 어느 값이 알림의 어느 부분을 바꾸는지 미리보기로
+            // 바로 대응해 볼 수 있다. 시간·종일 일정 제목 크기는 독립 설정이지만 허용 범위와
+            // 오류 문구는 같은 검증 규칙을 공유한다 — 출처는 이 둘이다.
             val textSizeInvalidText = stringResource(
                 R.string.text_size_invalid_message,
                 UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
@@ -508,15 +509,39 @@ fun CalendarStatusScreen(
                     UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
             }
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_font_size),
+                title = stringResource(R.string.settings_section_notification_display),
                 summary = stringResource(
                     R.string.font_size_summary_format,
                     userPreferences.notificationTextSizeSp,
                     userPreferences.allDayEventTextSizeSp,
                 ),
-                isExpanded = isFontSizeSectionExpanded,
-                onToggleExpanded = { isFontSizeSectionExpanded = !isFontSizeSectionExpanded },
+                isExpanded = isNotificationDisplaySectionExpanded,
+                onToggleExpanded = {
+                    isNotificationDisplaySectionExpanded = !isNotificationDisplaySectionExpanded
+                },
             ) {
+                val currentSpacing = userPreferences.notificationSpacing
+                // 드래그 중에도 미리보기에 즉시 반영하는 로컬 상태다. 저장값이 바뀌면(드래그를
+                // 놓아 저장된 순간) 키가 바뀌며 저장값으로 초기화된다. 여기서 저장하지는
+                // 않는다 — 저장은 각 슬라이더의 onDragFinished만 한다.
+                var previewSpacing by remember(currentSpacing) { mutableStateOf(currentSpacing) }
+                Text(
+                    text = stringResource(R.string.settings_display_preview_caption),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.settings_display_preview_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                NotificationSpacingPreview(
+                    spacing = previewSpacing,
+                    notificationTextSizeSp = userPreferences.notificationTextSizeSp,
+                    allDayEventTextSizeSp = userPreferences.allDayEventTextSizeSp,
+                    remoteViewsFactory = remoteViewsFactory,
+                )
+                Spacer(Modifier.height(12.dp))
                 IntegerSettingField(
                     fieldLabelResourceId = R.string.timed_event_text_size_label,
                     unitSuffixResourceId = R.string.text_size_unit_suffix,
@@ -543,37 +568,7 @@ fun CalendarStatusScreen(
                         }
                     },
                 )
-            }
 
-            Spacer(Modifier.height(12.dp))
-
-            CollapsibleSection(
-                title = stringResource(R.string.settings_section_spacing),
-                summary = null,
-                isExpanded = isSpacingSectionExpanded,
-                onToggleExpanded = { isSpacingSectionExpanded = !isSpacingSectionExpanded },
-            ) {
-                val currentSpacing = userPreferences.notificationSpacing
-                // 드래그 중에도 미리보기에 즉시 반영하는 로컬 상태다. 저장값이 바뀌면(드래그를
-                // 놓아 저장된 순간) 키가 바뀌며 저장값으로 초기화된다. 여기서 저장하지는
-                // 않는다 — 저장은 각 슬라이더의 onDragFinished만 한다.
-                var previewSpacing by remember(currentSpacing) { mutableStateOf(currentSpacing) }
-                Text(
-                    text = stringResource(R.string.settings_spacing_preview_caption),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    text = stringResource(R.string.settings_spacing_preview_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                NotificationSpacingPreview(
-                    spacing = previewSpacing,
-                    notificationTextSizeSp = userPreferences.notificationTextSizeSp,
-                    allDayEventTextSizeSp = userPreferences.allDayEventTextSizeSp,
-                    remoteViewsFactory = remoteViewsFactory,
-                )
                 Spacer(Modifier.height(12.dp))
                 SpacingSliderRow(
                     labelResourceId = R.string.day_header_start_padding_label,
