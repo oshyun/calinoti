@@ -213,12 +213,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             itemViews.setTextViewTextSize(R.id.event_location_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
         if (eventClickTarget.canOpenEventRows) {
-            // 줄에 클릭이 걸리면 탭이 그 줄에서 소비된다. 캘린더 앱이 없는 기기에서는
-            // 걸지 않아 알림 전체 contentIntent가 행을 포함해 그대로 동작하게 둔다.
-            itemViews.setOnClickPendingIntent(
-                R.id.notification_event_item,
-                createOpenEventPendingIntent(entry.eventId, eventClickTarget.packageName),
-            )
+            // 클릭은 시간·제목·위치 텍스트에만 건다. 텍스트가 없는 행의 오른쪽 여백은
+            // 클릭이 없어 알림 전체 contentIntent(지정 캘린더 앱 열기)로 넘어간다. 캘린더
+            // 앱이 없는 기기에서는 걸지 않아 텍스트까지 알림 전체가 contentIntent다.
+            val openEventPendingIntent =
+                createOpenEventPendingIntent(entry.eventId, eventClickTarget.packageName)
+            itemViews.setOnClickPendingIntent(R.id.event_time_text, openEventPendingIntent)
+            itemViews.setOnClickPendingIntent(R.id.event_title_text, openEventPendingIntent)
+            itemViews.setOnClickPendingIntent(R.id.event_location_text, openEventPendingIntent)
         }
         return itemViews
     }
