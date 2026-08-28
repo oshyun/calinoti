@@ -20,7 +20,9 @@ import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.NotificationSpacing
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -249,15 +251,25 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             .format(timeFormatter)
 
     /**
-     * 일정 줄의 제목 텍스트. 종일 일정이 아니면 제목 뒤에 상대 시간 라벨을
-     * 회색 작은 글씨로 이어 붙인다. 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
+     * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
+     * 종일 일정이 아니면 제목 뒤에 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다.
+     * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
     private fun createEventTitleText(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
         secondaryTextSizeSp: Float,
     ): CharSequence {
-        val titleText = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
+        // 여러 날에 걸친 종일 일정은 시작일 그룹에 표시하되 제목에 종료일을 붙인다.
+        val baseTitle = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
+        val multidayAllDayLastDay = findAllDayLastDayOrNull(entry)
+        val titleText =
+            if (multidayAllDayLastDay == null) baseTitle
+            else context.getString(
+                R.string.agenda_multiday_title_format,
+                baseTitle,
+                multidayAllDayLastDay.format(multidayEndDateFormatter),
+            )
         val relativeTimeLabel = formatRelativeTimeLabel(entry, currentTimeMilliseconds)
             ?: return titleText
         val labelTextStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
@@ -314,6 +326,21 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
     }
 
+    /** 여러 날에 걸친 종일 일정의 마지막 날. 하루짜리 종일 일정이거나 시간 있는 일정이면 null. */
+    private fun findAllDayLastDayOrNull(entry: AgendaEntry): LocalDate? {
+        if (!entry.isAllDay) return null
+        // 종일 일정의 begin/end는 UTC로 저장된다(AgendaListBuilder의 QUIRK 참조).
+        // end는 마지막 날 다음 날 자정(exclusive)이므로 하루를 빼 마지막 날을 구한다.
+        val firstDay = Instant.ofEpochMilli(entry.beginTimeMilliseconds)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+        val lastDay = Instant.ofEpochMilli(entry.endTimeMilliseconds)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+            .minusDays(1)
+        return lastDay.takeIf { it.isAfter(firstDay) }
+    }
+
     private companion object {
         const val COLLAPSED_ITEM_LIMIT = 3
 
@@ -340,6 +367,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         const val PROBE_EVENT_ID = 0L
 
         val dayHeaderFormatter = DateTimeFormatter.ofPattern("MM.dd, EEEE", Locale.getDefault())
+
+        // 여러 날 종일 일정의 종료일 표기(~08.30까지)에 쓰는 "MM.dd" 포맷.
+        val multidayEndDateFormatter = DateTimeFormatter.ofPattern("MM.dd", Locale.getDefault())
 
         // 시스템의 12/24시간 설정을 자동으로 따른다.
         val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
