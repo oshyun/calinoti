@@ -16,6 +16,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.CalendarIntents
+import com.calinoti.app.data.CollapsedHiddenItemType
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.scheduling.AgendaRefreshReceiver
@@ -58,6 +59,7 @@ class AgendaNotificationManager(
 
     fun publishAgendaNotification(
         listEntries: List<AgendaListEntry>,
+        collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -69,6 +71,7 @@ class AgendaNotificationManager(
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(
             listEntries,
+            collapsedHiddenItemTypes,
             maxVisibleEntries,
             notificationTextSizeSp,
             allDayEventTextSizeSp,
@@ -82,6 +85,7 @@ class AgendaNotificationManager(
 
     private fun buildAgendaNotification(
         listEntries: List<AgendaListEntry>,
+        collapsedHiddenItemTypes: Set<CollapsedHiddenItemType>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -96,6 +100,7 @@ class AgendaNotificationManager(
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
+                    collapsedHiddenItemTypes,
                     calendarAppPackageName,
                     spacing,
                     notificationTextSizeSp,
@@ -148,7 +153,11 @@ class AgendaNotificationManager(
         return this
     }
 
-    /** 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다. */
+    /**
+     * 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다.
+     * 접힌 뷰 감춤 설정과 무관하게 항상 원본 목록에서 찾는다 — 종일 일정이 애초 대상이 아니라
+     * 감춰진 종일 일정이 시스템 헤더(subText·카운트다운)로 새어 나갈 일도 없다.
+     */
     private fun findNextUpcomingEvent(
         listEntries: List<AgendaListEntry>,
         currentTimeMilliseconds: Long,

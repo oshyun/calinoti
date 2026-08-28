@@ -73,6 +73,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
+import com.calinoti.app.data.CollapsedHiddenItemType
 import com.calinoti.app.data.InstalledCalendarApp
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
@@ -186,6 +187,7 @@ fun CalendarStatusScreen(
     var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
     var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isEventRangeSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isCollapsedHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isFontSizeSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isSpacingSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
@@ -430,6 +432,66 @@ fun CalendarStatusScreen(
                         updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
                     },
                 )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 접힌 헤더에도 현재 감춤 규모가 보이게 요약을 계산한다.
+            val collapsedHiddenItemsSectionSummary =
+                if (userPreferences.collapsedHiddenItemTypes.isEmpty()) {
+                    stringResource(R.string.collapsed_hidden_items_summary_none)
+                } else {
+                    stringResource(
+                        R.string.collapsed_hidden_items_summary_format,
+                        userPreferences.collapsedHiddenItemTypes.size,
+                    )
+                }
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_collapsed_hidden_items),
+                summary = collapsedHiddenItemsSectionSummary,
+                isExpanded = isCollapsedHiddenItemsSectionExpanded,
+                onToggleExpanded = {
+                    isCollapsedHiddenItemsSectionExpanded = !isCollapsedHiddenItemsSectionExpanded
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.collapsed_hidden_items_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                // entries 순회라 항목 추가는 enum 상수 + 문자열 2개만으로 끝난다.
+                for (hiddenItemType in CollapsedHiddenItemType.entries) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(hiddenItemType.labelResourceId()),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = stringResource(hiddenItemType.descriptionResourceId()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Checkbox(
+                            checked = hiddenItemType in userPreferences.collapsedHiddenItemTypes,
+                            onCheckedChange = { isChecked ->
+                                // 저장값 기준으로 원자적으로 반영되므로 빠르게 연속 토글해도
+                                // 이전 변경이 덮어쓰이지 않는다 (캘린더 선택과 같은 규칙).
+                                updatePreferences {
+                                    userPreferencesRepository.toggleCollapsedHiddenItemType(
+                                        itemType = hiddenItemType,
+                                        isChecked = isChecked,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -952,4 +1014,18 @@ private fun CalendarAppOptionRow(label: String, isSelected: Boolean, onClick: ()
         RadioButton(selected = isSelected, onClick = onClick)
         Text(label)
     }
+}
+
+private fun CollapsedHiddenItemType.labelResourceId(): Int = when (this) {
+    CollapsedHiddenItemType.SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY ->
+        R.string.collapsed_hidden_item_single_day_all_day_label
+    CollapsedHiddenItemType.MULTI_DAY_ALL_DAY ->
+        R.string.collapsed_hidden_item_multi_day_all_day_label
+}
+
+private fun CollapsedHiddenItemType.descriptionResourceId(): Int = when (this) {
+    CollapsedHiddenItemType.SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY ->
+        R.string.collapsed_hidden_item_single_day_all_day_description
+    CollapsedHiddenItemType.MULTI_DAY_ALL_DAY ->
+        R.string.collapsed_hidden_item_multi_day_all_day_description
 }
