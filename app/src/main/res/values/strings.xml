@@ -51,9 +51,11 @@
     <string name="entries_unit_suffix">개</string>
     <string name="max_visible_entries_invalid_message">1 이상의 수를 입력하세요</string>
 
-    <string name="settings_section_collapsed_hidden_items">접힌 알림에서 감추기</string>
-    <string name="collapsed_hidden_items_summary">알림을 펼치지 않았을 때는 일부 일정을 숨길 수 있습니다</string>
-    <string name="collapsed_hidden_items_description">하루종일 일정을 상태별로 감춥니다. 시간이 있는 일정은 대상이 아닙니다.</string>
+    <string name="settings_section_hidden_items">알림에서 감추기</string>
+    <string name="hidden_items_summary">접힌 알림과 펼친 알림에서 일부 일정을 숨길 수 있습니다</string>
+    <string name="hidden_items_description">하루종일 일정을 상태별로 감춥니다. 닫힌은 접힌 알림, 열린은 펼친 알림을 뜻합니다. 시간이 있는 일정은 대상이 아닙니다.</string>
+    <string name="hidden_items_column_collapsed_label">닫힌</string>
+    <string name="hidden_items_column_expanded_label">열린</string>
     <string name="hidden_item_started_today_label">오늘 시작한 하루종일 일정 감추기</string>
     <string name="hidden_item_started_today_description">오늘 시작하는 하루종일 일정을 감춥니다. 여러 날 일정도 포함됩니다.</string>
     <string name="hidden_item_in_progress_label">진행 중인 하루종일 일정 감추기</string>
@@ -62,8 +64,6 @@
     <string name="hidden_item_upcoming_description">내일 이후 시작하는 하루종일 일정을 감춥니다.</string>
     <string name="hidden_item_finished_label">지난 하루종일 일정 감추기</string>
     <string name="hidden_item_finished_description">이미 끝난 하루종일 일정을 감춥니다. 표시 창에 과거가 포함될 때만 나타납니다.</string>
-    <string name="hidden_items_apply_to_expanded_label">펼친 알림에서도 감추기</string>
-    <string name="hidden_items_apply_to_expanded_description">감춤 규칙을 펼친 알림에도 적용합니다. 꺼져 있으면 펼쳤을 때 모두 표시됩니다.</string>
 
     <string name="settings_section_notification_display">알림 표시방식</string>
     <string name="notification_display_summary">글자 크기와 여백 등을 조절합니다</string>

@@ -59,8 +59,8 @@ class AgendaNotificationManager(
 
     fun publishAgendaNotification(
         listEntries: List<AgendaListEntry>,
-        hiddenItemTypes: Set<HiddenItemType>,
-        applyHiddenItemsToExpanded: Boolean,
+        collapsedHiddenItemTypes: Set<HiddenItemType>,
+        expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -73,8 +73,8 @@ class AgendaNotificationManager(
         if (!hasNotificationPermission()) return
         val notification = buildAgendaNotification(
             listEntries,
-            hiddenItemTypes,
-            applyHiddenItemsToExpanded,
+            collapsedHiddenItemTypes,
+            expandedHiddenItemTypes,
             maxVisibleEntries,
             notificationTextSizeSp,
             allDayEventTextSizeSp,
@@ -89,8 +89,8 @@ class AgendaNotificationManager(
 
     private fun buildAgendaNotification(
         listEntries: List<AgendaListEntry>,
-        hiddenItemTypes: Set<HiddenItemType>,
-        applyHiddenItemsToExpanded: Boolean,
+        collapsedHiddenItemTypes: Set<HiddenItemType>,
+        expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -100,17 +100,15 @@ class AgendaNotificationManager(
         isNotificationPinned: Boolean,
         currentTimeMilliseconds: Long,
     ): Notification {
-        // 감춤 규칙의 적용 범위 분기는 이 한 곳이다. 펼친 뷰 적용이 꺼져 있으면 빈 집합을
-        // 넘겨 펼친 뷰가 감춤 없이 전부 표시되게 한다(필터는 빈 집합에서 멱등하다).
-        val expandedHiddenItemTypes =
-            if (applyHiddenItemsToExpanded) hiddenItemTypes else emptySet()
+        // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙 집합을 받는다 — 두 규칙은 서로 독립이며,
+        // 어느 쪽이든 빈 집합이면 감춤 없이 전부 표시한다(필터는 빈 집합에서 멱등하다).
         return NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(smallIconResourceIdFor(currentTimeMilliseconds))
             .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
-                    hiddenItemTypes,
+                    collapsedHiddenItemTypes,
                     eventClickTargetPackageName,
                     spacing,
                     notificationTextSizeSp,
