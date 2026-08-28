@@ -36,6 +36,8 @@
     <string name="click_action_label">알림 클릭 동작</string>
     <string name="click_action_open_app">앱 열기</string>
     <string name="click_action_create_event">새 일정 만들기</string>
+    <string name="notification_pinned_label">알림 고정</string>
+    <string name="notification_pinned_description">밀어 내도 즉시 다시 나타나 삭제되지 않게 유지합니다. 끄면 자유롭게 밀어 낼 수 있습니다.</string>
 
     <string name="settings_subsection_spacing">알림 여백</string>
     <string name="day_header_start_padding_label">날짜 항목 앞 여백</string>
