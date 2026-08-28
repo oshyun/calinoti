@@ -177,7 +177,10 @@ fun CalendarStatusScreen(
     // 섹션 펼침 상태는 회전·프로세스 재시작에도 유지되고, 앱을 다시 열면 기본 접힘으로 돌아온다.
     var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
     var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isDisplaySettingsSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isEventRangeSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isFontSizeSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isSpacingSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
     // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
@@ -347,16 +350,16 @@ fun CalendarStatusScreen(
             Spacer(Modifier.height(12.dp))
 
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_display),
+                title = stringResource(R.string.settings_section_event_range),
                 summary = stringResource(
-                    R.string.display_settings_summary_format,
+                    R.string.event_range_summary_format,
                     userPreferences.windowStartDays,
                     userPreferences.windowEndDays,
                     userPreferences.maxVisibleEntries,
                 ),
-                isExpanded = isDisplaySettingsSectionExpanded,
+                isExpanded = isEventRangeSectionExpanded,
                 onToggleExpanded = {
-                    isDisplaySettingsSectionExpanded = !isDisplaySettingsSectionExpanded
+                    isEventRangeSectionExpanded = !isEventRangeSectionExpanded
                 },
             ) {
                 IntegerSettingField(
@@ -399,18 +402,46 @@ fun CalendarStatusScreen(
 
                 Spacer(Modifier.height(12.dp))
                 IntegerSettingField(
-                    fieldLabelResourceId = R.string.notification_text_size_label,
+                    fieldLabelResourceId = R.string.max_visible_entries_label,
+                    unitSuffixResourceId = R.string.entries_unit_suffix,
+                    storedValue = userPreferences.maxVisibleEntries,
+                    invalidValueText = stringResource(R.string.max_visible_entries_invalid_message),
+                    isValidValue = { entryCount -> entryCount >= 1 },
+                    onValidValueChange = { entryCount ->
+                        updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 폰트 크기 섹션. 시간·종일 일정 제목 크기는 독립 설정이지만 허용 범위와 오류
+            // 문구는 같은 검증 규칙을 공유한다 — 출처는 이 둘이다.
+            val textSizeInvalidText = stringResource(
+                R.string.text_size_invalid_message,
+                UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
+                UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP,
+            )
+            val isValidTextSize: (Int) -> Boolean = { textSizeSp ->
+                textSizeSp in
+                    UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
+            }
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_font_size),
+                summary = stringResource(
+                    R.string.font_size_summary_format,
+                    userPreferences.notificationTextSizeSp,
+                    userPreferences.allDayEventTextSizeSp,
+                ),
+                isExpanded = isFontSizeSectionExpanded,
+                onToggleExpanded = { isFontSizeSectionExpanded = !isFontSizeSectionExpanded },
+            ) {
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.timed_event_text_size_label,
                     unitSuffixResourceId = R.string.text_size_unit_suffix,
                     storedValue = userPreferences.notificationTextSizeSp,
-                    invalidValueText = stringResource(
-                        R.string.notification_text_size_invalid_message,
-                        UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP,
-                        UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP,
-                    ),
-                    isValidValue = { textSizeSp ->
-                        textSizeSp in
-                            UserPreferences.NOTIFICATION_TEXT_SIZE_MIN_SP..UserPreferences.NOTIFICATION_TEXT_SIZE_MAX_SP
-                    },
+                    invalidValueText = textSizeInvalidText,
+                    isValidValue = isValidTextSize,
                     onValidValueChange = { textSizeSp ->
                         updatePreferences {
                             userPreferencesRepository.updateNotificationTextSize(textSizeSp)
@@ -419,52 +450,28 @@ fun CalendarStatusScreen(
                 )
 
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.click_action_label),
-                    style = MaterialTheme.typography.bodyMedium,
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.all_day_event_text_size_label,
+                    unitSuffixResourceId = R.string.text_size_unit_suffix,
+                    storedValue = userPreferences.allDayEventTextSizeSp,
+                    invalidValueText = textSizeInvalidText,
+                    isValidValue = isValidTextSize,
+                    onValidValueChange = { textSizeSp ->
+                        updatePreferences {
+                            userPreferencesRepository.updateAllDayEventTextSize(textSizeSp)
+                        }
+                    },
                 )
-                for (clickAction in NotificationClickAction.entries) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = userPreferences.notificationClickAction == clickAction,
-                            onClick = {
-                                updatePreferences {
-                                    userPreferencesRepository.updateNotificationClickAction(clickAction)
-                                }
-                            },
-                        )
-                        Text(stringResource(clickAction.labelResourceId()))
-                    }
-                }
+            }
 
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.notification_pinned_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(
-                        checked = userPreferences.isNotificationPinned,
-                        onCheckedChange = { isChecked ->
-                            updatePreferences {
-                                userPreferencesRepository.updateNotificationPinned(isChecked)
-                            }
-                        },
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.notification_pinned_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Spacer(Modifier.height(12.dp))
 
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.settings_subsection_spacing),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_spacing),
+                summary = null,
+                isExpanded = isSpacingSectionExpanded,
+                onToggleExpanded = { isSpacingSectionExpanded = !isSpacingSectionExpanded },
+            ) {
                 val currentSpacing = userPreferences.notificationSpacing
                 SpacingSliderRow(
                     labelResourceId = R.string.day_header_start_padding_label,
@@ -526,6 +533,69 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 접힌 헤더에도 현재 클릭 동작·고정 여부가 보이게 요약을 계산한다.
+            val clickActionLabelText =
+                stringResource(userPreferences.notificationClickAction.labelResourceId())
+            val notificationActionSummary =
+                if (userPreferences.isNotificationPinned) {
+                    stringResource(
+                        R.string.notification_action_summary_fixed_format,
+                        clickActionLabelText,
+                    )
+                } else {
+                    clickActionLabelText
+                }
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_notification_action),
+                summary = notificationActionSummary,
+                isExpanded = isNotificationActionSectionExpanded,
+                onToggleExpanded = {
+                    isNotificationActionSectionExpanded = !isNotificationActionSectionExpanded
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.click_action_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                for (clickAction in NotificationClickAction.entries) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = userPreferences.notificationClickAction == clickAction,
+                            onClick = {
+                                updatePreferences {
+                                    userPreferencesRepository.updateNotificationClickAction(clickAction)
+                                }
+                            },
+                        )
+                        Text(stringResource(clickAction.labelResourceId()))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.notification_pinned_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = userPreferences.isNotificationPinned,
+                        onCheckedChange = { isChecked ->
+                            updatePreferences {
+                                userPreferencesRepository.updateNotificationPinned(isChecked)
+                            }
+                        },
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.notification_pinned_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
