@@ -105,7 +105,7 @@ class AgendaNotificationManager(
         val expandedHiddenItemTypes =
             if (applyHiddenItemsToExpanded) hiddenItemTypes else emptySet()
         return NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(smallIconResourceIdFor(currentTimeMilliseconds))
             .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
@@ -228,10 +228,59 @@ class AgendaNotificationManager(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+    /**
+     * 발행 시각이 속한 날짜의 상태바 아이콘. 날짜 숫자를 담은 캘린더 벡터를 써서
+     * 상태바에 떠 있는 동안 오늘이 며칠인지 바로 보인다. 알림은 자정 갱신과 일정
+     * 변경마다 다시 발행되므로 날짜가 바뀌면 아이콘도 따라 바뀐다.
+     */
+    private fun smallIconResourceIdFor(currentTimeMilliseconds: Long): Int {
+        val dayOfMonth = LocalDate.ofInstant(
+            Instant.ofEpochMilli(currentTimeMilliseconds),
+            ZoneId.systemDefault(),
+        ).dayOfMonth
+        return smallIconResourceIdsByDayOfMonth[dayOfMonth - 1]
+    }
+
     private companion object {
         const val AGENDA_CHANNEL_ID = "agenda"
         const val AGENDA_NOTIFICATION_ID = 1001
         const val CONTENT_REQUEST_CODE = 1002
         const val DISMISS_RESTORE_REQUEST_CODE = 1003
+
+        // 인덱스는 dayOfMonth - 1. 파일들은 생성물이므로
+        // tools/generate_notification_icons.py로 다시 만든다.
+        val smallIconResourceIdsByDayOfMonth = listOf(
+            R.drawable.ic_notification_day_1,
+            R.drawable.ic_notification_day_2,
+            R.drawable.ic_notification_day_3,
+            R.drawable.ic_notification_day_4,
+            R.drawable.ic_notification_day_5,
+            R.drawable.ic_notification_day_6,
+            R.drawable.ic_notification_day_7,
+            R.drawable.ic_notification_day_8,
+            R.drawable.ic_notification_day_9,
+            R.drawable.ic_notification_day_10,
+            R.drawable.ic_notification_day_11,
+            R.drawable.ic_notification_day_12,
+            R.drawable.ic_notification_day_13,
+            R.drawable.ic_notification_day_14,
+            R.drawable.ic_notification_day_15,
+            R.drawable.ic_notification_day_16,
+            R.drawable.ic_notification_day_17,
+            R.drawable.ic_notification_day_18,
+            R.drawable.ic_notification_day_19,
+            R.drawable.ic_notification_day_20,
+            R.drawable.ic_notification_day_21,
+            R.drawable.ic_notification_day_22,
+            R.drawable.ic_notification_day_23,
+            R.drawable.ic_notification_day_24,
+            R.drawable.ic_notification_day_25,
+            R.drawable.ic_notification_day_26,
+            R.drawable.ic_notification_day_27,
+            R.drawable.ic_notification_day_28,
+            R.drawable.ic_notification_day_29,
+            R.drawable.ic_notification_day_30,
+            R.drawable.ic_notification_day_31,
+        )
     }
 }
