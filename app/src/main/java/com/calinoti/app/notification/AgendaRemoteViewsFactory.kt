@@ -10,6 +10,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
+import android.text.style.StrikethroughSpan
 import android.util.TypedValue
 import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
@@ -266,6 +267,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     /**
      * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
      * 종일 일정이 아니면 제목 뒤에 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다.
+     * 이미 끝난 일정은 제목에 취소선을 긋고 (종료됨) 라벨을 붙인다.
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
     private fun createEventTitleText(
@@ -283,12 +285,24 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 baseTitle,
                 multidayAllDayLastDay.format(multidayEndDateFormatter),
             )
-        val relativeTimeLabel = formatRelativeTimeLabel(entry, currentTimeMilliseconds)
-            ?: return titleText
+        val isEventFinished = findEventFinishTimeMilliseconds(entry) <= currentTimeMilliseconds
+        val relativeTimeLabel =
+            if (isEventFinished) context.getString(R.string.agenda_finished)
+            else formatRelativeTimeLabel(entry, currentTimeMilliseconds) ?: return titleText
         val labelTextStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
         val titleWithLabel = SpannableStringBuilder(titleText)
             .append(RELATIVE_TIME_LABEL_SEPARATOR)
             .append(relativeTimeLabel)
+        if (isEventFinished) {
+            // 끝난 일정은 제목에 취소선을 그어 예정·진행 일정과 한눈에 구분한다. 라벨은
+            // 상태 표시이므로 취소선 대상에서 뺐다.
+            titleWithLabel.setSpan(
+                StrikethroughSpan(),
+                0,
+                titleText.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
         // 라벨 구간만 시간·위치 텍스트와 같은 secondary 톤(색·크기)으로 낮춘다.
         titleWithLabel.setSpan(
             ForegroundColorSpan(
@@ -313,14 +327,15 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return titleWithLabel
     }
 
-    /** 제목 뒤에 붙일 상대 시간 라벨. 종일 일정과 이미 끝난 일정은 표시하지 않는다(null). */
+    /**
+     * 제목 뒤에 붙일 상대 시간 라벨. 종일 일정은 표시하지 않는다(null). 이미 끝난 일정은
+     * 호출부가 (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
+     */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
     ): String? {
         if (entry.isAllDay) return null
-        // 표시 창이 과거를 포함하면 이미 끝난 일정이 목록에 남으므로 종료 시각으로 걸러낸다.
-        if (entry.endTimeMilliseconds <= currentTimeMilliseconds) return null
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
         return when {
             remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
@@ -341,19 +356,37 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
     }
 
-    /** 여러 날에 걸친 종일 일정의 마지막 날. 하루짜리 종일 일정이거나 시간 있는 일정이면 null. */
-    private fun findAllDayLastDayOrNull(entry: AgendaEntry): LocalDate? {
-        if (!entry.isAllDay) return null
-        // 종일 일정의 begin/end는 UTC로 저장된다(AgendaListBuilder의 QUIRK 참조).
-        // end는 마지막 날 다음 날 자정(exclusive)이므로 하루를 빼 마지막 날을 구한다.
-        val firstDay = Instant.ofEpochMilli(entry.beginTimeMilliseconds)
-            .atZone(ZoneOffset.UTC)
-            .toLocalDate()
-        val lastDay = Instant.ofEpochMilli(entry.endTimeMilliseconds)
+    /**
+     * 종일 일정의 마지막 날(하루짜리 포함). 종일 일정의 end는 UTC 자정(마지막 날 다음 날,
+     * exclusive)으로 저장되므로(AgendaListBuilder의 QUIRK 참조) 하루를 빼 마지막 날을 구한다.
+     */
+    private fun findAllDayLastDay(entry: AgendaEntry): LocalDate =
+        Instant.ofEpochMilli(entry.endTimeMilliseconds)
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
             .minusDays(1)
-        return lastDay.takeIf { it.isAfter(firstDay) }
+
+    /** 여러 날에 걸친 종일 일정의 마지막 날. 하루짜리 종일 일정이거나 시간 있는 일정이면 null. */
+    private fun findAllDayLastDayOrNull(entry: AgendaEntry): LocalDate? {
+        if (!entry.isAllDay) return null
+        val firstDay = Instant.ofEpochMilli(entry.beginTimeMilliseconds)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+        return findAllDayLastDay(entry).takeIf { it.isAfter(firstDay) }
+    }
+
+    /**
+     * 일정이 끝난 것으로 판정되는 시각. 시간 있는 일정은 종료 시각 그대로고, 종일 일정은
+     * [findAllDayLastDay]로 마지막 날을 구해 그 날이 시스템 표준 시간대 기준으로 완전히 지난
+     * 순간으로 바꿔 계산한다. 종일 종료 시각이 UTC 자정으로 저장되는 탓에 이 보정이 없으면
+     * UTC보다 뒤인 지역(한국, UTC+9)에서 어제의 종일 일정이 다음 날 오전 내내 끝나지 않은 것으로 판정된다.
+     */
+    private fun findEventFinishTimeMilliseconds(entry: AgendaEntry): Long {
+        if (!entry.isAllDay) return entry.endTimeMilliseconds
+        return findAllDayLastDay(entry).plusDays(1)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
     }
 
     private companion object {
