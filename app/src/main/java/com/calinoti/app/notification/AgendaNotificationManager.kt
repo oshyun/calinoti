@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.calinoti.app.MainActivity
 import com.calinoti.app.R
+import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
 import com.calinoti.app.data.NotificationClickAction
 import com.calinoti.app.data.NotificationSpacing
@@ -86,6 +87,7 @@ class AgendaNotificationManager(
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
@@ -114,6 +116,40 @@ class AgendaNotificationManager(
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(buildContentPendingIntent(clickAction))
             .build()
+
+    /**
+     * 시스템 헤더를 다음 일정 정보로 채운다. 헤더는 시스템이 그리는 영역이라 없앨 수는
+     * 없고, 시간 자리를 남은 시간 카운트다운(setChronometerCountDown)으로, subText를
+     * 일정 제목으로 바꾸는 것만 가능하다. 카운트다운이 0에 닿으면 AgendaRefreshScheduler가
+     * 일정 시작 시각에 알림을 다시 게시해 다음 일정 기준으로 넘어간다.
+     */
+    private fun NotificationCompat.Builder.applyHeaderContent(
+        nextUpcomingEvent: AgendaEntry?,
+    ): NotificationCompat.Builder {
+        if (nextUpcomingEvent == null) {
+            setShowWhen(false)
+            return this
+        }
+        setWhen(nextUpcomingEvent.beginTimeMilliseconds)
+        setUsesChronometer(true)
+        setChronometerCountDown(true)
+        setSubText(
+            nextUpcomingEvent.title.ifEmpty { context.getString(R.string.agenda_untitled_event) },
+        )
+        return this
+    }
+
+    /** 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다. */
+    private fun findNextUpcomingEvent(
+        listEntries: List<AgendaListEntry>,
+        currentTimeMilliseconds: Long,
+    ): AgendaEntry? =
+        listEntries
+            .filterIsInstance<AgendaListEntry.Event>()
+            .map { it.entry }
+            .firstOrNull { entry ->
+                !entry.isAllDay && entry.beginTimeMilliseconds > currentTimeMilliseconds
+            }
 
     private fun buildContentPendingIntent(clickAction: NotificationClickAction): PendingIntent {
         val contentIntent = when (clickAction) {
