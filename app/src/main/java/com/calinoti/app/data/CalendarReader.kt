@@ -190,7 +190,11 @@ class CalendarReader(private val context: Context) {
         val selectionFilters = mutableListOf(
             CalendarContract.Events.CALENDAR_ID + " IN (" + calendarIds.joinToString(",") { "?" } + ")",
             CalendarContract.Events.DELETED + " = 0",
-            CalendarContract.Events.STATUS + " != ?",
+            // STATUS가 없는 일정(CalDAV 동기화 앱이 STATUS 속성 없는 VEVENT를 NULL로 저장)도
+            // 취소가 아닌 이상 표시해야 하므로 NULL을 명시적으로 허용한다.
+            // SQLite에서 "status != 2"는 NULL 행을 거짓 취급해 제외시킨다.
+            "(" + CalendarContract.Events.STATUS + " IS NULL OR " +
+                CalendarContract.Events.STATUS + " != ?)",
             CalendarContract.Events.LAST_SYNCED + " = 0",
             CalendarContract.Events.DTSTART + " <= ?",
         )
