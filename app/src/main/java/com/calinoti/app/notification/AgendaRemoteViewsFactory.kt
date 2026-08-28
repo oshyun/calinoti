@@ -502,7 +502,8 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     /**
      * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
-     * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다.
+     * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다. 라벨이 없으면
+     * 제목만 그린다.
      * 이미 끝난 일정은 제목에 취소선을 긋고 (종료됨) 라벨을 붙인다.
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
@@ -525,6 +526,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val relativeTimeLabel =
             if (isEventFinished) context.getString(R.string.agenda_finished)
             else formatRelativeTimeLabel(entry, currentTimeMilliseconds)
+        // 라벨이 없는 일정(오늘 시작했거나 진행 중인 종일 일정)은 구분자와 라벨 span 없이
+        // 제목만 그린다. 끝난 일정은 항상 (종료됨) 라벨이 있어 이 분기에 오지 않는다.
+        if (relativeTimeLabel == null) return titleText
         val labelTextStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
         val titleWithLabel = SpannableStringBuilder(titleText)
             .append(RELATIVE_TIME_LABEL_SEPARATOR)
@@ -568,22 +572,21 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 시간 단위로 남은 시간을 계산하고, 그 이상은 남은 시각과 무관하게 달력 날짜 기준으로
      * (N일 뒤)를 붙인다 — 24시간으로 나눈 몫으로 계산하면 시작 전날 오후부터 하루씩 줄어들어
      * 날짜 감각과 어긋난다. 종일 일정은 날짜 단위로 계산한다 — 시작일이 미래면 (N일 뒤),
-     * 오늘 시작했거나 여러 날에 걸쳐 진행 중이면 (오늘)을 붙인다. 이미 끝난 일정은 호출부가
-     * (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
+     * 오늘 시작했거나 여러 날에 걸쳐 진행 중이면 null — 라벨 없이 제목만 보인다. 오늘 여부는
+     * 날짜 헤더의 (오늘) 접미사가 이미 알려주고, 어제 시작한 일정 제목의 (오늘)은 오해를
+     * 낳는다. 이미 끝난 일정은 호출부가 (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
      */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
-    ): String {
+    ): String? {
         if (entry.isAllDay) {
             val daysUntilStart = ChronoUnit.DAYS.between(
                 findLocalDateOf(currentTimeMilliseconds),
                 findAllDayStartDate(entry),
             )
-            if (daysUntilStart > 0) {
-                return context.getString(R.string.agenda_relative_days_format, daysUntilStart)
-            }
-            return context.getString(R.string.today_label)
+            if (daysUntilStart <= 0) return null
+            return context.getString(R.string.agenda_relative_days_format, daysUntilStart)
         }
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
         return when {
