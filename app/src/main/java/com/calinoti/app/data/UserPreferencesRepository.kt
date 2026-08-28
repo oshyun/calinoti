@@ -44,8 +44,16 @@ data class UserPreferences(
     val notificationTextSizeSp: Int,
     /** 종일 일정 제목의 글자 크기(sp). [notificationTextSizeSp]와 독립적으로 조절한다. */
     val allDayEventTextSizeSp: Int,
-    /** 알림을 눌렀을 때 실행할 캘린더 앱의 패키지 이름. 빈 문자열이면 미지정이다. */
-    val calendarAppPackageName: String,
+    /**
+     * 일정 항목을 눌렀을 때 열 앱의 패키지 이름. 빈 문자열이면 미지정(시스템이 처리 앱을
+     * 고름), Calinoti 자신의 패키지 이름이면 Calinoti를 연다.
+     */
+    val eventClickTargetPackageName: String,
+    /**
+     * 알림에서 일정 항목 외의 공간을 눌렀을 때 열 앱의 패키지 이름.
+     * [eventClickTargetPackageName]과 같은 저장 규칙을 따른다.
+     */
+    val notificationClickTargetPackageName: String,
     val notificationSpacing: NotificationSpacing,
     /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
     val isNotificationPinned: Boolean,
@@ -57,8 +65,8 @@ data class UserPreferences(
         const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
         const val NOTIFICATION_TEXT_SIZE_MAX_SP = 32
 
-        /** 캘린더 앱 미지정을 뜻하는 저장값. 빈 문자열이면 시스템이 고른 기본 캘린더 앱을 따른다. */
-        const val UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME = ""
+        /** 클릭 동작 미지정을 뜻하는 저장값. 빈 문자열이면 시스템이 처리 앱을 고른다. */
+        const val UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME = ""
 
         val DEFAULTS = UserPreferences(
             selectedCalendarIds = null,
@@ -67,7 +75,8 @@ data class UserPreferences(
             maxVisibleEntries = 10,
             notificationTextSizeSp = 15,
             allDayEventTextSizeSp = 15,
-            calendarAppPackageName = UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME,
+            eventClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
+            notificationClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
             collapsedHiddenItemTypes = emptySet(),
@@ -103,9 +112,13 @@ private val WINDOW_END_DAYS_KEY = intPreferencesKey("window_end_days")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
 private val NOTIFICATION_TEXT_SIZE_KEY = intPreferencesKey("notification_text_size_sp")
 private val ALL_DAY_EVENT_TEXT_SIZE_KEY = intPreferencesKey("all_day_event_text_size_sp")
-// 참고: 이전 버전까지 notification_click_action 키를 썼다. 클릭 동작 설정이 캘린더 앱 지정으로
-// 바뀌며 마이그레이션 없이 폐기했다(초기 단계라 기존 저장값은 버려도 이롭지 않다).
-private val CALENDAR_APP_PACKAGE_NAME_KEY = stringPreferencesKey("calendar_app_package_name")
+// 참고: 이전 버전까지 notification_click_action, calendar_app_package_name 키를 썼다. 클릭 동작이
+// 일정 클릭·알림 클릭 두 설정으로 나뉘며 마이그레이션 없이 폐기했다(초기 단계라 기존 저장값은
+// 버려도 이롭지 않다).
+private val EVENT_CLICK_TARGET_PACKAGE_NAME_KEY =
+    stringPreferencesKey("event_click_target_package_name")
+private val NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY =
+    stringPreferencesKey("notification_click_target_package_name")
 private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
 // 감춤 항목은 enum name의 집합이다. 낯선 이름(미래 버전이 남긴 값)은 읽을 때 버린다.
 private val COLLAPSED_HIDDEN_ITEM_TYPES_KEY =
@@ -171,9 +184,12 @@ class UserPreferencesRepository(private val context: Context) {
                     allDayEventTextSizeSp =
                         storedPreferences[ALL_DAY_EVENT_TEXT_SIZE_KEY]
                             ?: UserPreferences.DEFAULTS.allDayEventTextSizeSp,
-                    calendarAppPackageName =
-                        storedPreferences[CALENDAR_APP_PACKAGE_NAME_KEY]
-                            ?: UserPreferences.DEFAULTS.calendarAppPackageName,
+                    eventClickTargetPackageName =
+                        storedPreferences[EVENT_CLICK_TARGET_PACKAGE_NAME_KEY]
+                            ?: UserPreferences.DEFAULTS.eventClickTargetPackageName,
+                    notificationClickTargetPackageName =
+                        storedPreferences[NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY]
+                            ?: UserPreferences.DEFAULTS.notificationClickTargetPackageName,
                     notificationSpacing =
                         NotificationSpacing.DEFAULTS.copy(
                             dayHeaderStartPaddingDp = storedPreferences.readSpacingDp(
@@ -278,9 +294,15 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateCalendarAppPackageName(packageName: String) {
+    suspend fun updateEventClickTargetPackageName(packageName: String) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[CALENDAR_APP_PACKAGE_NAME_KEY] = packageName
+            storedPreferences[EVENT_CLICK_TARGET_PACKAGE_NAME_KEY] = packageName
+        }
+    }
+
+    suspend fun updateNotificationClickTargetPackageName(packageName: String) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY] = packageName
         }
     }
 
