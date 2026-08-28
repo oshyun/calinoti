@@ -423,18 +423,6 @@ fun CalendarStatusScreen(
                         updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
                     },
                 )
-
-                Spacer(Modifier.height(12.dp))
-                IntegerSettingField(
-                    fieldLabelResourceId = R.string.max_visible_entries_label,
-                    unitSuffixResourceId = R.string.entries_unit_suffix,
-                    storedValue = userPreferences.maxVisibleEntries,
-                    invalidValueText = stringResource(R.string.max_visible_entries_invalid_message),
-                    isValidValue = { entryCount -> entryCount >= 1 },
-                    onValidValueChange = { entryCount ->
-                        updatePreferences { userPreferencesRepository.updateMaxVisibleEntries(entryCount) }
-                    },
-                )
             }
 
             Spacer(Modifier.height(12.dp))
