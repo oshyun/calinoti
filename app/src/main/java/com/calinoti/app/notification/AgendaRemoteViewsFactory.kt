@@ -403,10 +403,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     }
 
     /**
-     * 제목 뒤에 붙일 상대 시간 라벨. 시간 있는 일정은 남은 시간 단위를 고르고, 종일 일정은
-     * 날짜 단위로 계산한다 — 시작일이 미래면 (N일 뒤), 오늘 시작했거나 여러 날에 걸쳐
-     * 진행 중이면 (오늘)을 붙인다. 이미 끝난 일정은 호출부가 (종료됨) 라벨로 분기하므로
-     * 여기서는 다루지 않는다.
+     * 제목 뒤에 붙일 상대 시간 라벨. 시간 있는 일정은 1시간 미만이면 분 단위, 24시간 미만이면
+     * 시간 단위로 남은 시간을 계산하고, 그 이상은 남은 시각과 무관하게 달력 날짜 기준으로
+     * (N일 뒤)를 붙인다 — 24시간으로 나눈 몫으로 계산하면 시작 전날 오후부터 하루씩 줄어들어
+     * 날짜 감각과 어긋난다. 종일 일정은 날짜 단위로 계산한다 — 시작일이 미래면 (N일 뒤),
+     * 오늘 시작했거나 여러 날에 걸쳐 진행 중이면 (오늘)을 붙인다. 이미 끝난 일정은 호출부가
+     * (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
      */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
@@ -437,7 +439,10 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             )
             else -> context.getString(
                 R.string.agenda_relative_days_format,
-                TimeUnit.MILLISECONDS.toDays(remainingMilliseconds),
+                ChronoUnit.DAYS.between(
+                    findLocalDateOf(currentTimeMilliseconds),
+                    findLocalDateOf(entry.beginTimeMilliseconds),
+                ),
             )
         }
     }
