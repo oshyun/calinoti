@@ -142,7 +142,6 @@ private val HIDDEN_ITEM_TYPES_KEY = stringSetPreferencesKey("hidden_item_types")
 private val HIDDEN_ITEMS_APPLY_TO_EXPANDED_KEY =
     booleanPreferencesKey("hidden_items_apply_to_expanded")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
-private val EVENT_START_PADDING_KEY = intPreferencesKey("event_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
 private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
 private val BETWEEN_DAY_HEADERS_SPACING_KEY = intPreferencesKey("between_day_headers_spacing_dp")
@@ -213,10 +212,6 @@ class UserPreferencesRepository(private val context: Context) {
                             dayHeaderStartPaddingDp = storedPreferences.readSpacingDp(
                                 DAY_HEADER_START_PADDING_KEY,
                                 NotificationSpacing.DEFAULTS.dayHeaderStartPaddingDp,
-                            ),
-                            eventStartPaddingDp = storedPreferences.readSpacingDp(
-                                EVENT_START_PADDING_KEY,
-                                NotificationSpacing.DEFAULTS.eventStartPaddingDp,
                             ),
                             dayHeaderToEventSpacingDp = storedPreferences.readSpacingDp(
                                 DAY_HEADER_TO_EVENT_SPACING_KEY,
@@ -342,7 +337,6 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationSpacing(spacing: NotificationSpacing) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[DAY_HEADER_START_PADDING_KEY] = spacing.dayHeaderStartPaddingDp
-            storedPreferences[EVENT_START_PADDING_KEY] = spacing.eventStartPaddingDp
             storedPreferences[DAY_HEADER_TO_EVENT_SPACING_KEY] = spacing.dayHeaderToEventSpacingDp
             storedPreferences[BETWEEN_EVENTS_SPACING_KEY] = spacing.betweenEventsSpacingDp
             storedPreferences[BETWEEN_DAY_HEADERS_SPACING_KEY] = spacing.betweenDayHeadersSpacingDp
