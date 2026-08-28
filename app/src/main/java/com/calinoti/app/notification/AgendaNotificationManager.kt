@@ -87,7 +87,7 @@ class AgendaNotificationManager(
     ): Notification =
         NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .applyHeaderContent(findNextUpcomingEvent(listEntries))
+            .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
@@ -140,12 +140,15 @@ class AgendaNotificationManager(
     }
 
     /** 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다. */
-    private fun findNextUpcomingEvent(listEntries: List<AgendaListEntry>): AgendaEntry? =
+    private fun findNextUpcomingEvent(
+        listEntries: List<AgendaListEntry>,
+        currentTimeMilliseconds: Long,
+    ): AgendaEntry? =
         listEntries
             .filterIsInstance<AgendaListEntry.Event>()
             .map { it.entry }
             .firstOrNull { entry ->
-                !entry.isAllDay && entry.beginTimeMilliseconds > System.currentTimeMillis()
+                !entry.isAllDay && entry.beginTimeMilliseconds > currentTimeMilliseconds
             }
 
     private fun buildContentPendingIntent(clickAction: NotificationClickAction): PendingIntent {
