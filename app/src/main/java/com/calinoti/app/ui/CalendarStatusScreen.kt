@@ -584,19 +584,6 @@ fun CalendarStatusScreen(
                     }
                 }
                 SpacingSliderRow(
-                    labelResourceId = R.string.event_start_padding_label,
-                    savedValueDp = currentSpacing.eventStartPaddingDp,
-                    onPreviewValueChange = { newValueDp ->
-                        previewSpacing = previewSpacing.copy(eventStartPaddingDp = newValueDp)
-                    },
-                ) { newValueDp ->
-                    updatePreferences {
-                        userPreferencesRepository.updateNotificationSpacing(
-                            currentSpacing.copy(eventStartPaddingDp = newValueDp),
-                        )
-                    }
-                }
-                SpacingSliderRow(
                     labelResourceId = R.string.time_to_title_spacing_label,
                     savedValueDp = currentSpacing.timeToTitleSpacingDp,
                     onPreviewValueChange = { newValueDp ->

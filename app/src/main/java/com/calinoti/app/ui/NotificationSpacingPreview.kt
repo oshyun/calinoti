@@ -98,16 +98,15 @@ internal fun NotificationSpacingPreview(
 }
 
 /**
- * 여백 여섯 종이 모두 드러나는 표본 아젠다: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
+ * 여백 다섯 종이 모두 드러나는 표본 아젠다: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
  * 시각은 [currentTimeMilliseconds] 기준으로 만들어 상대 시간 라벨도 실제와 같이 붙는다.
  *
  * 행 조합이 담당하는 설정:
- * - 날짜 항목 앞 여백 → 세 헤더 전부
- * - 일정 항목 앞 여백 → 일정 행 전부
+ * - 날짜 항목 앞 여백 → 세 그룹 행 전부
+ * - 날짜와 일정 사이 여백 → 각 날짜 열과 일정 열 사이 수평 간격
  * - 시간과 제목 사이 여백 → 시간 있는 일정의 시각-제목 간격(종일 일정은 시간 뷰가 숨는다)
- * - 날짜와 일정 사이 여백 → 각 헤더 바로 아래 첫 일정까지의 간격
  * - 일정 사이 여백 → 오늘의 두 일정 사이 간격
- * - 날짜 사이 여백 → 그룹 마지막 일정과 다음 헤더 사이 간격
+ * - 날짜 사이 여백 → 그룹 사이 간격
  */
 private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<AgendaListEntry> {
     val zone = ZoneId.systemDefault()

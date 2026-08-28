@@ -194,45 +194,62 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             rootViews.addView(R.id.notification_agenda_container, emptyViews)
             return rootViews
         }
-        // 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로 배분한다. AgendaListBuilder가 헤더를
-        // 일정 직전에만 추가하므로 첫 항목은 항상 헤더고, 세 수직 간격이 서로 겹치지 않는다.
+        // 날짜 그룹 하나가 [날짜][일정 열] 한 행(notification_item_day_group)이고, 일정은
+        // 그 그룹의 일정 열에 쌓인다. 수직 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로
+        // 배분한다(첫 그룹 위 여백 → 그룹 행, 그룹 사이 여백 → 다음 그룹 행, 일정 사이
+        // 여백 → 다음 일정 행). AgendaListBuilder가 헤더를 일정 직전에만 추가하므로 첫
+        // 항목은 항상 헤더고, 수직 간격끼리 서로 겹치지 않는다.
         val visibleEntries = listEntries.take(itemLimit)
-        var previousListEntry: AgendaListEntry? = null
+        var currentDayGroupViews: RemoteViews? = null
+        var isFirstEventInCurrentDayGroup = true
         for ((itemIndex, listEntry) in visibleEntries.withIndex()) {
-            val topPaddingDp = when {
-                itemIndex == 0 -> FIRST_ITEM_TOP_PADDING_DP
-                listEntry is AgendaListEntry.DayHeader -> spacing.betweenDayHeadersSpacingDp
-                previousListEntry is AgendaListEntry.DayHeader -> spacing.dayHeaderToEventSpacingDp
-                else -> spacing.betweenEventsSpacingDp
-            }
-            val bottomPaddingDp =
-                if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP else 0
             when (listEntry) {
                 is AgendaListEntry.DayHeader -> {
-                    val headerViews =
-                        RemoteViews(context.packageName, R.layout.notification_item_day_header)
-                    headerViews.setTextViewText(
+                    val dayGroupViews =
+                        RemoteViews(context.packageName, R.layout.notification_item_day_group)
+                    dayGroupViews.setTextViewText(
                         R.id.day_header_text,
                         formatDayHeaderText(
                             dayStartMilliseconds = listEntry.dayStartMilliseconds,
                             currentTimeMilliseconds = currentTimeMilliseconds,
                         ),
                     )
-                    headerViews.setTextViewTextSize(
+                    dayGroupViews.setTextViewTextSize(
                         R.id.day_header_text,
                         COMPLEX_UNIT_SP,
                         secondaryTextSizeSp,
                     )
-                    headerViews.applyItemPadding(
-                        viewId = R.id.day_header_text,
+                    // 행의 시작 여백은 날짜 앞 여백이 담당하고, 오른쪽 여백은 항목 공통
+                    // 여백(일정 열 폭을 줄여 제목 말줄임 지점을 만든다)이 담당한다.
+                    dayGroupViews.applyItemPadding(
+                        viewId = R.id.notification_day_group_item,
                         startPaddingDp = spacing.dayHeaderStartPaddingDp,
-                        topPaddingDp = topPaddingDp,
-                        bottomPaddingDp = bottomPaddingDp,
+                        topPaddingDp =
+                            if (itemIndex == 0) FIRST_ITEM_TOP_PADDING_DP
+                            else spacing.betweenDayHeadersSpacingDp,
+                        bottomPaddingDp =
+                            if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP
+                            else 0,
+                        endPaddingDp = ITEM_HORIZONTAL_INSET_DP,
                     )
-                    rootViews.addView(R.id.notification_agenda_container, headerViews)
+                    // 날짜와 일정 사이 여백은 일정 열의 시작 여백으로, 모든 일정 줄의
+                    // 왼쪽 공백을 하나로 맞춘다.
+                    dayGroupViews.applyItemPadding(
+                        viewId = R.id.notification_day_group_events,
+                        startPaddingDp = spacing.dayHeaderToEventSpacingDp,
+                        topPaddingDp = 0,
+                        bottomPaddingDp = 0,
+                        endPaddingDp = 0,
+                    )
+                    rootViews.addView(R.id.notification_agenda_container, dayGroupViews)
+                    currentDayGroupViews = dayGroupViews
+                    isFirstEventInCurrentDayGroup = true
                 }
 
                 is AgendaListEntry.Event -> {
+                    // AgendaListBuilder가 헤더를 일정 직전에만 추가하므로 일정을 만났을 때
+                    // 열린 그룹이 반드시 있다.
+                    val dayGroupViews = requireNotNull(currentDayGroupViews)
                     val eventItemViews = createEventItemViews(
                         listEntry.entry,
                         eventRowClickTarget,
@@ -243,16 +260,22 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         currentTimeMilliseconds,
                         spacing.timeToTitleSpacingDp,
                     )
+                    // 일정 줄의 시작 여백은 그룹 행이, 오른쪽 여백도 그룹 행이 이미 갖고
+                    // 있으므로 줄 자체의 좌우 여백은 0이다.
                     eventItemViews.applyItemPadding(
                         viewId = R.id.notification_event_item,
-                        startPaddingDp = spacing.eventStartPaddingDp,
-                        topPaddingDp = topPaddingDp,
-                        bottomPaddingDp = bottomPaddingDp,
+                        startPaddingDp = 0,
+                        topPaddingDp =
+                            if (isFirstEventInCurrentDayGroup) 0 else spacing.betweenEventsSpacingDp,
+                        bottomPaddingDp =
+                            if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP
+                            else 0,
+                        endPaddingDp = 0,
                     )
-                    rootViews.addView(R.id.notification_agenda_container, eventItemViews)
+                    dayGroupViews.addView(R.id.notification_day_group_events, eventItemViews)
+                    isFirstEventInCurrentDayGroup = false
                 }
             }
-            previousListEntry = listEntry
         }
         return rootViews
     }

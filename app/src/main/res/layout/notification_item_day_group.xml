@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  날짜 그룹 한 덩어리: [날짜][일정 열]. 날짜는 내용 폭만 차지하고 일정 열(weight=1)이 남은
+  폭 전체를 차지하므로, 그룹 안 모든 일정 줄이 날짜 오른쪽의 같은 x에서 시작한다 — 둘째
+  일정부터의 왼쪽 공백이 첫 일정의 시작 위치와 항상 일치한다.
+  일정 줄은 AgendaRemoteViewsFactory가 notification_day_group_events에 addView로 채운다.
+  날짜 앞 여백·날짜와 일정 열 사이 간격·행 사이 수직 간격도 그곳에서 런타임에 적용한다
+  (사용자 설정).
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_day_group_item"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:baselineAligned="false">
+
+    <TextView
+        android:id="@+id/day_header_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/notification_text_secondary"
+        android:maxLines="1" />
+
+    <LinearLayout
+        android:id="@+id/notification_day_group_events"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical" />
+</LinearLayout>
