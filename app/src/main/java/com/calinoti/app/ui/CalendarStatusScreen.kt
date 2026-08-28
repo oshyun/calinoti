@@ -74,7 +74,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
-import com.calinoti.app.data.CollapsedHiddenItemType
+import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.InstalledCalendarApp
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
@@ -439,12 +439,12 @@ fun CalendarStatusScreen(
 
             // 접힌 헤더에도 현재 감춤 규모가 보이게 요약을 계산한다.
             val collapsedHiddenItemsSectionSummary =
-                if (userPreferences.collapsedHiddenItemTypes.isEmpty()) {
+                if (userPreferences.hiddenItemTypes.isEmpty()) {
                     stringResource(R.string.collapsed_hidden_items_summary_none)
                 } else {
                     stringResource(
                         R.string.collapsed_hidden_items_summary_format,
-                        userPreferences.collapsedHiddenItemTypes.size,
+                        userPreferences.hiddenItemTypes.size,
                     )
                 }
             CollapsibleSection(
@@ -462,37 +462,34 @@ fun CalendarStatusScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 // entries 순회라 항목 추가는 enum 상수 + 문자열 2개만으로 끝난다.
-                for (hiddenItemType in CollapsedHiddenItemType.entries) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(hiddenItemType.labelResourceId()),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text = stringResource(hiddenItemType.descriptionResourceId()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Checkbox(
-                            checked = hiddenItemType in userPreferences.collapsedHiddenItemTypes,
-                            onCheckedChange = { isChecked ->
-                                // 저장값 기준으로 원자적으로 반영되므로 빠르게 연속 토글해도
-                                // 이전 변경이 덮어쓰이지 않는다 (캘린더 선택과 같은 규칙).
-                                updatePreferences {
-                                    userPreferencesRepository.toggleCollapsedHiddenItemType(
-                                        itemType = hiddenItemType,
-                                        isChecked = isChecked,
-                                    )
-                                }
-                            },
-                        )
-                    }
+                for (hiddenItemType in HiddenItemType.entries) {
+                    HiddenItemOptionRow(
+                        label = stringResource(hiddenItemType.labelResourceId()),
+                        description = stringResource(hiddenItemType.descriptionResourceId()),
+                        isChecked = hiddenItemType in userPreferences.hiddenItemTypes,
+                        onCheckedChange = { isChecked ->
+                            // 저장값 기준으로 원자적으로 반영되므로 빠르게 연속 토글해도
+                            // 이전 변경이 덮어쓰이지 않는다 (캘린더 선택과 같은 규칙).
+                            updatePreferences {
+                                userPreferencesRepository.toggleHiddenItemType(
+                                    itemType = hiddenItemType,
+                                    isChecked = isChecked,
+                                )
+                            }
+                        },
+                    )
                 }
+                HiddenItemOptionRow(
+                    label = stringResource(R.string.hidden_items_apply_to_expanded_label),
+                    description =
+                        stringResource(R.string.hidden_items_apply_to_expanded_description),
+                    isChecked = userPreferences.applyHiddenItemsToExpanded,
+                    onCheckedChange = { isChecked ->
+                        updatePreferences {
+                            userPreferencesRepository.updateHiddenItemsApplyToExpanded(isChecked)
+                        }
+                    },
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -1106,16 +1103,40 @@ private fun clickTargetSummaryLabel(
             ?: stringResource(R.string.calendar_app_default_option)
 }
 
-private fun CollapsedHiddenItemType.labelResourceId(): Int = when (this) {
-    CollapsedHiddenItemType.SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY ->
-        R.string.collapsed_hidden_item_single_day_all_day_label
-    CollapsedHiddenItemType.MULTI_DAY_ALL_DAY ->
-        R.string.collapsed_hidden_item_multi_day_all_day_label
+/** 감춤 항목 한 줄. 라벨·설명과 체크박스. 감춤 규칙 행과 펼침 적용 행이 같은 모양을 쓴다. */
+@Composable
+private fun HiddenItemOptionRow(
+    label: String,
+    description: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
+    }
 }
 
-private fun CollapsedHiddenItemType.descriptionResourceId(): Int = when (this) {
-    CollapsedHiddenItemType.SINGLE_DAY_ALL_DAY_EXCEPT_STARTED_TODAY ->
-        R.string.collapsed_hidden_item_single_day_all_day_description
-    CollapsedHiddenItemType.MULTI_DAY_ALL_DAY ->
-        R.string.collapsed_hidden_item_multi_day_all_day_description
+private fun HiddenItemType.labelResourceId(): Int = when (this) {
+    HiddenItemType.ALL_DAY_STARTED_TODAY -> R.string.hidden_item_started_today_label
+    HiddenItemType.ALL_DAY_IN_PROGRESS -> R.string.hidden_item_in_progress_label
+    HiddenItemType.ALL_DAY_UPCOMING -> R.string.hidden_item_upcoming_label
+    HiddenItemType.ALL_DAY_FINISHED -> R.string.hidden_item_finished_label
+}
+
+private fun HiddenItemType.descriptionResourceId(): Int = when (this) {
+    HiddenItemType.ALL_DAY_STARTED_TODAY -> R.string.hidden_item_started_today_description
+    HiddenItemType.ALL_DAY_IN_PROGRESS -> R.string.hidden_item_in_progress_description
+    HiddenItemType.ALL_DAY_UPCOMING -> R.string.hidden_item_upcoming_description
+    HiddenItemType.ALL_DAY_FINISHED -> R.string.hidden_item_finished_description
 }
