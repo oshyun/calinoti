@@ -40,17 +40,17 @@ import java.util.concurrent.TimeUnit
 /** 아젠다 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
 class AgendaRemoteViewsFactory(private val context: Context) {
 
-    /** 알림이 접힌 상태에서 보일 요약 뷰. 감춤 설정을 적용한 뒤 항목 몇 개만 담는다. */
+    /** 알림이 접힌 상태에서 보일 요약 뷰. 접힌 뷰의 감춤 규칙을 적용한 뒤 항목 몇 개만 담는다. */
     fun createCollapsedViews(
         listEntries: List<AgendaListEntry>,
-        hiddenItemTypes: Set<HiddenItemType>,
+        collapsedHiddenItemTypes: Set<HiddenItemType>,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
-        filterHiddenEntries(listEntries, hiddenItemTypes, currentTimeMilliseconds),
+        filterHiddenEntries(listEntries, collapsedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
         spacing = spacing,
@@ -83,12 +83,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     )
 
     /**
-     * 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다. [hiddenItemTypes]는
-     * 펼친 뷰에도 감춤을 적용할 때만 비지 않은 채로 들어온다(AgendaNotificationManager 참조).
+     * 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다.
+     * [expandedHiddenItemTypes]는 접힌 뷰와 독립인 펼친 뷰의 감춤 규칙이다.
      */
     fun createExpandedViews(
         listEntries: List<AgendaListEntry>,
-        hiddenItemTypes: Set<HiddenItemType>,
+        expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
@@ -96,7 +96,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
-        filterHiddenEntries(listEntries, hiddenItemTypes, currentTimeMilliseconds),
+        filterHiddenEntries(listEntries, expandedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = maxVisibleEntries,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
         spacing = spacing,

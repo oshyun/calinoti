@@ -191,7 +191,7 @@ fun CalendarStatusScreen(
     var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
     var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isEventRangeSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isCollapsedHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -428,30 +428,57 @@ fun CalendarStatusScreen(
             Spacer(Modifier.height(12.dp))
 
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_collapsed_hidden_items),
-                summary = stringResource(R.string.collapsed_hidden_items_summary),
-                isExpanded = isCollapsedHiddenItemsSectionExpanded,
+                title = stringResource(R.string.settings_section_hidden_items),
+                summary = stringResource(R.string.hidden_items_summary),
+                isExpanded = isHiddenItemsSectionExpanded,
                 onToggleExpanded = {
-                    isCollapsedHiddenItemsSectionExpanded = !isCollapsedHiddenItemsSectionExpanded
+                    isHiddenItemsSectionExpanded = !isHiddenItemsSectionExpanded
                 },
             ) {
                 Text(
-                    text = stringResource(R.string.collapsed_hidden_items_description),
+                    text = stringResource(R.string.hidden_items_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(4.dp))
+                // 열 머리글도 감춤 규칙 행과 같은 칸을 써 체크박스 두 열과 정렬된다.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.weight(1f))
+                    HiddenStateColumnCell {
+                        Text(
+                            text = stringResource(R.string.hidden_items_column_collapsed_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HiddenStateColumnCell {
+                        Text(
+                            text = stringResource(R.string.hidden_items_column_expanded_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 // entries 순회라 항목 추가는 enum 상수 + 문자열 2개만으로 끝난다.
                 for (hiddenItemType in HiddenItemType.entries) {
                     HiddenItemOptionRow(
                         label = stringResource(hiddenItemType.labelResourceId()),
                         description = stringResource(hiddenItemType.descriptionResourceId()),
-                        isChecked = hiddenItemType in userPreferences.hiddenItemTypes,
-                        onCheckedChange = { isChecked ->
-                            // 저장값 기준으로 원자적으로 반영되므로 빠르게 연속 토글해도
-                            // 이전 변경이 덮어쓰이지 않는다 (캘린더 선택과 같은 규칙).
+                        isHiddenWhenCollapsed = hiddenItemType in userPreferences.collapsedHiddenItemTypes,
+                        isHiddenWhenExpanded = hiddenItemType in userPreferences.expandedHiddenItemTypes,
+                        // 토글 반영은 저장값 기준으로 원자적이라 연속 토글이 서로를
+                        // 덮어쓰지 않는다 (캘린더 선택과 같은 규칙).
+                        onHiddenWhenCollapsedChange = { isChecked ->
                             updatePreferences {
-                                userPreferencesRepository.toggleHiddenItemType(
+                                userPreferencesRepository.toggleCollapsedHiddenItemType(
+                                    itemType = hiddenItemType,
+                                    isChecked = isChecked,
+                                )
+                            }
+                        },
+                        onHiddenWhenExpandedChange = { isChecked ->
+                            updatePreferences {
+                                userPreferencesRepository.toggleExpandedHiddenItemType(
                                     itemType = hiddenItemType,
                                     isChecked = isChecked,
                                 )
@@ -459,17 +486,6 @@ fun CalendarStatusScreen(
                         },
                     )
                 }
-                HiddenItemOptionRow(
-                    label = stringResource(R.string.hidden_items_apply_to_expanded_label),
-                    description =
-                        stringResource(R.string.hidden_items_apply_to_expanded_description),
-                    isChecked = userPreferences.applyHiddenItemsToExpanded,
-                    onCheckedChange = { isChecked ->
-                        updatePreferences {
-                            userPreferencesRepository.updateHiddenItemsApplyToExpanded(isChecked)
-                        }
-                    },
-                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -1124,13 +1140,18 @@ private fun clickTargetSummaryLabel(
             ?: stringResource(R.string.calendar_app_default_option)
 }
 
-/** 감춤 항목 한 줄. 라벨·설명과 체크박스. 감춤 규칙 행과 펼침 적용 행이 같은 모양을 쓴다. */
+/**
+ * 감춤 항목 한 줄. 라벨·설명과 체크박스 두 개 — 닫힌(접힌 알림)용과 열린(펼친 알림)용이며
+ * 서로 독립이다. 두 체크박스는 열 머리글과 같은 칸([HiddenStateColumnCell])에 놰 열이 정렬된다.
+ */
 @Composable
 private fun HiddenItemOptionRow(
     label: String,
     description: String,
-    isChecked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    isHiddenWhenCollapsed: Boolean,
+    isHiddenWhenExpanded: Boolean,
+    onHiddenWhenCollapsedChange: (Boolean) -> Unit,
+    onHiddenWhenExpandedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1144,7 +1165,35 @@ private fun HiddenItemOptionRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
+        HiddenStateColumnCell {
+            Checkbox(
+                checked = isHiddenWhenCollapsed,
+                onCheckedChange = onHiddenWhenCollapsedChange,
+            )
+        }
+        HiddenStateColumnCell {
+            Checkbox(
+                checked = isHiddenWhenExpanded,
+                onCheckedChange = onHiddenWhenExpandedChange,
+            )
+        }
+    }
+}
+
+// 감춤 항목 표의 체크박스 열 폭. 머리글("닫힌"/"열린") 텍스트와 체크박스가 같은 폭 칸의
+// 중앙에 놰 행 사이에서도 두 열이 정렬된다. 48dp는 체크박스의 최소 터치 영역 크기다.
+private val HIDDEN_STATE_COLUMN_WIDTH_DP = 48.dp
+
+/** 감춤 항목 표의 열 칸 하나(닫힌/열린). 머리글 텍스트와 체크박스가 같은 폭을 공유해 열이 정렬된다. */
+@Composable
+private fun HiddenStateColumnCell(
+    cellContent: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier.width(HIDDEN_STATE_COLUMN_WIDTH_DP),
+        contentAlignment = Alignment.Center,
+    ) {
+        cellContent()
     }
 }
 
