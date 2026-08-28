@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 /** 시스템 캘린더 프로바이더에서 캘린더 목록과 표시 창에 든 일정을 읽어온다. */
@@ -137,6 +138,133 @@ class CalendarReader(private val context: Context) {
                 )
             }
         }
+
+        // QUIRK(calendar-provider-unsynced): sync_events=0인 캘린더의 일정은 Instances 테이블에
+        //   전개되지 않는다 (AOSP CalendarInstancesHelper가 SYNC_EVENTS != 0 조건으로 전개 대상에서
+        //   제외). 그런 캘린더의 일정을 Events 테이블에서 직접 읽어 보충한다. 반복 일정은 공개 API로
+        //   회차를 전개할 수 없어 첫 회차만 나온다.
+        // QUIRK-REMOVE-WHEN: CalendarProvider가 동기화 꺼진 캘린더도 Instances에 전개하도록 바뀌면
+        //   이 보충 경로를 제거한다.
+        val unsyncedCalendarIds = loadUnsyncedCalendarIds(selectedCalendarIds)
+        if (unsyncedCalendarIds.isNotEmpty()) {
+            entries.addAll(
+                loadUnsyncedCalendarEventEntries(
+                    unsyncedCalendarIds,
+                    searchStartMilliseconds,
+                    searchEndMilliseconds,
+                ),
+            )
+        }
+        // 보충분을 섞었으므로 AgendaListBuilder가 요구하는 시작 시각 순을 다시 맞춘다.
+        return entries.sortedBy { agendaEntry -> agendaEntry.beginTimeMilliseconds }
+    }
+
+    /** Instances에 전개되지 않는 sync_events=0 캘린더의 ID 목록을 [selectedCalendarIds] 한정으로 읽어온다. */
+    private fun loadUnsyncedCalendarIds(selectedCalendarIds: Set<Long>?): Set<Long> {
+        val unsyncedCalendarIds = mutableSetOf<Long>()
+        context.contentResolver.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            arrayOf(CalendarContract.Calendars._ID),
+            /* selection = */ CalendarContract.Calendars.SYNC_EVENTS + " = 0",
+            /* selectionArgs = */ null,
+            /* sortOrder = */ null,
+        )?.use { cursor ->
+            val idColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
+            while (cursor.moveToNext()) {
+                unsyncedCalendarIds.add(cursor.getLong(idColumnIndex))
+            }
+        }
+        return if (selectedCalendarIds == null) {
+            unsyncedCalendarIds
+        } else {
+            unsyncedCalendarIds.intersect(selectedCalendarIds)
+        }
+    }
+
+    /** sync 꺼진 캘린더의 일정을 Events 테이블에서 직접 읽어온다. 창 시작 전에 끝난 일정은 여기서 걸러낸다. */
+    private fun loadUnsyncedCalendarEventEntries(
+        calendarIds: Set<Long>,
+        searchStartMilliseconds: Long,
+        searchEndMilliseconds: Long,
+    ): List<AgendaEntry> {
+        val selectionFilters = mutableListOf(
+            CalendarContract.Events.CALENDAR_ID + " IN (" + calendarIds.joinToString(",") { "?" } + ")",
+            CalendarContract.Events.DELETED + " = 0",
+            CalendarContract.Events.STATUS + " != ?",
+            CalendarContract.Events.LAST_SYNCED + " = 0",
+            CalendarContract.Events.DTSTART + " <= ?",
+        )
+        val selectionValues = mutableListOf(
+            *calendarIds.map(Long::toString).toTypedArray(),
+            CalendarContract.Events.STATUS_CANCELED.toString(),
+            searchEndMilliseconds.toString(),
+        )
+        val entries = mutableListOf<AgendaEntry>()
+        context.contentResolver.query(
+            CalendarContract.Events.CONTENT_URI,
+            arrayOf(
+                CalendarContract.Events._ID,
+                CalendarContract.Events.TITLE,
+                CalendarContract.Events.DTSTART,
+                CalendarContract.Events.DTEND,
+                CalendarContract.Events.DURATION,
+                CalendarContract.Events.ALL_DAY,
+                CalendarContract.Events.EVENT_LOCATION,
+                CalendarContract.Events.CALENDAR_COLOR,
+            ),
+            /* selection = */ selectionFilters.joinToString(" AND "),
+            /* selectionArgs = */ selectionValues.toTypedArray(),
+            /* sortOrder = */ null,
+        )?.use { cursor ->
+            val eventIdColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
+            val titleColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE)
+            val beginColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART)
+            val endColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND)
+            val durationColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.DURATION)
+            val allDayColumnIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.ALL_DAY)
+            val locationColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION)
+            val calendarColorColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_COLOR)
+            while (cursor.moveToNext()) {
+                val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
+                val endTimeMilliseconds = resolveUnsyncedEventEndTime(
+                    declaredEndMilliseconds = cursor.getLong(endColumnIndex),
+                    durationText = cursor.getString(durationColumnIndex),
+                    beginTimeMilliseconds = beginTimeMilliseconds,
+                )
+                if (endTimeMilliseconds <= searchStartMilliseconds) continue
+                entries.add(
+                    AgendaEntry(
+                        eventId = cursor.getLong(eventIdColumnIndex),
+                        title = cursor.getString(titleColumnIndex).orEmpty(),
+                        beginTimeMilliseconds = beginTimeMilliseconds,
+                        endTimeMilliseconds = endTimeMilliseconds,
+                        isAllDay = cursor.getInt(allDayColumnIndex) != 0,
+                        location = cursor.getString(locationColumnIndex),
+                        calendarColor = cursor.getInt(calendarColorColumnIndex),
+                    ),
+                )
+            }
+        }
         return entries
+    }
+
+    /**
+     * Events 테이블의 종료 시각은 단발 일정은 dtend에, 반복 일정은 duration(RFC 5545 형식)에 들어있다.
+     * 둘 다 없는 불완전한 일정은 시작에 곧바로 끝나는 것으로 본다.
+     */
+    private fun resolveUnsyncedEventEndTime(
+        declaredEndMilliseconds: Long,
+        durationText: String?,
+        beginTimeMilliseconds: Long,
+    ): Long {
+        if (declaredEndMilliseconds != 0L) return declaredEndMilliseconds
+        if (durationText == null) return beginTimeMilliseconds
+        return try {
+            beginTimeMilliseconds + Duration.parse(durationText).toMillis()
+        } catch (malformedDuration: RuntimeException) {
+            beginTimeMilliseconds
+        }
     }
 }
