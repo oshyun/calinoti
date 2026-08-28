@@ -300,12 +300,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return titleWithLabel
     }
 
-    /** 제목 뒤에 붙일 상대 시간 라벨. 종일 일정은 시각 개념이 없어 표시하지 않는다(null). */
+    /** 제목 뒤에 붙일 상대 시간 라벨. 종일 일정과 이미 끝난 일정은 표시하지 않는다(null). */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
     ): String? {
         if (entry.isAllDay) return null
+        // 표시 창이 과거를 포함하면 이미 끝난 일정이 목록에 남으므로 종료 시각으로 걸러낸다.
+        if (entry.endTimeMilliseconds <= currentTimeMilliseconds) return null
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
         return when {
             remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
