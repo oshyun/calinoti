@@ -7,12 +7,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Typeface
 import android.provider.CalendarContract
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
+import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.util.TypedValue.COMPLEX_UNIT_SP
 import android.view.View
@@ -28,6 +30,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -40,12 +43,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         listEntries: List<AgendaListEntry>,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = COLLAPSED_ITEM_LIMIT,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
+        allDayEventTextSizeSp = allDayEventTextSizeSp,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
@@ -55,12 +60,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         maxVisibleEntries: Int,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = maxVisibleEntries,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
+        allDayEventTextSizeSp = allDayEventTextSizeSp,
         currentTimeMilliseconds = currentTimeMilliseconds,
     )
 
@@ -69,11 +76,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         itemLimit: Int,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
+        allDayEventTextSizeSp: Int,
         currentTimeMilliseconds: Long,
     ): RemoteViews {
-        // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다.
-        // 시각·위치·날짜 헤더는 제목보다 2sp 작게 표시한다 (기존 레이아웃의 15/13sp 관계).
+        // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다. 종일 일정 제목은
+        // 시간 있는 일정 제목 크기와 독립적인 설정값을 쓴다. 시각·위치·날짜 헤더는 시간
+        // 있는 일정 제목보다 2sp 작게 표시한다 (기존 레이아웃의 15/13sp 관계).
         val titleTextSizeSp = notificationTextSizeSp.toFloat()
+        val allDayTitleTextSizeSp = allDayEventTextSizeSp.toFloat()
         val secondaryTextSizeSp = (notificationTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP).toFloat()
         val rootViews = RemoteViews(context.packageName, R.layout.notification_agenda)
         rootViews.removeAllViews(R.id.notification_agenda_container)
@@ -104,7 +114,10 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         RemoteViews(context.packageName, R.layout.notification_item_day_header)
                     headerViews.setTextViewText(
                         R.id.day_header_text,
-                        formatDayHeaderText(listEntry.dayStartMilliseconds),
+                        formatDayHeaderText(
+                            dayStartMilliseconds = listEntry.dayStartMilliseconds,
+                            currentTimeMilliseconds = currentTimeMilliseconds,
+                        ),
                     )
                     headerViews.setTextViewTextSize(
                         R.id.day_header_text,
@@ -124,7 +137,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                     val eventItemViews = createEventItemViews(
                         listEntry.entry,
                         canOpenEventRows,
-                        titleTextSizeSp,
+                        // 종일 일정 제목은 종일 전용 설정 크기를 쓴다.
+                        titleTextSizeSp =
+                            if (listEntry.entry.isAllDay) allDayTitleTextSizeSp else titleTextSizeSp,
                         secondaryTextSizeSp,
                         currentTimeMilliseconds,
                         spacing.timeToTitleSpacingDp,
@@ -169,9 +184,11 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             itemViews.setTextViewText(R.id.event_time_text, formatTimeText(entry.beginTimeMilliseconds))
             itemViews.setTextViewTextSize(R.id.event_time_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
+        // 상대 시간 라벨은 그 일정 제목보다 2sp 작다. 종일 일정은 종일 제목 크기를 따른다.
+        val relativeLabelTextSizeSp = titleTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP
         itemViews.setTextViewText(
             R.id.event_title_text,
-            createEventTitleText(entry, currentTimeMilliseconds, secondaryTextSizeSp),
+            createEventTitleText(entry, currentTimeMilliseconds, relativeLabelTextSizeSp),
         )
         itemViews.setTextViewTextSize(R.id.event_title_text, COMPLEX_UNIT_SP, titleTextSizeSp)
         // 제목 색은 캘린더 앱과 같은 캘린더 색으로 표시한다. 일정별 개별 색(EVENT_COLOR)은
@@ -345,12 +362,28 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         Intent(Intent.ACTION_VIEW)
             .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId))
 
-    /** "08.31, 금요일" 형태의 날짜 헤더. */
-    private fun formatDayHeaderText(dayStartMilliseconds: Long): String =
-        Instant.ofEpochMilli(dayStartMilliseconds)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-            .format(dayHeaderFormatter)
+    /**
+     * "08.31, 금요일" 형태의 날짜 헤더. 오늘 날짜면 (오늘) 접미사를 붙이고 전체를 볼드로
+     * 강조해 목록에서 오늘 그룹을 한눈에 찾게 한다.
+     */
+    private fun formatDayHeaderText(
+        dayStartMilliseconds: Long,
+        currentTimeMilliseconds: Long,
+    ): CharSequence {
+        val headerDay = findLocalDateOf(dayStartMilliseconds)
+        val today = findLocalDateOf(currentTimeMilliseconds)
+        if (headerDay != today) return headerDay.format(dayHeaderFormatter)
+        val todayHeaderText = SpannableStringBuilder(headerDay.format(dayHeaderFormatter))
+            .append(RELATIVE_TIME_LABEL_SEPARATOR)
+            .append(context.getString(R.string.today_label))
+        todayHeaderText.setSpan(
+            StyleSpan(Typeface.BOLD),
+            0,
+            todayHeaderText.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        return todayHeaderText
+    }
 
     private fun formatTimeText(timeMilliseconds: Long): String =
         Instant.ofEpochMilli(timeMilliseconds)
@@ -360,7 +393,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     /**
      * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
-     * 종일 일정이 아니면 제목 뒤에 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다.
+     * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다.
      * 이미 끝난 일정은 제목에 취소선을 긋고 (종료됨) 라벨을 붙인다.
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
@@ -382,7 +415,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val isEventFinished = findEventFinishTimeMilliseconds(entry) <= currentTimeMilliseconds
         val relativeTimeLabel =
             if (isEventFinished) context.getString(R.string.agenda_finished)
-            else formatRelativeTimeLabel(entry, currentTimeMilliseconds) ?: return titleText
+            else formatRelativeTimeLabel(entry, currentTimeMilliseconds)
         val labelTextStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
         val titleWithLabel = SpannableStringBuilder(titleText)
             .append(RELATIVE_TIME_LABEL_SEPARATOR)
@@ -422,14 +455,25 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     }
 
     /**
-     * 제목 뒤에 붙일 상대 시간 라벨. 종일 일정은 표시하지 않는다(null). 이미 끝난 일정은
-     * 호출부가 (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
+     * 제목 뒤에 붙일 상대 시간 라벨. 시간 있는 일정은 남은 시간 단위를 고르고, 종일 일정은
+     * 날짜 단위로 계산한다 — 시작일이 미래면 (N일 뒤), 오늘 시작했거나 여러 날에 걸쳐
+     * 진행 중이면 (오늘)을 붙인다. 이미 끝난 일정은 호출부가 (종료됨) 라벨로 분기하므로
+     * 여기서는 다루지 않는다.
      */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
-    ): String? {
-        if (entry.isAllDay) return null
+    ): String {
+        if (entry.isAllDay) {
+            val daysUntilStart = ChronoUnit.DAYS.between(
+                findLocalDateOf(currentTimeMilliseconds),
+                findAllDayStartDate(entry),
+            )
+            if (daysUntilStart > 0) {
+                return context.getString(R.string.agenda_relative_days_format, daysUntilStart)
+            }
+            return context.getString(R.string.today_label)
+        }
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
         return when {
             remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
@@ -463,11 +507,23 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     /** 여러 날에 걸친 종일 일정의 마지막 날. 하루짜리 종일 일정이거나 시간 있는 일정이면 null. */
     private fun findAllDayLastDayOrNull(entry: AgendaEntry): LocalDate? {
         if (!entry.isAllDay) return null
-        val firstDay = Instant.ofEpochMilli(entry.beginTimeMilliseconds)
+        return findAllDayLastDay(entry).takeIf { it.isAfter(findAllDayStartDate(entry)) }
+    }
+
+    /**
+     * 종일 일정의 시작 날짜. 종일 일정의 begin은 UTC 자정으로 저장되므로(AgendaListBuilder의
+     * QUIRK 참조) 시스템 표준 시간대가 아니라 UTC 기준으로 날짜를 읽는다.
+     */
+    private fun findAllDayStartDate(entry: AgendaEntry): LocalDate =
+        Instant.ofEpochMilli(entry.beginTimeMilliseconds)
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
-        return findAllDayLastDay(entry).takeIf { it.isAfter(firstDay) }
-    }
+
+    /** 시스템 표준 시간대 기준으로 [timeMilliseconds]가 속한 날짜. */
+    private fun findLocalDateOf(timeMilliseconds: Long): LocalDate =
+        Instant.ofEpochMilli(timeMilliseconds)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
 
     /**
      * 일정이 끝난 것으로 판정되는 시각. 시간 있는 일정은 종료 시각 그대로고, 종일 일정은

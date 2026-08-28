@@ -33,8 +33,10 @@ data class UserPreferences(
     val windowEndDays: Int,
     /** 알림에 표시할 최대 항목 수. 항상 1 이상이다. */
     val maxVisibleEntries: Int,
-    /** 알림 제목 글자 크기(sp). 시각·위치·날짜 헤더는 이보다 2sp 작게 표시된다. */
+    /** 시간 있는 일정 제목의 글자 크기(sp). 시각·위치·날짜 헤더는 이보다 2sp 작게 표시된다. */
     val notificationTextSizeSp: Int,
+    /** 종일 일정 제목의 글자 크기(sp). [notificationTextSizeSp]와 독립적으로 조절한다. */
+    val allDayEventTextSizeSp: Int,
     val notificationClickAction: NotificationClickAction,
     val notificationSpacing: NotificationSpacing,
     /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
@@ -51,6 +53,7 @@ data class UserPreferences(
             windowEndDays = 7,
             maxVisibleEntries = 10,
             notificationTextSizeSp = 15,
+            allDayEventTextSizeSp = 15,
             notificationClickAction = NotificationClickAction.OPEN_APP,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
@@ -85,6 +88,7 @@ private val WINDOW_START_DAYS_KEY = intPreferencesKey("window_start_days")
 private val WINDOW_END_DAYS_KEY = intPreferencesKey("window_end_days")
 private val MAX_VISIBLE_ENTRIES_KEY = intPreferencesKey("max_visible_entries")
 private val NOTIFICATION_TEXT_SIZE_KEY = intPreferencesKey("notification_text_size_sp")
+private val ALL_DAY_EVENT_TEXT_SIZE_KEY = intPreferencesKey("all_day_event_text_size_sp")
 private val NOTIFICATION_CLICK_ACTION_KEY = stringPreferencesKey("notification_click_action")
 private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
@@ -135,6 +139,9 @@ class UserPreferencesRepository(private val context: Context) {
                     notificationTextSizeSp =
                         storedPreferences[NOTIFICATION_TEXT_SIZE_KEY]
                             ?: UserPreferences.DEFAULTS.notificationTextSizeSp,
+                    allDayEventTextSizeSp =
+                        storedPreferences[ALL_DAY_EVENT_TEXT_SIZE_KEY]
+                            ?: UserPreferences.DEFAULTS.allDayEventTextSizeSp,
                     notificationClickAction =
                         storedPreferences[NOTIFICATION_CLICK_ACTION_KEY]
                             ?.let { stored ->
@@ -217,6 +224,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationTextSize(textSizeSp: Int) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_TEXT_SIZE_KEY] = textSizeSp
+        }
+    }
+
+    suspend fun updateAllDayEventTextSize(textSizeSp: Int) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[ALL_DAY_EVENT_TEXT_SIZE_KEY] = textSizeSp
         }
     }
 
