@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -350,6 +351,7 @@ fun CalendarStatusScreen(
                     fieldLabelResourceId = R.string.window_start_days_label,
                     unitSuffixResourceId = R.string.days_unit_suffix,
                     storedValue = userPreferences.windowStartDays,
+                    allowsNegativeValues = true,
                     guidanceText = stringResource(R.string.window_start_days_hint),
                     invalidValueText = stringResource(R.string.display_window_order_invalid_message),
                     isValidValue = { startDays -> startDays <= userPreferences.windowEndDays },
@@ -613,12 +615,15 @@ private fun SpacingSliderRow(
  * 입력이 유효한 정수이고 저장값과 다를 때만 [onValidValueChange]를 부른다.
  * [isValidValue] 검증에 실패한 값은 [invalidValueText] 오류 문구와 함께 저장하지 않는다.
  * [guidanceText]는 오류가 없을 때 보이는 안내 문구다.
+ * [allowsNegativeValues]가 true면 필드 안에 ± 토글 버튼을 함께 보여 숫자 키패드에
+ * '-' 키가 없는 키보드(Samsung One UI 등)에서도 음수를 입력할 수 있게 한다.
  */
 @Composable
 private fun IntegerSettingField(
     fieldLabelResourceId: Int,
     unitSuffixResourceId: Int,
     storedValue: Int,
+    allowsNegativeValues: Boolean = false,
     guidanceText: String? = null,
     invalidValueText: String? = null,
     isValidValue: (Int) -> Boolean = { true },
@@ -630,21 +635,33 @@ private fun IntegerSettingField(
     val parsedInputValue = inputText.toIntOrNull()
     val showsInvalidValueError = parsedInputValue != null && !isValidValue(parsedInputValue)
 
+    // 키보드 입력과 ± 토글 버튼이 같은 검증·반영 경로를 쓴다.
+    fun acceptTypedText(typedText: String) {
+        val isIntegerText = typedText.toIntOrNull() != null
+        if (typedText.isEmpty() || typedText == "-" || isIntegerText) {
+            inputText = typedText
+            val typedValue = typedText.toIntOrNull()
+            if (typedValue != null && isValidValue(typedValue) && typedValue != storedValue) {
+                onValidValueChange(typedValue)
+            }
+        }
+    }
+
     OutlinedTextField(
         value = inputText,
-        onValueChange = { typedText ->
-            val isIntegerText = typedText.toIntOrNull() != null
-            if (typedText.isEmpty() || typedText == "-" || isIntegerText) {
-                inputText = typedText
-                val typedValue = typedText.toIntOrNull()
-                if (typedValue != null && isValidValue(typedValue) && typedValue != storedValue) {
-                    onValidValueChange(typedValue)
-                }
-            }
-        },
+        onValueChange = { typedText -> acceptTypedText(typedText) },
         modifier = Modifier.fillMaxWidth(),
         label = { Text(stringResource(fieldLabelResourceId)) },
         suffix = { Text(stringResource(unitSuffixResourceId)) },
+        trailingIcon = if (allowsNegativeValues) {
+            {
+                IconButton(onClick = { acceptTypedText(negateSignOfIntegerText(inputText)) }) {
+                    Text(stringResource(R.string.toggle_number_sign_button))
+                }
+            }
+        } else {
+            null
+        },
         isError = showsInvalidValueError,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -655,6 +672,14 @@ private fun IntegerSettingField(
             }
         },
     )
+}
+
+/** 입력 중인 정수 텍스트의 부호를 반전한다. 빈 문자열은 "-", "-"는 빈 문자열이 된다. */
+private fun negateSignOfIntegerText(text: String): String = when {
+    text.isEmpty() -> "-"
+    text == "-" -> ""
+    text.startsWith("-") -> text.removePrefix("-")
+    else -> "-$text"
 }
 
 private fun NotificationClickAction.labelResourceId(): Int = when (this) {
