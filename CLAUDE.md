@@ -20,6 +20,8 @@
   bump는 단독 커밋으로 "Bump to vX.Y.Z (versionCode N)" 형식의 메시지를 쓴다.
 - bump는 사용자가 머지를 결정한 뒤 그 시점에 진행한다 (작업 브랜치 작업 중 미리
   올려두지 않는다).
+- bump 커밋을 main에 직접 올리지 않는다. 작업 브랜치에 bump 커밋을 추가한 뒤
+  그 브랜치를 main으로 머지한다 — bump는 머지와 함께 들어간다.
 - bump 직전에는 반드시 main 브랜치의 `app/build.gradle.kts`에서 현재
   versionCode/versionName을 확인하고 그보다 한 칸 올린다.
   다른 세션이 main에 bump를 머지했을 수 있으므로, 자신이 마지막으로 본 버전을
