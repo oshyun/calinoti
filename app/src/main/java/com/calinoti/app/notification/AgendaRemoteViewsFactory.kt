@@ -1,7 +1,6 @@
 package com.calinoti.app.notification
 
 import android.app.PendingIntent
-import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -22,7 +21,9 @@ import androidx.core.content.ContextCompat
 import com.calinoti.app.R
 import com.calinoti.app.data.AgendaEntry
 import com.calinoti.app.data.AgendaListEntry
+import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.NotificationSpacing
+import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.ui.CalendarColorTone
 import java.time.Instant
 import java.time.LocalDate
@@ -40,6 +41,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     /** 알림이 접힌 상태에서 보일 요약 뷰. 항목 몇 개만 담는다. */
     fun createCollapsedViews(
         listEntries: List<AgendaListEntry>,
+        calendarAppPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -47,6 +49,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = COLLAPSED_ITEM_LIMIT,
+        calendarAppPackageName = calendarAppPackageName,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -57,6 +60,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     fun createExpandedViews(
         listEntries: List<AgendaListEntry>,
         maxVisibleEntries: Int,
+        calendarAppPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -64,6 +68,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     ): RemoteViews = createAgendaViews(
         listEntries,
         itemLimit = maxVisibleEntries,
+        calendarAppPackageName = calendarAppPackageName,
         spacing = spacing,
         notificationTextSizeSp = notificationTextSizeSp,
         allDayEventTextSizeSp = allDayEventTextSizeSp,
@@ -73,6 +78,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     private fun createAgendaViews(
         listEntries: List<AgendaListEntry>,
         itemLimit: Int,
+        calendarAppPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -92,8 +98,8 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             rootViews.addView(R.id.notification_agenda_container, emptyViews)
             return rootViews
         }
-        // 캘린더 앱 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
-        val canOpenEventRows = canOpenEventInCalendarApp()
+        // 일정 행 클릭 대상 탐침(PackageManager 쿼리)은 행마다가 아니라 뷰 조립당 한 번만 한다.
+        val eventClickTarget = resolveEventClickTarget(calendarAppPackageName)
         // 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로 배분한다. AgendaListBuilder가 헤더를
         // 일정 직전에만 추가하므로 첫 항목은 항상 헤더고, 세 수직 간격이 서로 겹치지 않는다.
         val visibleEntries = listEntries.take(itemLimit)
@@ -135,7 +141,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 is AgendaListEntry.Event -> {
                     val eventItemViews = createEventItemViews(
                         listEntry.entry,
-                        canOpenEventRows,
+                        eventClickTarget,
                         // 종일 일정 제목은 종일 전용 설정 크기를 쓴다.
                         titleTextSizeSp =
                             if (listEntry.entry.isAllDay) allDayTitleTextSizeSp else titleTextSizeSp,
@@ -159,7 +165,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     private fun createEventItemViews(
         entry: AgendaEntry,
-        canOpenEventRows: Boolean,
+        eventClickTarget: EventClickTarget,
         titleTextSizeSp: Float,
         secondaryTextSizeSp: Float,
         currentTimeMilliseconds: Long,
@@ -206,12 +212,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             itemViews.setTextViewText(R.id.event_location_text, entry.location)
             itemViews.setTextViewTextSize(R.id.event_location_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
         }
-        if (canOpenEventRows) {
+        if (eventClickTarget.canOpenEventRows) {
             // 줄에 클릭이 걸리면 탭이 그 줄에서 소비된다. 캘린더 앱이 없는 기기에서는
             // 걸지 않아 알림 전체 contentIntent가 행을 포함해 그대로 동작하게 둔다.
             itemViews.setOnClickPendingIntent(
                 R.id.notification_event_item,
-                createOpenEventPendingIntent(entry.eventId),
+                createOpenEventPendingIntent(entry.eventId, eventClickTarget.packageName),
             )
         }
         return itemViews
@@ -226,15 +232,33 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
 
+    /** 일정 행 클릭 대상. [packageName]이 null이면 암시적 인텐트로 시스템이 처리 앱을 고른다. */
+    private data class EventClickTarget(val packageName: String?, val canOpenEventRows: Boolean)
+
     /**
-     * 캘린더 앱이 일정 상세(content://com.android.calendar/events의 ACTION_VIEW)를 열 수 있는지.
-     * 알림을 조립할 때마다 확인한다.
+     * 지정 캘린더 앱이 일정 상세를 열 수 있으면 그 앱으로 한정하고, 지정이 없거나 이미
+     * 지워졌으면 암시적 인텐트로 돌아간다. 어느 쪽도 처리 앱이 없으면 행 클릭을 걸지 않아
+     * 알림 전체 contentIntent가 행을 포함해 동작하게 둔다.
      */
-    private fun canOpenEventInCalendarApp(): Boolean =
-        context.packageManager.queryIntentActivities(
-            buildOpenEventIntent(eventId = PROBE_EVENT_ID),
-            PackageManager.MATCH_DEFAULT_ONLY,
-        ).isNotEmpty()
+    private fun resolveEventClickTarget(calendarAppPackageName: String): EventClickTarget {
+        if (calendarAppPackageName != UserPreferences.UNSPECIFIED_CALENDAR_APP_PACKAGE_NAME) {
+            val selectedAppIntent =
+                CalendarIntents.buildEventViewIntent(CalendarIntents.EVENT_PROBE_ID)
+                    .setPackage(calendarAppPackageName)
+            if (hasResolvingActivity(selectedAppIntent)) {
+                return EventClickTarget(packageName = calendarAppPackageName, canOpenEventRows = true)
+            }
+        }
+        val implicitIntent = CalendarIntents.buildEventViewIntent(CalendarIntents.EVENT_PROBE_ID)
+        return EventClickTarget(
+            packageName = null,
+            canOpenEventRows = hasResolvingActivity(implicitIntent),
+        )
+    }
+
+    private fun hasResolvingActivity(intent: Intent): Boolean =
+        context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            .isNotEmpty()
 
     /**
      * 뷰의 여백을 dp에서 픽셀로 바꿔 적용한다. setViewPadding은 지정하지 않은 면을
@@ -273,17 +297,18 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         )
     }
 
-    private fun createOpenEventPendingIntent(eventId: Long): PendingIntent =
+    private fun createOpenEventPendingIntent(
+        eventId: Long,
+        targetPackageName: String?,
+    ): PendingIntent =
         PendingIntent.getActivity(
             context,
             EVENT_CLICK_REQUEST_CODE,
-            buildOpenEventIntent(eventId),
+            CalendarIntents.buildEventViewIntent(eventId).apply {
+                if (targetPackageName != null) setPackage(targetPackageName)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
-    private fun buildOpenEventIntent(eventId: Long): Intent =
-        Intent(Intent.ACTION_VIEW)
-            .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId))
 
     /**
      * "08.31, 금요일" 형태의 날짜 헤더. 오늘 날짜면 (오늘) 접미사를 붙이고 전체를 볼드로
@@ -483,9 +508,6 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 고정값이고, 접힘·펼침 뷰가 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로
         // 같은 레코드가 갱신 재사용된다.
         const val EVENT_CLICK_REQUEST_CODE = 1004
-
-        // 일정 열기 capability 확인용 탐침 id. 실제 일정 id가 아니라 인텐트 shape만 맞으면 충분하다.
-        const val PROBE_EVENT_ID = 0L
 
         val dayHeaderFormatter = DateTimeFormatter.ofPattern("MM.dd, EEEE", Locale.getDefault())
 
