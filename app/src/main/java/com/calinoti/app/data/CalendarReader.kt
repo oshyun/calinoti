@@ -81,8 +81,15 @@ class CalendarReader(private val context: Context) {
             .build()
 
         // 취소된 일정은 아젠다에서 제외하고, 선택된 캘린더로 한정한다.
+        // QUIRK(calendar-provider-instances-status): Instances 조인은 view_events 위에 있고 status
+        //   컬럼명은 eventStatus다. CalendarContract.Instances.STATUS("status")를 selection에 쓰면
+        //   컬럼이 없어 쿼리가 실패해(null 반환) 동기화 켜진 캘린더 전체가 조용히 누락된다.
+        //   또 CalDAV 동기화 앱은 STATUS 속성 없는 일정을 NULL로 저장하므로 NULL도 명시적으로 허용한다.
+        // QUIRK-REMOVE-WHEN: CalendarProvider가 Instances selection에 "status" 별칭을 지원하고
+        //   NULL status를 취소가 아닌 것으로 취급하기 시작하면 이 조건을 단순화한다.
         val selectionFilters = mutableListOf(
-            CalendarContract.Instances.STATUS + " != ?",
+            "(" + CalendarContract.Events.STATUS + " IS NULL OR " +
+                CalendarContract.Events.STATUS + " != ?)",
         )
         val selectionValues = mutableListOf(CalendarContract.Instances.STATUS_CANCELED.toString())
         if (selectedCalendarIds != null) {
