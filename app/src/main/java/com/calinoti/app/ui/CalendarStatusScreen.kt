@@ -313,10 +313,21 @@ fun CalendarStatusScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
+                                        // 색 점도 알림 카드와 같은 표준 톤으로 통일해, 여기서
+                                        // 보이는 색이 알림에서 보이는 색과 같게 한다. 화면은 항상
+                                        // 라이트 스킴(Theme.kt)이므로 라이트 톤을 쓴다.
                                         Box(
                                             Modifier
                                                 .size(12.dp)
-                                                .background(Color(calendar.color), CircleShape),
+                                                .background(
+                                                    Color(
+                                                        CalendarColorTone.standardizeCalendarColor(
+                                                            color = calendar.color,
+                                                            isDarkTheme = false,
+                                                        )
+                                                    ),
+                                                    CircleShape,
+                                                ),
                                         )
                                         Spacer(Modifier.width(10.dp))
                                         Text(
