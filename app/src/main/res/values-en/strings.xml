@@ -7,6 +7,7 @@
 
     <string name="event_list_empty_text">No events to show</string>
     <string name="untitled_event">Untitled event</string>
+    <string name="next_event_subtext_format">Next event: %1$s</string>
     <plurals name="event_relative_days">
         <item quantity="one">(in %1$d day)</item>
         <item quantity="other">(in %1$d days)</item>
