@@ -119,9 +119,12 @@
     <string name="day_header_format_preset_with_year">연도 포함</string>
     <string name="day_header_format_preset_compact">간단형</string>
 
-    <string name="settings_section_language">언어</string>
+    <!-- 언어 섹션 제목과 "시스템 기본"은 영어를 병기한다. 기본 values는 en/ko 외 시스템
+         언어의 폴백이기도 해서 한국어를 모르는 사용자가 언어 설정을 찾아야 하기 때문이다
+         (values-en에는 영문만 둬 영어 UI의 중복을 피한다). -->
+    <string name="settings_section_language">Language / 언어</string>
     <string name="language_section_description">알림과 화면에 바로 적용됩니다.</string>
-    <string name="language_system_default_label">시스템 기본</string>
+    <string name="language_system_default_label">System default / 시스템 기본</string>
     <!-- 언어명은 어느 화면 언어에서도 원어명으로 보여준다. -->
     <string name="language_korean_label" translatable="false">한국어</string>
     <string name="language_english_label" translatable="false">English</string>
