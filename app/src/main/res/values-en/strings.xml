@@ -117,6 +117,8 @@
     <string name="day_header_format_preset_with_year">With year</string>
     <string name="day_header_format_preset_compact">Compact</string>
 
+    <!-- 섹션 제목·"시스템 기본"은 기본 values에서 영어를 병기하므로(en/ko 외 폴백 대응)
+         여기서는 영문만 둔다. -->
     <string name="settings_section_language">Language</string>
     <string name="language_section_description">Applies to the notification and this screen right away.</string>
     <string name="language_system_default_label">System default</string>
