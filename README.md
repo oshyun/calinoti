@@ -47,21 +47,21 @@ Android Studio에서 열어도 된다 (JDK 17 필요).
 
 ```
 app/src/main/java/com/calinoti/app/
-├── AgendaApplication.kt        # 수동 DI 조립, 캘린더 변경 감시(ContentObserver)
-├── AgendaRefresher.kt          # 설정 → 쿼리 → 알림 → 예약을 묶은 갱신 진입점
+├── CalinotiApplication.kt        # 수동 DI 조립, 캘린더 변경 감시(ContentObserver)
+├── NotificationRefresher.kt          # 설정 → 쿼리 → 알림 → 예약을 묶은 갱신 진입점
 ├── MainActivity.kt             # Compose 설정 화면 진입
 ├── data/
-│   ├── AgendaModels.kt         # AgendaEntry / AgendaListEntry / UserCalendar
+│   ├── EventModels.kt         # EventEntry / EventListEntry / UserCalendar
 │   ├── CalendarReader.kt       # CalendarContract 쿼리 (캘린더 목록, Instances 범위 검색)
-│   ├── AgendaListBuilder.kt    # 일정 목록에 날짜 헤더 끼워 넣기
+│   ├── EventListBuilder.kt    # 일정 목록에 날짜 헤더 끼워 넣기
 │   ├── NotificationSpacing.kt  # 알림 여백 설정 값 (기본값, 조절 범위)
 │   └── UserPreferencesRepository.kt  # DataStore 설정 저장소
 ├── notification/
-│   ├── AgendaNotificationManager.kt  # 채널 생성, 알림 발행, 권한 확인, 클릭 PendingIntent
-│   └── AgendaRemoteViewsFactory.kt   # 알림 RemoteViews 조립
+│   ├── NotificationPublisher.kt  # 채널 생성, 알림 발행, 권한 확인, 클릭 PendingIntent
+│   └── NotificationViewsFactory.kt   # 알림 RemoteViews 조립
 ├── scheduling/
-│   ├── AgendaRefreshScheduler.kt     # AlarmManager 다음 갱신 예약
-│   └── AgendaRefreshReceiver.kt      # 알람 수신 → 갱신, 재부팅(BOOT_COMPLETED) 복원
+│   ├── NotificationRefreshScheduler.kt     # AlarmManager 다음 갱신 예약
+│   └── NotificationRefreshReceiver.kt      # 알람 수신 → 갱신, 재부팅(BOOT_COMPLETED) 복원
 └── ui/                          # Compose 테마와 설정 화면
 ```
 

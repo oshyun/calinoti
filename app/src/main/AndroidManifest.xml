@@ -18,7 +18,7 @@
     </queries>
 
     <application
-        android:name=".AgendaApplication"
+        android:name=".CalinotiApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -38,7 +38,7 @@
         <!-- 알람 갱신 예약과 재부팅 복원(BOOT_COMPLETED)을 같은 경로로 받는다.
              시스템 전용 브로드캐스트와 명시적 인텐트만 다루므로 외부 노출 불필요. -->
         <receiver
-            android:name=".scheduling.AgendaRefreshReceiver"
+            android:name=".scheduling.NotificationRefreshReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

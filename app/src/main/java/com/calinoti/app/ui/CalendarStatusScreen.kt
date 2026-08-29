@@ -92,8 +92,8 @@ import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
-import com.calinoti.app.notification.AgendaNotificationManager
-import com.calinoti.app.notification.AgendaRemoteViewsFactory
+import com.calinoti.app.notification.NotificationPublisher
+import com.calinoti.app.notification.NotificationViewsFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,18 +104,18 @@ import kotlin.math.roundToInt
 /**
  * 권한 안내와 설정(캘린더 선택·표시 옵션·언어)으로 이뤄진 앱의 유일한 화면.
  * 각 설정 묶음은 [CollapsibleSection]으로 접히며, 헤더 요약으로 접은 채 현재 상태를 확인할 수 있다.
- * 설정 변경은 저장만 담당한다 — 알림 갱신은 AgendaApplication의 설정 감시가 자동으로 한다.
+ * 설정 변경은 저장만 담당한다 — 알림 갱신은 CalinotiApplication의 설정 감시가 자동으로 한다.
  */
 @Composable
 fun CalendarStatusScreen(
     calendarReader: CalendarReader,
     calendarAppReader: CalendarAppReader,
-    notificationManager: AgendaNotificationManager,
-    remoteViewsFactory: AgendaRemoteViewsFactory,
+    notificationManager: NotificationPublisher,
+    remoteViewsFactory: NotificationViewsFactory,
     userPreferencesRepository: UserPreferencesRepository,
     appLocaleController: AppLocaleController,
     versionLabel: String,
-    refreshAgenda: () -> Unit,
+    refreshEvents: () -> Unit,
     openAppSettings: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -153,7 +153,7 @@ fun CalendarStatusScreen(
         hasCalendarPermission = calendarPermissionNow
         hasNotificationPermission = notificationPermissionNow
         shouldPromptForNotificationPermission = notificationPromptNow
-        if (permissionStateChanged) refreshAgenda()
+        if (permissionStateChanged) refreshEvents()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -863,7 +863,7 @@ fun CalendarStatusScreen(
 
             // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
             Spacer(Modifier.height(24.dp))
-            Button(onClick = refreshAgenda) {
+            Button(onClick = refreshEvents) {
                 Text(stringResource(R.string.refresh_now_button))
             }
         }
@@ -1276,7 +1276,7 @@ private fun DayHeaderFormatSelector(
                             // 프리셋 패턴은 유효성이 보장되지만, 그 불변식이 깨져도
                             // 패턴 문자열 자체는 보이게 둔다.
                             Text(
-                                text = AgendaRemoteViewsFactory.formatDayHeaderSample(
+                                text = NotificationViewsFactory.formatDayHeaderSample(
                                     preset.formatPattern,
                                     sampleDate,
                                 ) ?: preset.formatPattern,
@@ -1303,13 +1303,13 @@ private fun DayHeaderFormatSelector(
     Spacer(Modifier.height(8.dp))
     var inputPattern by remember(storedPattern) { mutableStateOf(storedPattern) }
     val inputSampleText =
-        AgendaRemoteViewsFactory.formatDayHeaderSample(inputPattern, sampleDate)
+        NotificationViewsFactory.formatDayHeaderSample(inputPattern, sampleDate)
     OutlinedTextField(
         value = inputPattern,
         onValueChange = { typedPattern ->
             inputPattern = typedPattern
             // 유효한 입력만 저장한다. 무효한 입력은 오류 문구만 보여주고 저장하지 않는다.
-            if (AgendaRemoteViewsFactory.isValidDayHeaderFormatPattern(typedPattern) &&
+            if (NotificationViewsFactory.isValidDayHeaderFormatPattern(typedPattern) &&
                 typedPattern != storedPattern
             ) {
                 onSelectPattern(typedPattern)
@@ -1342,7 +1342,7 @@ private data class DayHeaderFormatPreset(
 /**
  * 날짜 헤더 표시 형식 프리셋. 항목을 한 줄 추가하면 드롭다운에 자동으로 나타난다 —
  * 선택값은 [DayHeaderFormatPreset.formatPattern] 문자열 그대로 저장되고, 항목의 미리보기는
- * AgendaRemoteViewsFactory.formatDayHeaderSample로 실제 오늘 날짜를 포맷해 만든다.
+ * NotificationViewsFactory.formatDayHeaderSample로 실제 오늘 날짜를 포맷해 만든다.
  * 패턴은 반드시 유효해야 한다(무효 패턴은 isValidDayHeaderFormatPattern을 통과해 저장될 수 없다).
  */
 private val dayHeaderFormatPresets = listOf(

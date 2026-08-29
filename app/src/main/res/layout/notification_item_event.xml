@@ -5,13 +5,13 @@
   일정의 시간과 종일 일정의 제목 모두 열의 왼쪽에서 시작하므로 두 유형의 왼쪽 x가 일치한다.
   종일 일정은 시간 텍스트를 숨기고, 위치가 없으면 위치 칸을 숨긴다.
   임박 카운트다운은 시작이 1시간 미만으로 남은 시간 있는 일정만 보이는 Chronometer다 —
-  시스템이 실시간으로 줄여 그려 갱신 없이도 초 단위로 정확하다(AgendaRemoteViewsFactory가
+  시스템이 실시간으로 줄여 그려 갱신 없이도 초 단위로 정확하다(NotificationViewsFactory가
   setChronometer로 걸고 평소엔 숨긴다).
   시간·제목·위치 텍스트를 누르면 캘린더 앱에서 해당 일정을 연다. 텍스트가 없는
   오른쪽 여백은 클릭이 없어 알림 전체 contentIntent(지정 캘린더 앱 열기)로 넘어간다.
   위치 칸이 텍스트만큼만 넓어야 여백이 생기므로 weight 확장 대신 wrap_content다 —
   말줄임은 부모가 남은 공간을 제한할 때 그대로 동작한다.
-  여백·글자 크기·제목 색은 지정하지 않는다 — AgendaRemoteViewsFactory가 런타임에 적용한다.
+  여백·글자 크기·제목 색은 지정하지 않는다 — NotificationViewsFactory가 런타임에 적용한다.
   시각과 제목 사이 간격도 RemoteViews가 margin을 못 바꾸므로 시간 뷰의 paddingEnd로 적용한다.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

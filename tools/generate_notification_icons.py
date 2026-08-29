@@ -4,7 +4,7 @@
 상태바 알림 아이콘(ic_notification) 안에 오늘 날짜 숫자를 넣은 변형을
 1일~31일분으로 res/drawable/ic_notification_day_<날짜>.xml 에 내보낸다.
 Android는 런처·알림 아이콘을 런타임에 다시 그릴 수 없으므로 날짜별 리소스를
-미리 만들어두고, AgendaNotificationManager가 알림 발행 시점에 오늘 날짜 것을 고른다.
+미리 만들어두고, NotificationPublisher가 알림 발행 시점에 오늘 날짜 것을 고른다.
 
 단일 출처: 캘린더 프레임 경로(FRAME_PATH_DATA)와 숫자 모양(digitPath)은 이 스크립트에만
 정의되어 있다. 생성된 XML은 산출물이므로 직접 수정하지 말고 이 스크립트를 고친 뒤

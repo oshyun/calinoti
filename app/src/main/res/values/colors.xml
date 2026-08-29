@@ -3,7 +3,7 @@
     <color name="ic_launcher_background">#F2A08E</color>
 
     <!-- 알림 텍스트 색. 라이트/다크 알림 배경에 맞춰 values-night에서 어긋난다.
-         일정 제목 색은 여기에 없다 — 캘린더 색을 AgendaRemoteViewsFactory가 런타임에 적용한다. -->
+         일정 제목 색은 여기에 없다 — 캘린더 색을 NotificationViewsFactory가 런타임에 적용한다. -->
     <color name="notification_text_primary">#DE000000</color>
     <color name="notification_text_secondary">#8A000000</color>
 

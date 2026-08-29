@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 표시할 일정이 없을 때의 자리표시자. 글자 크기는 AgendaRemoteViewsFactory가 지정한다. -->
+<!-- 표시할 일정이 없을 때의 자리표시자. 글자 크기는 NotificationViewsFactory가 지정한다. -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/agenda_empty_text"
+    android:id="@+id/event_list_empty_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:paddingStart="12dp"
@@ -9,4 +9,4 @@
     android:paddingTop="16dp"
     android:paddingBottom="16dp"
     android:textColor="@color/notification_text_secondary"
-    android:text="@string/agenda_empty_text" />
+    android:text="@string/event_list_empty_text" />

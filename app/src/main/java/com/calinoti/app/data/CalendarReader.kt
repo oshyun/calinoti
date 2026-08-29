@@ -59,12 +59,12 @@ class CalendarReader(private val context: Context) {
      * 범위 쿼리 특성상 창 시작 전에 완전히 끝난 인스턴스도 섞여 나올 수 있어 종료 시각으로 걸러낸다.
      * [selectedCalendarIds]가 null이면 모든 캘린더를, 빈 집합이면 아무 캘린더도 대상으로 삼지 않는다.
      */
-    fun loadAgendaEntries(
+    fun loadEventEntries(
         selectedCalendarIds: Set<Long>?,
         windowStartDays: Int,
         windowEndDays: Int,
         currentTimeMilliseconds: Long,
-    ): List<AgendaEntry> {
+    ): List<EventEntry> {
         if (!hasCalendarPermission()) return emptyList()
 
         // 선택된 캘린더가 하나도 없으면 IN () 절을 만들 수 없으므로 여기서 끝낸다.
@@ -80,7 +80,7 @@ class CalendarReader(private val context: Context) {
             .appendPath(searchEndMilliseconds.toString())
             .build()
 
-        // 취소된 일정은 아젠다에서 제외하고, 선택된 캘린더로 한정한다.
+        // 취소된 일정은 일정 목록에서 제외하고, 선택된 캘린더로 한정한다.
         // QUIRK(calendar-provider-instances-status): Instances 조인은 view_events 위에 있고 status
         //   컬럼명은 eventStatus다. CalendarContract.Instances.STATUS("status")를 selection에 쓰면
         //   컬럼이 없어 쿼리가 실패해(null 반환) 동기화 켜진 캘린더 전체가 조용히 누락된다.
@@ -100,7 +100,7 @@ class CalendarReader(private val context: Context) {
             selectionValues.addAll(selectedCalendarIds.map(Long::toString))
         }
 
-        val entries = mutableListOf<AgendaEntry>()
+        val entries = mutableListOf<EventEntry>()
         context.contentResolver.query(
             instancesUri,
             arrayOf(
@@ -129,7 +129,7 @@ class CalendarReader(private val context: Context) {
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = cursor.getLong(endColumnIndex)
-                val entry = AgendaEntry(
+                val entry = EventEntry(
                     eventId = cursor.getLong(eventIdColumnIndex),
                     title = cursor.getString(titleColumnIndex).orEmpty(),
                     beginTimeMilliseconds = beginTimeMilliseconds,
@@ -143,7 +143,7 @@ class CalendarReader(private val context: Context) {
                 // 원시 종료 시각이 아니라 보정된 종료 판정 시각으로 비교한다 — 종일 일정의
                 // end는 UTC 자정이라 그대로 비교하면 UTC보다 뒤인 지역(한국, UTC+9)에서
                 // 어제 종일 일정이 다음 날 오전 9시까지 창에 새어 나온다
-                // (AgendaEntry.finishTimeMilliseconds 주석 참조).
+                // (EventEntry.finishTimeMilliseconds 주석 참조).
                 if (entry.finishTimeMilliseconds <= searchStartMilliseconds) continue
                 entries.add(entry)
             }
@@ -165,8 +165,8 @@ class CalendarReader(private val context: Context) {
                 ),
             )
         }
-        // 보충분을 섞었으므로 AgendaListBuilder가 요구하는 시작 시각 순을 다시 맞춘다.
-        return entries.sortedBy { agendaEntry -> agendaEntry.beginTimeMilliseconds }
+        // 보충분을 섞었으므로 EventListBuilder가 요구하는 시작 시각 순을 다시 맞춘다.
+        return entries.sortedBy { eventEntry -> eventEntry.beginTimeMilliseconds }
     }
 
     /** Instances에 전개되지 않는 sync_events=0 캘린더의 ID 목록을 [selectedCalendarIds] 한정으로 읽어온다. */
@@ -196,7 +196,7 @@ class CalendarReader(private val context: Context) {
         calendarIds: Set<Long>,
         searchStartMilliseconds: Long,
         searchEndMilliseconds: Long,
-    ): List<AgendaEntry> {
+    ): List<EventEntry> {
         val selectionFilters = mutableListOf(
             CalendarContract.Events.CALENDAR_ID + " IN (" + calendarIds.joinToString(",") { "?" } + ")",
             CalendarContract.Events.DELETED + " = 0",
@@ -213,7 +213,7 @@ class CalendarReader(private val context: Context) {
             CalendarContract.Events.STATUS_CANCELED.toString(),
             searchEndMilliseconds.toString(),
         )
-        val entries = mutableListOf<AgendaEntry>()
+        val entries = mutableListOf<EventEntry>()
         context.contentResolver.query(
             CalendarContract.Events.CONTENT_URI,
             arrayOf(
@@ -247,7 +247,7 @@ class CalendarReader(private val context: Context) {
                     durationText = cursor.getString(durationColumnIndex),
                     beginTimeMilliseconds = beginTimeMilliseconds,
                 )
-                val entry = AgendaEntry(
+                val entry = EventEntry(
                     eventId = cursor.getLong(eventIdColumnIndex),
                     title = cursor.getString(titleColumnIndex).orEmpty(),
                     beginTimeMilliseconds = beginTimeMilliseconds,

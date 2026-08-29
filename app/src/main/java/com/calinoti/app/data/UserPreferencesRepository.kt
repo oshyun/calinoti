@@ -18,7 +18,7 @@ import java.io.IOException
 /**
  * 알림에서 감출 종일 일정의 상태. 네 상태는 서로 겹치지 않고(완전분할) 종일 일정 하나를
  * 정확히 하나로 분류하므로, 상태별 감춤 토글은 서로 간섭하지 않는다. 시간 있는 일정은
- * 대상이 아니다. 항목을 늘릴 때는 분류 규칙(AgendaRemoteViewsFactory.findHiddenItemTypeOf)과
+ * 대상이 아니다. 항목을 늘릴 때는 분류 규칙(NotificationViewsFactory.findHiddenItemTypeOf)과
  * 문자열 2개를 함께 맞춰야 완전분할이 깨지지 않는다.
  */
 enum class HiddenItemType {
@@ -35,7 +35,7 @@ enum class HiddenItemType {
     ALL_DAY_FINISHED,
 }
 
-/** 아젠다 알림과 설정 화면이 공유하는 사용자 설정 묶음. */
+/** 일정 알림과 설정 화면이 공유하는 사용자 설정 묶음. */
 data class UserPreferences(
     /**
      * 표시할 캘린더. null이면 모든 캘린더(초기 상태), 빈 집합이면 선택된 캘린더 없음,

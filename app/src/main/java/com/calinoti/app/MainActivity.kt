@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val agendaApplication = application as AgendaApplication
+        val calinotiApplication = application as CalinotiApplication
         // 화면은 파라미터만 받게 한다 — 버전 조회(IPC)는 컴포지션 밖 여기서 한 번만.
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
         val versionLabel = getString(
@@ -25,14 +25,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             CalendarStatusTheme {
                 CalendarStatusScreen(
-                    calendarReader = agendaApplication.calendarReader,
-                    calendarAppReader = agendaApplication.calendarAppReader,
-                    notificationManager = agendaApplication.notificationManager,
-                    remoteViewsFactory = agendaApplication.remoteViewsFactory,
-                    userPreferencesRepository = agendaApplication.userPreferencesRepository,
-                    appLocaleController = agendaApplication.appLocaleController,
+                    calendarReader = calinotiApplication.calendarReader,
+                    calendarAppReader = calinotiApplication.calendarAppReader,
+                    notificationManager = calinotiApplication.notificationManager,
+                    remoteViewsFactory = calinotiApplication.remoteViewsFactory,
+                    userPreferencesRepository = calinotiApplication.userPreferencesRepository,
+                    appLocaleController = calinotiApplication.appLocaleController,
                     versionLabel = versionLabel,
-                    refreshAgenda = agendaApplication::launchAgendaRefresh,
+                    refreshEvents = calinotiApplication::launchNotificationRefresh,
                     openAppSettings = ::startAppDetailsSettings,
                 )
             }
@@ -41,12 +41,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        val agendaApplication = application as AgendaApplication
+        val calinotiApplication = application as CalinotiApplication
         // 시스템 설정 쪽에서 언어를 바꾸고 돌아온 경우를 흡수한다. 구성 변경이
         // Application까지 전달됐다면 기준값이 이미 갱신돼 아무 일도 일어나지 않는다 (멱등).
-        agendaApplication.refreshIfLocaleChanged(resources.configuration)
+        calinotiApplication.refreshIfLocaleChanged(resources.configuration)
         // 권한 다이얼로그가 닫히거나 설정에서 돌아온 뒤 감시자 등록을 다시 시도한다 (멱등).
-        agendaApplication.registerCalendarObserverIfPermitted()
+        calinotiApplication.registerCalendarObserverIfPermitted()
     }
 
     /** 알림 권한을 영구 거부한 사용자를 위한 탈출구: 이 앱의 시스템 설정 화면을 연다. */

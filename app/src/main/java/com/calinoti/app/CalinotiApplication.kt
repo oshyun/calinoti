@@ -11,8 +11,8 @@ import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.UserPreferencesRepository
-import com.calinoti.app.notification.AgendaNotificationManager
-import com.calinoti.app.notification.AgendaRemoteViewsFactory
+import com.calinoti.app.notification.NotificationPublisher
+import com.calinoti.app.notification.NotificationViewsFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,15 +24,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 앱 전역 구성요소를 수동으로 조립해 보관한다.
  *
- * 갱신 트리거는 다섯 가지이고 전부 launchAgendaRefresh로 모인다:
+ * 갱신 트리거는 다섯 가지이고 전부 launchNotificationRefresh로 모인다:
  * - ContentObserver: 캘린더 앱에서 일정 변경 (프로세스가 살아 있는 동안만 동작)
  * - DataStore 감시: 설정 변경 — 갱신 의무를 개별 UI 콜백이 기억하지 않도록 여기서 강제한다
  * - onConfigurationChanged: 다크 테마·언어 전환 (프로세스가 살아 있는 동안만 동작)
  * - onResume 폴백: 구성 변경 미전달에 대비한 언어 변경 재확인 (MainActivity)
  * - 수동 새로고침(설정 화면 버튼)
- * 프로세스가 죽은 뒤의 갱신은 AgendaRefreshScheduler의 알람과 재부팅 리시버가 담당한다.
+ * 프로세스가 죽은 뒤의 갱신은 NotificationRefreshScheduler의 알람과 재부팅 리시버가 담당한다.
  */
-class AgendaApplication : Application() {
+class CalinotiApplication : Application() {
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val refreshRequested = AtomicBoolean(false)
@@ -52,13 +52,13 @@ class AgendaApplication : Application() {
         private set
     lateinit var calendarAppReader: CalendarAppReader
         private set
-    lateinit var notificationManager: AgendaNotificationManager
+    lateinit var notificationManager: NotificationPublisher
         private set
-    lateinit var agendaRefresher: AgendaRefresher
+    lateinit var notificationRefresher: NotificationRefresher
         private set
 
     /** 설정 화면의 여백 미리보기가 실제 알림과 같은 조립 경로를 쓰게 공유한다. */
-    lateinit var remoteViewsFactory: AgendaRemoteViewsFactory
+    lateinit var remoteViewsFactory: NotificationViewsFactory
         private set
 
     override fun onCreate() {
@@ -70,9 +70,9 @@ class AgendaApplication : Application() {
         appLocaleController = AppLocaleController(this)
         calendarReader = CalendarReader(this)
         calendarAppReader = CalendarAppReader(this)
-        remoteViewsFactory = AgendaRemoteViewsFactory(this)
-        notificationManager = AgendaNotificationManager(this, remoteViewsFactory)
-        agendaRefresher = AgendaRefresher(
+        remoteViewsFactory = NotificationViewsFactory(this)
+        notificationManager = NotificationPublisher(this, remoteViewsFactory)
+        notificationRefresher = NotificationRefresher(
             context = this,
             userPreferencesRepository = userPreferencesRepository,
             calendarReader = calendarReader,
@@ -86,9 +86,9 @@ class AgendaApplication : Application() {
             // 감시가 죽으면 설정 변경이 알림에 반영되지 않으므로 수집 오류를 기록하고 끝낸다.
             userPreferencesRepository.userPreferences
                 .catch { runtimeError -> Log.e(TAG, "설정 감시가 중단됐다", runtimeError) }
-                .collect { launchAgendaRefresh() }
+                .collect { launchNotificationRefresh() }
         }
-        launchAgendaRefresh()
+        launchNotificationRefresh()
     }
 
     /**
@@ -103,7 +103,7 @@ class AgendaApplication : Application() {
         val newSystemNightMode = newConfiguration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         val nightModeChanged = newSystemNightMode != lastSeenSystemNightMode
         lastSeenSystemNightMode = newSystemNightMode
-        if (nightModeChanged) launchAgendaRefresh()
+        if (nightModeChanged) launchNotificationRefresh()
         refreshIfLocaleChanged(newConfiguration)
     }
 
@@ -120,7 +120,7 @@ class AgendaApplication : Application() {
         lastSeenLocaleTag = latestLocaleTag
         // 같은 채널 ID로 다시 만들면 이름·설명만 새 언어로 갱신된다(중요도 등 behavior는 유지).
         notificationManager.ensureNotificationChannel()
-        launchAgendaRefresh()
+        launchNotificationRefresh()
     }
 
     /**
@@ -140,16 +140,16 @@ class AgendaApplication : Application() {
     }
 
     /** 겹치는 갱신 요청을 하나로 합쳐 실행한다. refreshNow 자체는 Mutex로 직렬화된다. */
-    fun launchAgendaRefresh() {
+    fun launchNotificationRefresh() {
         if (!refreshRequested.compareAndSet(false, true)) return
         applicationScope.launch {
             while (refreshRequested.compareAndSet(true, false)) {
                 try {
-                    agendaRefresher.refreshNow()
+                    notificationRefresher.refreshNow()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (runtimeError: Exception) {
-                    Log.e(TAG, "아젠다 알림 갱신에 실패했다", runtimeError)
+                    Log.e(TAG, "일정 알림 갱신에 실패했다", runtimeError)
                 }
             }
         }
@@ -157,11 +157,11 @@ class AgendaApplication : Application() {
 
     private val calendarChangeObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
-            launchAgendaRefresh()
+            launchNotificationRefresh()
         }
     }
 
     private companion object {
-        const val TAG = "AgendaApplication"
+        const val TAG = "CalinotiApplication"
     }
 }

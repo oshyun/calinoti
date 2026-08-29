@@ -24,8 +24,8 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import com.calinoti.app.R
-import com.calinoti.app.data.AgendaEntry
-import com.calinoti.app.data.AgendaListEntry
+import com.calinoti.app.data.EventEntry
+import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.NotificationSpacing
@@ -43,12 +43,12 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 
-/** 아젠다 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
-class AgendaRemoteViewsFactory(private val context: Context) {
+/** 일정 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
+class NotificationViewsFactory(private val context: Context) {
 
     /** 알림이 접힌 상태에서 보일 요약 뷰. 접힌 뷰의 감춤 규칙을 적용한 뒤 항목 몇 개만 담는다. */
     fun createCollapsedViews(
-        listEntries: List<AgendaListEntry>,
+        listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
@@ -56,7 +56,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
-    ): RemoteViews = createAgendaViews(
+    ): RemoteViews = createEventListViews(
         filterHiddenEntries(listEntries, collapsedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
@@ -75,13 +75,13 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 모든 항목을 보여줘야 각 여백 설정이 어느 부분인지 드러나기 때문이다.
      */
     fun createPreviewViews(
-        listEntries: List<AgendaListEntry>,
+        listEntries: List<EventListEntry>,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
-    ): RemoteViews = createAgendaViews(
+    ): RemoteViews = createEventListViews(
         listEntries,
         itemLimit = Int.MAX_VALUE,
         eventRowClickTarget = EventRowClickTarget.None,
@@ -97,7 +97,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * [expandedHiddenItemTypes]는 접힌 뷰와 독립인 펼친 뷰의 감춤 규칙이다.
      */
     fun createExpandedViews(
-        listEntries: List<AgendaListEntry>,
+        listEntries: List<EventListEntry>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
         eventClickTargetPackageName: String,
@@ -106,7 +106,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
-    ): RemoteViews = createAgendaViews(
+    ): RemoteViews = createEventListViews(
         filterHiddenEntries(listEntries, expandedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = maxVisibleEntries,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
@@ -123,21 +123,21 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 감춤을 끈 기본 상태에서는 기존 목록이 그대로 유지돼야 한다.
      */
     private fun filterHiddenEntries(
-        listEntries: List<AgendaListEntry>,
+        listEntries: List<EventListEntry>,
         hiddenItemTypes: Set<HiddenItemType>,
         currentTimeMilliseconds: Long,
-    ): List<AgendaListEntry> {
+    ): List<EventListEntry> {
         if (hiddenItemTypes.isEmpty()) return listEntries
         val today = findLocalDateOf(currentTimeMilliseconds)
-        // AgendaListBuilder가 헤더를 일정 직전에만 추가하므로(첫 항목은 항상 헤더) 헤더 뒤에
+        // EventListBuilder가 헤더를 일정 직전에만 추가하므로(첫 항목은 항상 헤더) 헤더 뒤에
         // 일정이 곧바로 오지 않으면 그 그룹은 감춤으로 비어 있는 것이다. 헤더를 잠시 들어뒀다가
         // 일정이 올 때만 내보내면 빈 그룹의 헤더가 자연히 사라진다.
         return buildList {
-            var pendingDayHeader: AgendaListEntry.DayHeader? = null
+            var pendingDayHeader: EventListEntry.DayHeader? = null
             for (listEntry in listEntries) {
                 when (listEntry) {
-                    is AgendaListEntry.DayHeader -> pendingDayHeader = listEntry
-                    is AgendaListEntry.Event -> {
+                    is EventListEntry.DayHeader -> pendingDayHeader = listEntry
+                    is EventListEntry.Event -> {
                         val hiddenItemType =
                             findHiddenItemTypeOf(listEntry.entry, today, currentTimeMilliseconds)
                         if (hiddenItemType in hiddenItemTypes) continue
@@ -156,7 +156,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 종일 일정을 정확히 하나로 분류한다(HiddenItemType의 완전분할).
      */
     private fun findHiddenItemTypeOf(
-        entry: AgendaEntry,
+        entry: EventEntry,
         today: LocalDate,
         currentTimeMilliseconds: Long,
     ): HiddenItemType? {
@@ -170,7 +170,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         return when {
             startDate == today -> HiddenItemType.ALL_DAY_STARTED_TODAY
             startDate.isAfter(today) -> HiddenItemType.ALL_DAY_UPCOMING
-            // 종료 판정은 제목의 (종료됨) 취소선과 같은 출처(AgendaEntry.finishTimeMilliseconds)를
+            // 종료 판정은 제목의 (종료됨) 취소선과 같은 출처(EventEntry.finishTimeMilliseconds)를
             // 쓴다 — UTC 자정 종료 보정이 포함돼 있어 한국에서 어제 종일 일정이 오전 내내
             // 진행 중으로 분류되는 일이 없다.
             entry.finishTimeMilliseconds <= currentTimeMilliseconds ->
@@ -179,8 +179,8 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
     }
 
-    private fun createAgendaViews(
-        listEntries: List<AgendaListEntry>,
+    private fun createEventListViews(
+        listEntries: List<EventListEntry>,
         itemLimit: Int,
         /**
          * 일정 행 클릭 대상. [EventRowClickTarget.None]이면 행 클릭 없이 조립한다(설정
@@ -200,12 +200,12 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val titleTextSizeSp = notificationTextSizeSp.toFloat()
         val allDayTitleTextSizeSp = allDayEventTextSizeSp.toFloat()
         val secondaryTextSizeSp = (notificationTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP).toFloat()
-        val rootViews = RemoteViews(context.packageName, R.layout.notification_agenda)
-        rootViews.removeAllViews(R.id.notification_agenda_container)
+        val rootViews = RemoteViews(context.packageName, R.layout.notification_list)
+        rootViews.removeAllViews(R.id.notification_list_container)
         if (listEntries.isEmpty()) {
             val emptyViews = RemoteViews(context.packageName, R.layout.notification_item_empty)
-            emptyViews.setTextViewTextSize(R.id.agenda_empty_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
-            rootViews.addView(R.id.notification_agenda_container, emptyViews)
+            emptyViews.setTextViewTextSize(R.id.event_list_empty_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
+            rootViews.addView(R.id.notification_list_container, emptyViews)
             return rootViews
         }
         // 날짜 열 폭은 목록에서 가장 넓은 날짜 헤더 한 번 재어 모든 그룹이 같게 한다.
@@ -213,7 +213,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 같다 — 펼치는 순간 일정 열이 좌우로 움직이지 않는다.
         val dayHeaderMaxWidthPx = findDayHeaderMaxWidthPx(
             dayStartMillisecondsValues = listEntries
-                .filterIsInstance<AgendaListEntry.DayHeader>()
+                .filterIsInstance<EventListEntry.DayHeader>()
                 .map { it.dayStartMilliseconds },
             currentTimeMilliseconds = currentTimeMilliseconds,
             formatPattern = dayHeaderFormatPattern,
@@ -222,14 +222,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 날짜 그룹 하나가 [날짜][일정 열] 한 행(notification_item_day_group)이고, 일정은
         // 그 그룹의 일정 열에 쌓인다. 수직 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로
         // 배분한다(첫 그룹 위 여백 → 그룹 행, 그룹 사이 여백 → 다음 그룹 행, 일정 사이
-        // 여백 → 다음 일정 행). AgendaListBuilder가 헤더를 일정 직전에만 추가하므로 첫
+        // 여백 → 다음 일정 행). EventListBuilder가 헤더를 일정 직전에만 추가하므로 첫
         // 항목은 항상 헤더고, 수직 간격끼리 서로 겹치지 않는다.
         val visibleEntries = listEntries.take(itemLimit)
         var currentDayGroupViews: RemoteViews? = null
         var isFirstEventInCurrentDayGroup = true
         for ((itemIndex, listEntry) in visibleEntries.withIndex()) {
             when (listEntry) {
-                is AgendaListEntry.DayHeader -> {
+                is EventListEntry.DayHeader -> {
                     val dayGroupViews =
                         RemoteViews(context.packageName, R.layout.notification_item_day_group)
                     dayGroupViews.setTextViewText(
@@ -268,13 +268,13 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                         bottomPaddingDp = 0,
                         endPaddingDp = 0,
                     )
-                    rootViews.addView(R.id.notification_agenda_container, dayGroupViews)
+                    rootViews.addView(R.id.notification_list_container, dayGroupViews)
                     currentDayGroupViews = dayGroupViews
                     isFirstEventInCurrentDayGroup = true
                 }
 
-                is AgendaListEntry.Event -> {
-                    // AgendaListBuilder가 헤더를 일정 직전에만 추가하므로 일정을 만났을 때
+                is EventListEntry.Event -> {
+                    // EventListBuilder가 헤더를 일정 직전에만 추가하므로 일정을 만났을 때
                     // 열린 그룹이 반드시 있다.
                     val dayGroupViews = requireNotNull(currentDayGroupViews)
                     val eventItemViews = createEventItemViews(
@@ -308,7 +308,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     }
 
     private fun createEventItemViews(
-        entry: AgendaEntry,
+        entry: EventEntry,
         eventRowClickTarget: EventRowClickTarget,
         titleTextSizeSp: Float,
         secondaryTextSizeSp: Float,
@@ -648,18 +648,18 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
     private fun createEventTitleText(
-        entry: AgendaEntry,
+        entry: EventEntry,
         currentTimeMilliseconds: Long,
         secondaryTextSizeSp: Float,
         isImminentCountdown: Boolean,
     ): CharSequence {
         // 여러 날에 걸친 종일 일정은 시작일 그룹에 표시하되 제목에 종료일을 붙인다.
-        val baseTitle = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
+        val baseTitle = entry.title.ifEmpty { context.getString(R.string.untitled_event) }
         val multidayAllDayLastDay = findAllDayLastDayOrNull(entry)
         val titleText = SpannableStringBuilder(baseTitle)
         if (multidayAllDayLastDay != null) {
             val endDateSuffix = context.getString(
-                R.string.agenda_multiday_end_date_suffix_format,
+                R.string.multiday_end_date_suffix_format,
                 multidayAllDayLastDay.format(createMultidayEndDateFormatter()),
             )
             val endDateSuffixStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
@@ -674,7 +674,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
         val isEventFinished = entry.finishTimeMilliseconds <= currentTimeMilliseconds
         val relativeTimeLabel =
-            if (isEventFinished) context.getString(R.string.agenda_finished)
+            if (isEventFinished) context.getString(R.string.event_finished)
             else if (isImminentCountdown) null
             else formatRelativeTimeLabel(entry, currentTimeMilliseconds)
         // 라벨이 없는 일정(오늘 시작했거나 진행 중인 종일 일정)은 구분자와 라벨 span 없이
@@ -748,7 +748,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 라벨로 분기하므로 여기서는 다루지 않는다.
      */
     private fun formatRelativeTimeLabel(
-        entry: AgendaEntry,
+        entry: EventEntry,
         currentTimeMilliseconds: Long,
     ): String? {
         if (entry.isAllDay) {
@@ -762,9 +762,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
         val remainingHours = TimeUnit.MILLISECONDS.toHours(remainingMilliseconds)
         return when {
-            remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
+            remainingMilliseconds <= 0 -> context.getString(R.string.event_in_progress)
             remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.resources.getQuantityString(
-                R.plurals.agenda_relative_hours,
+                R.plurals.event_relative_hours,
                 remainingHours.toInt(),
                 remainingHours,
             )
@@ -780,7 +780,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     /** 상대 일수 라벨((N일 뒤)). 영어의 1일/2일 이상 복수형 차이는 리소스 plurals가 담당한다. */
     private fun formatRelativeDaysLabel(days: Long): String =
         context.resources.getQuantityString(
-            R.plurals.agenda_relative_days,
+            R.plurals.event_relative_days,
             days.toInt(),
             days,
         )
@@ -791,7 +791,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 부정확해지지만 카운트다운은 시스템이 그릴 때마다 줄어들어 항상 정확하다.
      */
     private fun isImminentCountdownTarget(
-        entry: AgendaEntry,
+        entry: EventEntry,
         currentTimeMilliseconds: Long,
     ): Boolean = !entry.isAllDay &&
         entry.beginTimeMilliseconds > currentTimeMilliseconds &&
@@ -799,25 +799,25 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
     /**
      * 종일 일정의 마지막 날(하루짜리 포함). 종일 일정의 end는 UTC 자정(마지막 날 다음 날,
-     * exclusive)으로 저장되므로(AgendaListBuilder의 QUIRK 참조) 하루를 빼 마지막 날을 구한다.
+     * exclusive)으로 저장되므로(EventListBuilder의 QUIRK 참조) 하루를 빼 마지막 날을 구한다.
      */
-    private fun findAllDayLastDay(entry: AgendaEntry): LocalDate =
+    private fun findAllDayLastDay(entry: EventEntry): LocalDate =
         Instant.ofEpochMilli(entry.endTimeMilliseconds)
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
             .minusDays(1)
 
     /** 여러 날에 걸친 종일 일정의 마지막 날. 하루짜리 종일 일정이거나 시간 있는 일정이면 null. */
-    private fun findAllDayLastDayOrNull(entry: AgendaEntry): LocalDate? {
+    private fun findAllDayLastDayOrNull(entry: EventEntry): LocalDate? {
         if (!entry.isAllDay) return null
         return findAllDayLastDay(entry).takeIf { it.isAfter(findAllDayStartDate(entry)) }
     }
 
     /**
-     * 종일 일정의 시작 날짜. 종일 일정의 begin은 UTC 자정으로 저장되므로(AgendaListBuilder의
+     * 종일 일정의 시작 날짜. 종일 일정의 begin은 UTC 자정으로 저장되므로(EventListBuilder의
      * QUIRK 참조) 시스템 표준 시간대가 아니라 UTC 기준으로 날짜를 읽는다.
      */
-    private fun findAllDayStartDate(entry: AgendaEntry): LocalDate =
+    private fun findAllDayStartDate(entry: EventEntry): LocalDate =
         Instant.ofEpochMilli(entry.beginTimeMilliseconds)
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
@@ -837,7 +837,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         /**
          * [formatPattern]을 날짜 헤더 형식으로 쓸 수 있는지. DateTimeFormatter가 해석해
          * 실제 날짜를 포맷할 수 있어야 하고, 날짜 토큰(y·M·d·E)을 하나 이상 담아야 한다 —
-         * 날짜 토큰이 전혀 없으면 모든 헤더가 같은 텍스트가 되어 아젠다의 날짜 구분이
+         * 날짜 토큰이 전혀 없으면 모든 헤더가 같은 텍스트가 되어 일정 목록의 날짜 구분이
          * 사라진다.
          */
         fun isValidDayHeaderFormatPattern(formatPattern: String): Boolean =
@@ -910,7 +910,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
 
         // 행 구분은 requestCode가 아니라 인텐트 data(이벤트 URI)가 담당한다. requestCode는
         // 알림 전체 클릭의 CONTENT_REQUEST_CODE(1002), 해제 복구 브로드캐스트의
-        // DISMISS_RESTORE_REQUEST_CODE(1003, AgendaNotificationManager)와 겹치지 않는
+        // DISMISS_RESTORE_REQUEST_CODE(1003, NotificationPublisher)와 겹치지 않는
         // 고정값이고, 접힘·펼침 뷰가 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로
         // 같은 레코드가 갱신 재사용된다.
         const val EVENT_CLICK_REQUEST_CODE = 1004

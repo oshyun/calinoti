@@ -2,33 +2,28 @@
 <!-- English translation. app_name과 언어명 2개(language_korean_label·language_english_label)는
      translatable="false"라 여기에 두지 않는다. -->
 <resources>
-    <string name="notification_channel_agenda_name">Event agenda</string>
-    <string name="notification_channel_agenda_description">Shows upcoming calendar events in a notification</string>
+    <string name="notification_channel_name">Events</string>
+    <string name="notification_channel_description">Shows upcoming calendar events in a notification</string>
 
-    <string name="agenda_empty_text">No events to show</string>
-    <string name="agenda_untitled_event">Untitled event</string>
-    <plurals name="agenda_relative_days">
+    <string name="event_list_empty_text">No events to show</string>
+    <string name="untitled_event">Untitled event</string>
+    <plurals name="event_relative_days">
         <item quantity="one">(in %1$d day)</item>
         <item quantity="other">(in %1$d days)</item>
     </plurals>
-    <plurals name="agenda_relative_hours">
+    <plurals name="event_relative_hours">
         <item quantity="one">(in %1$d hour)</item>
         <item quantity="other">(in %1$d hours)</item>
     </plurals>
-    <plurals name="agenda_relative_minutes">
-        <item quantity="one">(in %1$d minute)</item>
-        <item quantity="other">(in %1$d minutes)</item>
-    </plurals>
-    <string name="agenda_relative_soon">(soon)</string>
-    <string name="agenda_in_progress">(in progress)</string>
-    <string name="agenda_finished">(done)</string>
+    <string name="event_in_progress">(in progress)</string>
+    <string name="event_finished">(done)</string>
     <!-- 물결표(~) 접두는 한국어 관습이라 영어에서는 쓰지 않는다. -->
-    <string name="agenda_multiday_end_date_suffix_format">(until %1$s)</string>
+    <string name="multiday_end_date_suffix_format">(until %1$s)</string>
 
     <string name="calendar_permission_title">Calendar permission needed</string>
     <string name="calendar_permission_description">Reading your calendar is required to show its events in the notification.</string>
     <string name="notification_permission_title">Notification permission needed</string>
-    <string name="notification_permission_description">Posting notifications is required to show your agenda.</string>
+    <string name="notification_permission_description">Posting notifications is required to show your events.</string>
     <string name="calendar_permission_button">Grant permission</string>
     <string name="open_app_settings_button">Allow in system settings</string>
     <string name="all_permissions_granted_message">Permissions are ready. Check your events in the notification.</string>
