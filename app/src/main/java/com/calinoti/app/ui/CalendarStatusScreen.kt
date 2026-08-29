@@ -830,6 +830,8 @@ fun CalendarStatusScreen(
                 )
             }
 
+            Spacer(Modifier.height(12.dp))
+
             // 갱신 주기는 표시·동작이 아니라 알림을 언제 다시 읽어오는지의 문제라 별도 섹션으로 둔다.
             CollapsibleSection(
                 title = stringResource(R.string.settings_section_notification_update_interval),
@@ -860,17 +862,12 @@ fun CalendarStatusScreen(
                     },
                 )
             }
-
-            // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = refreshEvents) {
-                Text(stringResource(R.string.refresh_now_button))
-            }
         }
 
         // 언어는 캘린더·알림 권한과 무관한 앱 전역 설정이라 권한 게이트 밖에 둔다.
         // API 33 미만은 per-app language가 없어 섹션을 아예 노출하지 않는다.
         if (appLocaleController.isLanguageSelectionSupported) {
+            Spacer(Modifier.height(12.dp))
             val currentAppLocales = appLocaleController.currentAppLocales()
             // 빈 LocaleList(시스템 기본)에서 get(0)은 예외라 미리 걸러 둔다.
             val currentAppLocale: Locale? =
@@ -902,6 +899,15 @@ fun CalendarStatusScreen(
                     isSelected = currentAppLocale?.language == "en",
                     onClick = { appLocaleController.selectAppLocale("en") },
                 )
+            }
+        }
+
+        // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
+        // 캘린더를 다시 읽는 동작이라 권한이 있을 때만 보인다.
+        if (hasCalendarPermission) {
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = refreshEvents) {
+                Text(stringResource(R.string.refresh_now_button))
             }
         }
 
