@@ -25,9 +25,18 @@
     <string name="calendar_permission_description">Reading your calendar is required to show its events in the notification.</string>
     <string name="notification_permission_title">Notification permission needed</string>
     <string name="notification_permission_description">Posting notifications is required to show your events.</string>
+    <string name="permission_state_granted">Granted</string>
+    <string name="permission_state_needed">Needed</string>
+    <string name="permission_usage_note">The permissions you grant are used only for the purposes above and for nothing else.</string>
     <string name="calendar_permission_button">Grant permission</string>
     <string name="open_app_settings_button">Allow in system settings</string>
     <string name="all_permissions_granted_message">Permissions are ready. Check your events in the notification.</string>
+
+    <string name="battery_optimization_title">Unrestricted battery</string>
+    <string name="battery_optimization_ignored_state">Allowed — event updates are not delayed even while the device sleeps</string>
+    <string name="battery_optimization_restricted_state">Not allowed — updates may be delayed in power saving mode</string>
+    <string name="battery_optimization_description">Excludes Calinoti from system battery optimization, so power saving cannot delay notification updates or new events.</string>
+    <string name="battery_optimization_request_button">Allow unrestricted battery</string>
 
     <string name="settings_section_permissions">Permissions</string>
     <string name="permissions_summary_granted">Ready</string>
@@ -118,6 +127,15 @@
     <string name="settings_section_language">Language</string>
     <string name="language_section_description">Applies to the notification and this screen right away.</string>
     <string name="language_system_default_label">System default</string>
+
+    <string name="settings_section_notification_update_interval">Notification update interval</string>
+    <string name="notification_update_interval_summary_format">Every %1$s</string>
+    <string name="notification_update_interval_label">Update interval</string>
+    <string name="minutes_unit_suffix">min</string>
+    <string name="notification_update_interval_hint">Reads the notification content again at the set interval. Updates at event start/end times and at midnight happen regardless of this setting. In power saving mode the system may limit updates to at least 15-minute intervals.</string>
+    <string name="notification_update_interval_invalid_message">Enter a value between 10 and 1440 minutes (24 hours)</string>
+    <string name="duration_hours_format">%1$d hr</string>
+    <string name="duration_minutes_format">%1$d min</string>
 
     <string name="refresh_now_button">Refresh now</string>
     <string name="version_format">v%1$s (%2$d)</string>
