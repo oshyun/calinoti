@@ -7,6 +7,8 @@ package com.calinoti.app.data
  * 일정 항목 자체의 시작 여백은 따로 없다.
  */
 data class NotificationSpacing(
+    /** 알림 콘텐츠 맨 위와 맨 아래 바깥 여백. 한 값이 위아래 양쪽에 함께 적용된다. */
+    val outerVerticalPaddingDp: Int,
     /** 날짜 헤더 항목 앞(시작 쪽) 여백. */
     val dayHeaderStartPaddingDp: Int,
     /** 날짜와 일정 사이 수평 간격(일정 열의 시작 여백). */
@@ -27,6 +29,7 @@ data class NotificationSpacing(
         // 설정이 수평 간격으로 바뀐 값이라 0이면 날짜에 일정이 붙으므로, 없어진 일정 시작
         // 여백의 기본값(8)을 이어받았다.
         val DEFAULTS = NotificationSpacing(
+            outerVerticalPaddingDp = 4,
             dayHeaderStartPaddingDp = 0,
             dayHeaderToEventSpacingDp = 8,
             betweenEventsSpacingDp = 0,
