@@ -740,6 +740,22 @@ fun CalendarStatusScreen(
                         )
                     }
                 }
+                StepSettingSliderRow(
+                    labelResourceId = R.string.outer_vertical_padding_label,
+                    currentValue = effectiveSpacing.outerVerticalPaddingDp,
+                    adjustableRange = NotificationSpacing.RANGE_DP,
+                    valueFormatResourceId = R.string.spacing_dp_format,
+                    onPreviewValueChange = { newValueDp ->
+                        previewSpacing =
+                            effectiveSpacing.copy(outerVerticalPaddingDp = newValueDp)
+                    },
+                ) { newValueDp ->
+                    updatePreferences {
+                        userPreferencesRepository.updateNotificationSpacing(
+                            currentSpacing.copy(outerVerticalPaddingDp = newValueDp),
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))

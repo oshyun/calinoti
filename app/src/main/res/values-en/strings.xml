@@ -106,6 +106,7 @@
     <string name="day_header_to_event_spacing_label">Space between day header and events</string>
     <string name="between_events_spacing_label">Space between events</string>
     <string name="between_day_headers_spacing_label">Space between days</string>
+    <string name="outer_vertical_padding_label">Space above and below the notification</string>
     <string name="spacing_dp_format">%1$d dp</string>
 
     <string name="day_header_format_label">Day header format</string>

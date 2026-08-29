@@ -110,6 +110,7 @@
     <string name="day_header_to_event_spacing_label">날짜와 일정 사이 여백</string>
     <string name="between_events_spacing_label">일정 사이 여백</string>
     <string name="between_day_headers_spacing_label">날짜 사이 여백</string>
+    <string name="outer_vertical_padding_label">알림 위아래 여백</string>
     <string name="spacing_dp_format">%1$d dp</string>
 
     <string name="day_header_format_label">날짜 표시 형식</string>

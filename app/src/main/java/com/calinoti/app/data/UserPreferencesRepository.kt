@@ -183,6 +183,7 @@ private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
 private val DAY_HEADER_FORMAT_PATTERN_KEY = stringPreferencesKey("day_header_format_pattern")
 private val NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY =
     intPreferencesKey("notification_update_interval_minutes")
+private val OUTER_VERTICAL_PADDING_KEY = intPreferencesKey("outer_vertical_padding_dp")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
 private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
@@ -253,6 +254,10 @@ class UserPreferencesRepository(private val context: Context) {
                             ?: UserPreferences.DEFAULTS.notificationClickTargetPackageName,
                     notificationSpacing =
                         NotificationSpacing.DEFAULTS.copy(
+                            outerVerticalPaddingDp = storedPreferences.readSpacingDp(
+                                OUTER_VERTICAL_PADDING_KEY,
+                                NotificationSpacing.DEFAULTS.outerVerticalPaddingDp,
+                            ),
                             dayHeaderStartPaddingDp = storedPreferences.readSpacingDp(
                                 DAY_HEADER_START_PADDING_KEY,
                                 NotificationSpacing.DEFAULTS.dayHeaderStartPaddingDp,
@@ -410,6 +415,7 @@ class UserPreferencesRepository(private val context: Context) {
     /** 알림 여백 전체를 한 번의 쓰기에 반영한다. UI는 변경할 한 필드만 바꿔 넘긴다. */
     suspend fun updateNotificationSpacing(spacing: NotificationSpacing) {
         context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[OUTER_VERTICAL_PADDING_KEY] = spacing.outerVerticalPaddingDp
             storedPreferences[DAY_HEADER_START_PADDING_KEY] = spacing.dayHeaderStartPaddingDp
             storedPreferences[DAY_HEADER_TO_EVENT_SPACING_KEY] = spacing.dayHeaderToEventSpacingDp
             storedPreferences[BETWEEN_EVENTS_SPACING_KEY] = spacing.betweenEventsSpacingDp

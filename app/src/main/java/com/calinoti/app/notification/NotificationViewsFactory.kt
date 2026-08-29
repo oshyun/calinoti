@@ -252,10 +252,10 @@ class NotificationViewsFactory(private val context: Context) {
                         viewId = R.id.notification_day_group_item,
                         startPaddingDp = spacing.dayHeaderStartPaddingDp,
                         topPaddingDp =
-                            if (itemIndex == 0) FIRST_ITEM_TOP_PADDING_DP
+                            if (itemIndex == 0) spacing.outerVerticalPaddingDp
                             else spacing.betweenDayHeadersSpacingDp,
                         bottomPaddingDp =
-                            if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP
+                            if (itemIndex == visibleEntries.lastIndex) spacing.outerVerticalPaddingDp
                             else 0,
                         endPaddingDp = ITEM_HORIZONTAL_INSET_DP,
                     )
@@ -295,7 +295,7 @@ class NotificationViewsFactory(private val context: Context) {
                         topPaddingDp =
                             if (isFirstEventInCurrentDayGroup) 0 else spacing.betweenEventsSpacingDp,
                         bottomPaddingDp =
-                            if (itemIndex == visibleEntries.lastIndex) LAST_ITEM_BOTTOM_PADDING_DP
+                            if (itemIndex == visibleEntries.lastIndex) spacing.outerVerticalPaddingDp
                             else 0,
                         endPaddingDp = 0,
                     )
@@ -892,11 +892,10 @@ class NotificationViewsFactory(private val context: Context) {
         // 제목과 상대 시간 라벨 사이 구분자. 라벨 span 시작 인덱스 계산에도 쓰므로 상수로 둔다.
         const val RELATIVE_TIME_LABEL_SEPARATOR = " "
 
-        // 항목의 End(오른쪽) 고정 여백과 알림 맨 위/맨 아래 바깥 여백. 사용자가 조절하지 않는
-        // 렌더링 상수로, v1.2.4까지 레이아웃 XML에 있던 값을 옮겨온 것과 같다.
+        // 항목의 End(오른쪽) 고정 여백. 사용자가 조절하지 않는 렌더링 상수로, v1.2.4까지
+        // 레이아웃 XML에 있던 값을 옮겨온 것과 같다. 알림 맨 위/맨 아래 바깥 여백은 하드코딩
+        // 대신 NotificationSpacing.outerVerticalPaddingDp 사용자 설정값이 담당한다.
         const val ITEM_HORIZONTAL_INSET_DP = 16
-        const val FIRST_ITEM_TOP_PADDING_DP = 8
-        const val LAST_ITEM_BOTTOM_PADDING_DP = 4
 
         // 시각·위치·날짜 헤더가 제목 글자보다 작은 정도. 기존 레이아웃의 15/13sp 관계를 유지한다.
         const val SECONDARY_TEXT_SIZE_OFFSET_SP = 2

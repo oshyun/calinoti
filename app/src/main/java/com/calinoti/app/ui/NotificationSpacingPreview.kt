@@ -48,7 +48,7 @@ internal fun NotificationSpacingPreview(
         createPreviewSampleEntries(context, previewTimeMilliseconds)
     }
     // NotificationSpacing이 data class라 값이 같으면 재조립되지 않는다 — 슬라이더가 바뀐
-    // 값 하나만 넘어와도 나머지 다섯 값이 같으면 같은 인스턴스로 재사용된다.
+    // 값 하나만 넘어와도 나머지 값이 같으면 같은 인스턴스로 재사용된다.
     val previewViews = remember(
         sampleEntries,
         spacing,
@@ -102,10 +102,11 @@ internal fun NotificationSpacingPreview(
 }
 
 /**
- * 여백 다섯 종이 모두 드러나는 표본 일정 목록: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
+ * 여백 여섯 종이 모두 드러나는 표본 일정 목록: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
  * 시각은 [currentTimeMilliseconds] 기준으로 만들어 상대 시간 라벨도 실제와 같이 붙는다.
  *
  * 행 조합이 담당하는 설정:
+ * - 알림 위아래 여백 → 표본 목록의 맨 위(첫 날짜 헤더 위)와 맨 아래(마지막 일정 아래)
  * - 날짜 항목 앞 여백 → 세 그룹 행 전부
  * - 날짜와 일정 사이 여백 → 각 날짜 열과 일정 열 사이 수평 간격
  * - 시간과 제목 사이 여백 → 시간 있는 일정의 시각-제목 간격(종일 일정은 시간 뷰가 숨는다)
