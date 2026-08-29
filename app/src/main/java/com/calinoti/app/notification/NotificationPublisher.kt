@@ -150,30 +150,30 @@ class NotificationPublisher(
 
     /**
      * 시스템 헤더를 다음 일정 정보로 채운다. 헤더는 시스템이 그리는 영역이라 없앨 수는
-     * 없고, 시간 자리를 남은 시간 카운트다운(setChronometerCountDown)으로, subText를
-     * 일정 제목으로 바꾸는 것만 가능하다. 카운트다운이 0에 닿으면 NotificationRefreshScheduler가
-     * 일정 시작 시각에 알림을 다시 게시해 다음 일정 기준으로 넘어간다.
+     * 없지만, chronometer 같은 시간 플래그를 쓰지 않고 subText만 남기면 One UI가 헤더의
+     * 이름 자리를 앱 이름 대신 subText로 그린다(Network Guru와 같은 방식). 헤더에서
+     * 남은 시간은 없어지므로 본문 목록 행의 Chronometer 카운트다운이 그 역할을 대신한다.
+     * 일정 시작 시각에는 NotificationRefreshScheduler가 알림을 다시 게시해 다음 일정
+     * 기준으로 넘어간다.
      */
     private fun NotificationCompat.Builder.applyHeaderContent(
         nextUpcomingEvent: EventEntry?,
     ): NotificationCompat.Builder {
+        setShowWhen(false)
         if (nextUpcomingEvent == null) {
-            setShowWhen(false)
             return this
         }
-        setWhen(nextUpcomingEvent.beginTimeMilliseconds)
-        setUsesChronometer(true)
-        setChronometerCountDown(true)
-        setSubText(
-            nextUpcomingEvent.title.ifEmpty { context.getString(R.string.untitled_event) },
-        )
+        val nextUpcomingEventTitle = nextUpcomingEvent.title.ifEmpty {
+            context.getString(R.string.untitled_event)
+        }
+        setSubText(context.getString(R.string.next_event_subtext_format, nextUpcomingEventTitle))
         return this
     }
 
     /**
      * 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다.
      * 접힌 뷰 감춤 설정과 무관하게 항상 원본 목록에서 찾는다 — 종일 일정이 애초 대상이 아니라
-     * 감춰진 종일 일정이 시스템 헤더(subText·카운트다운)로 새어 나갈 일도 없다.
+     * 감춰진 종일 일정이 시스템 헤더(subText)로 새어 나갈 일도 없다.
      */
     private fun findNextUpcomingEvent(
         listEntries: List<EventListEntry>,
