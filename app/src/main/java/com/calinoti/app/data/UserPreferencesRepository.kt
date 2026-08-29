@@ -80,6 +80,12 @@ data class UserPreferences(
      * 저장은 설정 화면에서만 일어나며 유효성 검사를 거치므로 항상 유효한 패턴이다.
      */
     val dayHeaderFormatPattern: String,
+    /**
+     * 안전망 알림 갱신 주기(분). 일정 시작·종료와 자정 사이에 이 주기로 알림을 다시 그려
+     * 프로세스가 죽어 있는 동안 다른 앱에서 바꾼 일정도 따라잡는다. 짧으면 반응이 빠르고,
+     * 길면 알람·갱신이 줄어 배터리를 아낀다.
+     */
+    val notificationUpdateIntervalMinutes: Int,
 ) {
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
@@ -88,6 +94,16 @@ data class UserPreferences(
 
         /** 날짜 헤더 형식의 기본 패턴. 초기 버전부터 쓰던 표시("08.29, 금요일")다. */
         const val DEFAULT_DAY_HEADER_FORMAT_PATTERN = "MM.dd, EEEE"
+
+        // 안전망 갱신 주기의 조절 범위(분). 10분은 활성 사용 중에도 의미 있는 최솟값이다.
+        // Doze(절전)에서는 allow-while-idle 알람이 앱당 15분 간격으로 스로틀되므로 그보다
+        // 짧은 주기를 정해도 절전 중엔 15분 간격으로 늘어진다.
+        const val NOTIFICATION_UPDATE_INTERVAL_MIN_MINUTES = 10
+        const val NOTIFICATION_UPDATE_INTERVAL_MAX_MINUTES = 1440
+
+        /** 알림 갱신 주기의 조절 범위. 설정 화면의 입력 검증이 이를 참조한다. */
+        val NOTIFICATION_UPDATE_INTERVAL_RANGE_MINUTES =
+            NOTIFICATION_UPDATE_INTERVAL_MIN_MINUTES..NOTIFICATION_UPDATE_INTERVAL_MAX_MINUTES
 
         /** 글자 크기 슬라이더의 조절 범위. 단일 객체로 둬 슬라이더가 이를 안정적으로 참조한다. */
         val NOTIFICATION_TEXT_SIZE_RANGE_SP =
@@ -110,6 +126,7 @@ data class UserPreferences(
             collapsedHiddenItemTypes = emptySet(),
             expandedHiddenItemTypes = emptySet(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
+            notificationUpdateIntervalMinutes = 360,
         )
     }
 }
@@ -164,6 +181,8 @@ private val HIDDEN_ITEM_TYPES_COLLAPSED_KEY =
 private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
     stringSetPreferencesKey("hidden_item_types_expanded")
 private val DAY_HEADER_FORMAT_PATTERN_KEY = stringPreferencesKey("day_header_format_pattern")
+private val NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY =
+    intPreferencesKey("notification_update_interval_minutes")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
 private val BETWEEN_EVENTS_SPACING_KEY = intPreferencesKey("between_events_spacing_dp")
@@ -265,6 +284,11 @@ class UserPreferencesRepository(private val context: Context) {
                     dayHeaderFormatPattern =
                         storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY]
                             ?: UserPreferences.DEFAULTS.dayHeaderFormatPattern,
+                    // 저장값이 조절 범위 밖이어도 여백(readSpacingDp)처럼 범위 안으로 끌어온다.
+                    notificationUpdateIntervalMinutes =
+                        storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY]
+                            ?.coerceIn(UserPreferences.NOTIFICATION_UPDATE_INTERVAL_RANGE_MINUTES)
+                            ?: UserPreferences.DEFAULTS.notificationUpdateIntervalMinutes,
                 )
             }
 
@@ -374,6 +398,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateDayHeaderFormatPattern(formatPattern: String) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY] = formatPattern
+        }
+    }
+
+    suspend fun updateNotificationUpdateIntervalMinutes(intervalMinutes: Int) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY] = intervalMinutes
         }
     }
 

@@ -3,22 +3,19 @@
     <!-- Calinoti = "cal(endar) in noti(fication) bar"의 줄임말 -->
     <string name="app_name" translatable="false">Calinoti</string>
 
-    <string name="notification_channel_agenda_name">일정 아젠다</string>
+    <string name="notification_channel_agenda_name">일정</string>
     <string name="notification_channel_agenda_description">다가오는 캘린더 일정을 알림으로 표시합니다</string>
 
     <string name="agenda_empty_text">표시할 일정이 없습니다</string>
     <string name="agenda_untitled_event">제목 없는 일정</string>
-    <!-- 상대 시간 표기. 한국어 CLDR은 other 복수형만 있고 영어는 one/other가 갈리므로 plurals로 둔다. -->
+    <!-- 상대 시간 표기. 한국어 CLDR은 other 복수형만 있고 영어는 one/other가 갈리므로 plurals로 둔다.
+         시작 1시간 미만 구간은 라벨 대신 실시간 카운트다운이 보여주므로 분·곧 표기는 없다. -->
     <plurals name="agenda_relative_days">
         <item quantity="other">(%1$d일 뒤)</item>
     </plurals>
     <plurals name="agenda_relative_hours">
         <item quantity="other">(%1$d시간 뒤)</item>
     </plurals>
-    <plurals name="agenda_relative_minutes">
-        <item quantity="other">(%1$d분 뒤)</item>
-    </plurals>
-    <string name="agenda_relative_soon">(곧)</string>
     <!-- 오늘 날짜 헤더에 붙이는 접미사. -->
     <string name="today_label" translatable="false">(오늘)</string>
     <string name="agenda_in_progress">(진행 중)</string>
@@ -27,13 +24,21 @@
          제목과 톤(색·크기)을 나눠 입히므로 제목을 포함하지 않는다. -->
     <string name="agenda_multiday_end_date_suffix_format">(~%1$s까지)</string>
 
-    <string name="calendar_permission_title">캘린더 권한 필요</string>
-    <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>
-    <string name="notification_permission_title">알림 권한 필요</string>
-    <string name="notification_permission_description">일정 알림을 표시하려면 알림 권한이 필요합니다.</string>
+    <string name="calendar_permission_title">캘린더 권한</string>
+    <string name="calendar_permission_description">캘린더 일정을 읽어 알림에 표시하기 위해서만 사용합니다. 일정을 읽는 외의 용도로는 사용하지 않습니다.</string>
+    <string name="notification_permission_title">알림 권한</string>
+    <string name="notification_permission_description">일정을 알림으로 표시하기 위해서만 사용합니다. 알림 표시 외의 용도로는 사용하지 않습니다.</string>
+    <string name="permission_state_granted">허용됨</string>
+    <string name="permission_state_needed">필요함</string>
+    <string name="permission_usage_note">요청한 권한은 위 목적에만 사용하며, 그 외의 용도로는 사용하지 않습니다.</string>
     <string name="calendar_permission_button">권한 허용하기</string>
     <string name="open_app_settings_button">시스템 설정에서 허용하기</string>
-    <string name="all_permissions_granted_message">권한이 준비되었습니다. 알림에서 일정을 확인하세요.</string>
+
+    <string name="battery_optimization_title">배터리 제한 없음</string>
+    <string name="battery_optimization_ignored_state">설정됨 — 절전 중에도 일정 갱신이 지연되지 않습니다</string>
+    <string name="battery_optimization_restricted_state">설정되지 않음 — 절전 모드에서 갱신이 지연될 수 있습니다</string>
+    <string name="battery_optimization_description">시스템 배터리 최적화에서 Calinoti를 제외해, 절전·배터리 관리가 알림 갱신과 새 일정 반영을 막지 못하게 합니다.</string>
+    <string name="battery_optimization_request_button">배터리 제한 없음으로 설정하기</string>
 
     <string name="settings_section_permissions">권한 관리</string>
     <string name="permissions_summary_granted">준비됨</string>
@@ -128,6 +133,14 @@
     <!-- 언어명은 어느 화면 언어에서도 원어명으로 보여준다. -->
     <string name="language_korean_label" translatable="false">한국어</string>
     <string name="language_english_label" translatable="false">English</string>
+    <string name="settings_section_notification_update_interval">알림 갱신 주기</string>
+    <string name="notification_update_interval_summary_format">%1$s 간격</string>
+    <string name="notification_update_interval_label">갱신 간격</string>
+    <string name="minutes_unit_suffix">분</string>
+    <string name="notification_update_interval_hint">지정한 간격으로 알림 내용을 다시 읽어옵니다. 일정 시작·종료 시각과 자정에는 이 설정과 무관하게 갱신됩니다. 절전 모드에서는 시스템 제한으로 최소 15분 간격이 될 수 있습니다.</string>
+    <string name="notification_update_interval_invalid_message">10~1440분(24시간) 사이로 입력하세요</string>
+    <string name="duration_hours_format">%1$d시간</string>
+    <string name="duration_minutes_format">%1$d분</string>
 
     <string name="refresh_now_button">지금 새로고침</string>
     <string name="version_format">v%1$s (%2$d)</string>

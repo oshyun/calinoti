@@ -148,11 +148,12 @@ private fun createPreviewSampleEntries(
             AgendaEntry(
                 eventId = 2L,
                 title = context.getString(R.string.preview_sample_title_walk),
+                // 1시간 미만 구간 표본 — 실제 알림처럼 실시간 카운트다운 행이 보인다.
                 beginTimeMilliseconds = limitToTodayEvening(
-                    currentTimeMilliseconds + TimeUnit.HOURS.toMillis(5),
+                    currentTimeMilliseconds + TimeUnit.MINUTES.toMillis(30),
                 ),
                 endTimeMilliseconds = limitToTodayEvening(
-                    currentTimeMilliseconds + TimeUnit.HOURS.toMillis(6),
+                    currentTimeMilliseconds + TimeUnit.MINUTES.toMillis(90),
                 ),
                 isAllDay = false,
                 location = null,

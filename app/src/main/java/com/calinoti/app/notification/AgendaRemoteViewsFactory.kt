@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
+import android.os.SystemClock
 import android.provider.CalendarContract
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -334,11 +335,49 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         }
         // 상대 시간 라벨은 그 일정 제목보다 2sp 작다. 종일 일정은 종일 제목 크기를 따른다.
         val relativeLabelTextSizeSp = titleTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP
+        val isImminentCountdown = isImminentCountdownTarget(entry, currentTimeMilliseconds)
         itemViews.setTextViewText(
             R.id.event_title_text,
-            createEventTitleText(entry, currentTimeMilliseconds, relativeLabelTextSizeSp),
+            createEventTitleText(
+                entry = entry,
+                currentTimeMilliseconds = currentTimeMilliseconds,
+                secondaryTextSizeSp = relativeLabelTextSizeSp,
+                isImminentCountdown = isImminentCountdown,
+            ),
         )
         itemViews.setTextViewTextSize(R.id.event_title_text, COMPLEX_UNIT_SP, titleTextSizeSp)
+        if (isImminentCountdown) {
+            // 시작이 1시간 미만으로 남은 일정은 라벨 대신 시스템이 실시간으로 줄여 그리는
+            // 카운트다운을 보여준다. countDown 모드에서 0에 닿으면 00:00에 멈춘다 — 시작
+            // 알람이 곧 다시 게시해 (진행 중) 라벨로 넘어간다.
+            itemViews.setViewVisibility(R.id.event_relative_countdown, View.VISIBLE)
+            // Chronometer의 base는 epoch 시각이 아니라 부팅 후 경과 시각(SystemClock.
+            // elapsedRealtime) 기준이므로, 시작 시각까지 남은 시간을 경과 시각 위에 얹는다.
+            itemViews.setBoolean(
+                R.id.event_relative_countdown,
+                "setCountDown",
+                /* value = */ true,
+            )
+            itemViews.setChronometer(
+                R.id.event_relative_countdown,
+                /* base = */
+                SystemClock.elapsedRealtime() +
+                    (entry.beginTimeMilliseconds - currentTimeMilliseconds),
+                /* format = */ null,
+                /* started = */ true,
+            )
+            itemViews.setTextColor(
+                R.id.event_relative_countdown,
+                ContextCompat.getColor(context, R.color.notification_text_secondary),
+            )
+            itemViews.setTextViewTextSize(
+                R.id.event_relative_countdown,
+                COMPLEX_UNIT_SP,
+                relativeLabelTextSizeSp,
+            )
+        } else {
+            itemViews.setViewVisibility(R.id.event_relative_countdown, View.GONE)
+        }
         // 제목 색은 캘린더 앱과 같은 캘린더 색으로 표시한다. 일정별 개별 색(EVENT_COLOR)은
         // 무시하고 캘린더 색만 따른다. 색은 표준 톤으로 통일해 카드 배경에 묻히지 않게 한다.
         itemViews.setTextColor(
@@ -604,12 +643,15 @@ class AgendaRemoteViewsFactory(private val context: Context) {
      * 제목 뒤에는 상대 시간 라벨을 회색 작은 글씨로 이어 붙인다. 종료일 표기(~08.30까지)도
      * 라벨과 같은 secondary 톤으로 낮춘다. 라벨이 없으면 제목만 그린다.
      * 이미 끝난 일정은 제목에 취소선을 긋고 (종료됨) 라벨을 붙인다.
+     * [isImminentCountdown]이면 시작 전 라벨은 붙이지 않는다 — 그 구간은 카운트다운 위젯이
+     * 대신 보여준다. (종료됨)·(진행 중) 같은 상태 라벨은 그대로 텍스트로 붙인다.
      * 단위는 큰 쪽부터 골라 나머지는 버린다(23시간 59분 = 23시간).
      */
     private fun createEventTitleText(
         entry: AgendaEntry,
         currentTimeMilliseconds: Long,
         secondaryTextSizeSp: Float,
+        isImminentCountdown: Boolean,
     ): CharSequence {
         // 여러 날에 걸친 종일 일정은 시작일 그룹에 표시하되 제목에 종료일을 붙인다.
         val baseTitle = entry.title.ifEmpty { context.getString(R.string.agenda_untitled_event) }
@@ -633,6 +675,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         val isEventFinished = entry.finishTimeMilliseconds <= currentTimeMilliseconds
         val relativeTimeLabel =
             if (isEventFinished) context.getString(R.string.agenda_finished)
+            else if (isImminentCountdown) null
             else formatRelativeTimeLabel(entry, currentTimeMilliseconds)
         // 라벨이 없는 일정(오늘 시작했거나 진행 중인 종일 일정)은 구분자와 라벨 span 없이
         // 제목만 그린다. 끝난 일정은 항상 (종료됨) 라벨이 있어 이 분기에 오지 않는다.
@@ -693,13 +736,16 @@ class AgendaRemoteViewsFactory(private val context: Context) {
     }
 
     /**
-     * 제목 뒤에 붙일 상대 시간 라벨. 시간 있는 일정은 1시간 미만이면 분 단위, 24시간 미만이면
-     * 시간 단위로 남은 시간을 계산하고, 그 이상은 남은 시각과 무관하게 달력 날짜 기준으로
-     * (N일 뒤)를 붙인다 — 24시간으로 나눈 몫으로 계산하면 시작 전날 오후부터 하루씩 줄어들어
-     * 날짜 감각과 어긋난다. 종일 일정은 날짜 단위로 계산한다 — 시작일이 미래면 (N일 뒤),
-     * 오늘 시작했거나 여러 날에 걸쳐 진행 중이면 null — 라벨 없이 제목만 보인다. 오늘 여부는
-     * 날짜 헤더의 (오늘) 접미사가 이미 알려주고, 어제 시작한 일정 제목의 (오늘)은 오해를
-     * 낳는다. 이미 끝난 일정은 호출부가 (종료됨) 라벨로 분기하므로 여기서는 다루지 않는다.
+     * 제목 뒤에 붙일 상대 시간 라벨. 시간 있는 일정은 24시간 미만이면 시간 단위로 남은
+     * 시간을 계산하고, 그 이상은 남은 시각과 무관하게 달력 날짜 기준으로 (N일 뒤)를 붙인다 —
+     * 24시간으로 나눈 몫으로 계산하면 시작 전날 오후부터 하루씩 줄어들어 날짜 감각과
+     * 어긋난다. 시작이 1시간 미만으로 남은 구간은 이 라벨이 아니라 Chronometer 실시간
+     * 카운트다운이 담당한다(isImminentCountdownTarget이 먼저 걸러내므로 여기엔 도달하지
+     * 않는다) — 분 단위 정적 라벨은 갱신 사이에 부정확해지기 때문이다. 종일 일정은 날짜
+     * 단위로 계산한다 — 시작일이 미래면 (N일 뒤), 오늘 시작했거나 여러 날에 걸쳐 진행 중이면
+     * null — 라벨 없이 제목만 보인다. 오늘 여부는 날짜 헤더의 (오늘) 접미사가 이미 알려주고,
+     * 어제 시작한 일정 제목의 (오늘)은 오해를 낳는다. 이미 끝난 일정은 호출부가 (종료됨)
+     * 라벨로 분기하므로 여기서는 다루지 않는다.
      */
     private fun formatRelativeTimeLabel(
         entry: AgendaEntry,
@@ -714,17 +760,9 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             return formatRelativeDaysLabel(daysUntilStart)
         }
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
-        val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMilliseconds)
         val remainingHours = TimeUnit.MILLISECONDS.toHours(remainingMilliseconds)
         return when {
             remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
-            remainingMilliseconds < TimeUnit.MINUTES.toMillis(1) ->
-                context.getString(R.string.agenda_relative_soon)
-            remainingMilliseconds < TimeUnit.HOURS.toMillis(1) -> context.resources.getQuantityString(
-                R.plurals.agenda_relative_minutes,
-                remainingMinutes.toInt(),
-                remainingMinutes,
-            )
             remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.resources.getQuantityString(
                 R.plurals.agenda_relative_hours,
                 remainingHours.toInt(),
@@ -746,6 +784,18 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             days.toInt(),
             days,
         )
+
+    /**
+     * 시작이 1시간 미만으로 남은 시간 있는 일정인가. 이 구간의 남은 시간은 상대 시간 라벨을
+     * 굽지 않고 Chronometer 실시간 카운트다운으로 보여준다 — 정적 라벨은 갱신 사이에
+     * 부정확해지지만 카운트다운은 시스템이 그릴 때마다 줄어들어 항상 정확하다.
+     */
+    private fun isImminentCountdownTarget(
+        entry: AgendaEntry,
+        currentTimeMilliseconds: Long,
+    ): Boolean = !entry.isAllDay &&
+        entry.beginTimeMilliseconds > currentTimeMilliseconds &&
+        entry.beginTimeMilliseconds - currentTimeMilliseconds < TimeUnit.HOURS.toMillis(1)
 
     /**
      * 종일 일정의 마지막 날(하루짜리 포함). 종일 일정의 end는 UTC 자정(마지막 날 다음 날,
