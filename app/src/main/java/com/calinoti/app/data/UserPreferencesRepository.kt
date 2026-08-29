@@ -68,6 +68,8 @@ data class UserPreferences(
     val notificationSpacing: NotificationSpacing,
     /** 알림 고정. 켜면 스와이프로 밀어도 dismiss를 감지해 즉시 다시 게시한다. */
     val isNotificationPinned: Boolean,
+    /** 임박 일정 실시간 알림. 시작 1시간 전부터 별도 카운트다운 알림을 게시한다. */
+    val isImminentLiveNotificationEnabled: Boolean,
     /** 접힌(닫힌) 알림에서 감출 항목. 빈 집합이면 아무것도 감추지 않는다. */
     val collapsedHiddenItemTypes: Set<HiddenItemType>,
     /**
@@ -123,6 +125,7 @@ data class UserPreferences(
             notificationClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
+            isImminentLiveNotificationEnabled = false,
             collapsedHiddenItemTypes = emptySet(),
             expandedHiddenItemTypes = emptySet(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
@@ -167,6 +170,7 @@ private val EVENT_CLICK_TARGET_PACKAGE_NAME_KEY =
 private val NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY =
     stringPreferencesKey("notification_click_target_package_name")
 private val NOTIFICATION_PINNED_KEY = booleanPreferencesKey("notification_pinned")
+private val IMMINENT_LIVE_NOTIFICATION_KEY = booleanPreferencesKey("imminent_live_notification_enabled")
 // 감춤 항목은 enum name의 집합이다. 낯선 이름(미래 버전이 남긴 값)은 읽을 때 버린다.
 // 접힌 알림과 펼친 알림이 각자의 집합을 저장한다 — 두 감춤 규칙은 서로 독립이다.
 // 참고: v1.2.260828까지 기간 기반(하루/여러 날)의 collapsed_hidden_item_types 키를 썼다.
@@ -282,6 +286,9 @@ class UserPreferencesRepository(private val context: Context) {
                     isNotificationPinned =
                         storedPreferences[NOTIFICATION_PINNED_KEY]
                             ?: UserPreferences.DEFAULTS.isNotificationPinned,
+                    isImminentLiveNotificationEnabled =
+                        storedPreferences[IMMINENT_LIVE_NOTIFICATION_KEY]
+                            ?: UserPreferences.DEFAULTS.isImminentLiveNotificationEnabled,
                     collapsedHiddenItemTypes =
                         storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_COLLAPSED_KEY),
                     expandedHiddenItemTypes =
@@ -397,6 +404,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationPinned(isPinned: Boolean) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[NOTIFICATION_PINNED_KEY] = isPinned
+        }
+    }
+
+    suspend fun updateImminentLiveNotificationEnabled(isEnabled: Boolean) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[IMMINENT_LIVE_NOTIFICATION_KEY] = isEnabled
         }
     }
 

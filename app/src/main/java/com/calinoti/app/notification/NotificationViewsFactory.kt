@@ -620,7 +620,8 @@ class NotificationViewsFactory(private val context: Context) {
         return ceil(maxWidthPixels).toInt() + DAY_HEADER_WIDTH_SLACK_PX
     }
 
-    private fun formatTimeText(timeMilliseconds: Long): String =
+    /** 짧은 시각 텍스트. 일정 행과 임박 일정 알림이 같은 포맷을 공유한다. */
+    fun formatTimeText(timeMilliseconds: Long): String =
         Instant.ofEpochMilli(timeMilliseconds)
             .atZone(ZoneId.systemDefault())
             .toLocalTime()
@@ -760,21 +761,80 @@ class NotificationViewsFactory(private val context: Context) {
             return formatRelativeDaysLabel(daysUntilStart)
         }
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
-        val remainingHours = TimeUnit.MILLISECONDS.toHours(remainingMilliseconds)
-        return when {
-            remainingMilliseconds <= 0 -> context.getString(R.string.event_in_progress)
-            remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.resources.getQuantityString(
+        if (remainingMilliseconds <= 0) return context.getString(R.string.event_in_progress)
+        // 1시간 미만 구간은 findRelativeTimeQuantity가 null을 돌려주지만 이 라벨에는
+        // 도달하지 않는다(isImminentCountdownTarget인 행은 호출부가 먼저 카운트다운으로
+        // 분기한다).
+        return when (val relativeTime = findRelativeTimeQuantity(entry, currentTimeMilliseconds)) {
+            is RelativeTime.Hours -> context.resources.getQuantityString(
                 R.plurals.event_relative_hours,
-                remainingHours.toInt(),
-                remainingHours,
+                relativeTime.count.toInt(),
+                relativeTime.count,
             )
-            else -> formatRelativeDaysLabel(
-                ChronoUnit.DAYS.between(
-                    findLocalDateOf(currentTimeMilliseconds),
-                    findLocalDateOf(entry.beginTimeMilliseconds),
-                ),
+            is RelativeTime.Days -> formatRelativeDaysLabel(relativeTime.count)
+            null -> null
+        }
+    }
+
+    /**
+     * 시간 있는 일정의 상대 시간 단위와 수량. 24시간 미만은 시간 단위(버림, 23시간 59분 =
+     * 23시간), 그 이상은 남은 시각과 무관하게 달력 날짜 차이로 일 단위를 계산한다 — 24시간으로
+     * 나눈 몫으로 계산하면 시작 전날 오후부터 하루씩 줄어들어 날짜 감각과 어긋난다. 이미
+     * 시작했거나(진행 중) 시작이 1시간 미만으로 남은 구간(Chronometer 카운트다운이 담당)은
+     * null을 돌려준다. 본문 행 라벨과 시스템 헤더 subText가 이 경계 하나를 공유한다.
+     */
+    private fun findRelativeTimeQuantity(
+        entry: EventEntry,
+        currentTimeMilliseconds: Long,
+    ): RelativeTime? {
+        val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
+        if (remainingMilliseconds <= 0) return null
+        if (remainingMilliseconds < TimeUnit.HOURS.toMillis(1)) return null
+        val remainingHours = TimeUnit.MILLISECONDS.toHours(remainingMilliseconds)
+        if (remainingMilliseconds < TimeUnit.DAYS.toMillis(1)) return RelativeTime.Hours(remainingHours)
+        return RelativeTime.Days(
+            ChronoUnit.DAYS.between(
+                findLocalDateOf(currentTimeMilliseconds),
+                findLocalDateOf(entry.beginTimeMilliseconds),
+            ),
+        )
+    }
+
+    /** 곧 시작하는(1시간 미만으로 남은) 시간 있는 일정. 없으면 null. 종일 일정은 대상이 아니다. */
+    fun findImminentEventOrNull(
+        listEntries: List<EventListEntry>,
+        currentTimeMilliseconds: Long,
+    ): EventEntry? =
+        listEntries
+            .filterIsInstance<EventListEntry.Event>()
+            .firstOrNull { isImminentCountdownTarget(it.entry, currentTimeMilliseconds) }
+            ?.entry
+
+    /**
+     * 시스템 헤더 subText용 다음 일정 라벨("{N시간후} {제목}"). 시작이 1시간 미만으로 남은
+     * 구간이면 null — 이 구간은 subText를 제목만 남기고 남은 시간을 헤더의 Chronometer
+     * 카운트다운(시간 자리)으로 보여준다. 단위 경계는 findRelativeTimeQuantity 하나에서
+     * 계산하므로 본문 행 라벨과 어긋나지 않는다.
+     */
+    fun formatUpcomingHeaderSubText(
+        entry: EventEntry,
+        currentTimeMilliseconds: Long,
+    ): String? {
+        val relativeTime = findRelativeTimeQuantity(entry, currentTimeMilliseconds) ?: return null
+        val relativeLabel = when (relativeTime) {
+            is RelativeTime.Hours -> context.resources.getQuantityString(
+                R.plurals.upcoming_relative_hours,
+                relativeTime.count.toInt(),
+                relativeTime.count,
+            )
+            is RelativeTime.Days -> context.resources.getQuantityString(
+                R.plurals.upcoming_relative_days,
+                relativeTime.count.toInt(),
+                relativeTime.count,
             )
         }
+        val title = entry.title.ifEmpty { context.getString(R.string.untitled_event) }
+        return context.getString(R.string.upcoming_event_header_format, relativeLabel, title)
     }
 
     /** 상대 일수 라벨((N일 뒤)). 영어의 1일/2일 이상 복수형 차이는 리소스 plurals가 담당한다. */
@@ -821,6 +881,13 @@ class NotificationViewsFactory(private val context: Context) {
         Instant.ofEpochMilli(entry.beginTimeMilliseconds)
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
+
+    /** 상대 시간의 단위와 수량. 단위 경계는 findRelativeTimeQuantity 하나가 소유한다. */
+    private sealed interface RelativeTime {
+        data class Hours(val count: Long) : RelativeTime
+
+        data class Days(val count: Long) : RelativeTime
+    }
 
     /** 시스템 표준 시간대 기준으로 [timeMilliseconds]가 속한 날짜. */
     private fun findLocalDateOf(timeMilliseconds: Long): LocalDate =

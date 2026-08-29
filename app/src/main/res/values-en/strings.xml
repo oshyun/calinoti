@@ -4,10 +4,12 @@
 <resources>
     <string name="notification_channel_name">Events</string>
     <string name="notification_channel_description">Shows upcoming calendar events in a notification</string>
+    <string name="notification_channel_imminent_name">Imminent events</string>
+    <string name="notification_channel_imminent_description">Countdown notifications for events about to start</string>
 
     <string name="event_list_empty_text">No events to show</string>
     <string name="untitled_event">Untitled event</string>
-    <string name="next_event_subtext_format">Next event: %1$s</string>
+    <string name="upcoming_event_header_format">%2$s in %1$s</string>
     <plurals name="event_relative_days">
         <item quantity="one">(in %1$d day)</item>
         <item quantity="other">(in %1$d days)</item>
@@ -15,6 +17,14 @@
     <plurals name="event_relative_hours">
         <item quantity="one">(in %1$d hour)</item>
         <item quantity="other">(in %1$d hours)</item>
+    </plurals>
+    <plurals name="upcoming_relative_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="upcoming_relative_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
     </plurals>
     <string name="event_in_progress">(in progress)</string>
     <string name="event_finished">(done)</string>
@@ -101,6 +111,9 @@
     <string name="no_calendar_apps_found">No calendar apps found</string>
     <string name="notification_pinned_label">Pin notification</string>
     <string name="notification_pinned_description">Brings the notification back instantly when swiped away, so it never disappears. Turn off to swipe it away freely.</string>
+    <string name="imminent_live_notification_label">Live notification</string>
+    <string name="imminent_live_notification_description">Shows a separate second-by-second countdown notification from an hour before the event starts. On One UI 8 and later it also appears in the status bar chip and live area; other devices show it as an ongoing notification.</string>
+    <string name="imminent_notification_time_format">Starts at %1$s</string>
     <string name="day_header_start_padding_label">Space before day headers</string>
     <string name="time_to_title_spacing_label">Space between time and title</string>
     <string name="day_header_to_event_spacing_label">Space between day header and events</string>
