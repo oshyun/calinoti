@@ -16,10 +16,10 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.calinoti.app.R
-import com.calinoti.app.data.AgendaEntry
-import com.calinoti.app.data.AgendaListEntry
+import com.calinoti.app.data.EventEntry
+import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.NotificationSpacing
-import com.calinoti.app.notification.AgendaRemoteViewsFactory
+import com.calinoti.app.notification.NotificationViewsFactory
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 알림 여백 설정 섹션에 보여줄 미리보기. 실제 알림을 만드는 같은 조립 경로
- * ([AgendaRemoteViewsFactory.createPreviewViews])가 그린 뷰를 그대로 인플레이트하므로,
+ * ([NotificationViewsFactory.createPreviewViews])가 그린 뷰를 그대로 인플레이트하므로,
  * 여기서 보이는 배열이 곧 알림의 배열이다. 각 슬라이더 값을 바꾸면 저장과 무관하게
  * [spacing]에 즉시 반영된다.
  */
@@ -37,7 +37,7 @@ internal fun NotificationSpacingPreview(
     notificationTextSizeSp: Int,
     allDayEventTextSizeSp: Int,
     dayHeaderFormatPattern: String,
-    remoteViewsFactory: AgendaRemoteViewsFactory,
+    remoteViewsFactory: NotificationViewsFactory,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -79,7 +79,7 @@ internal fun NotificationSpacingPreview(
             factory = {
                 // 빈 루트 레이아웃을 딱 한 번 인플레이트한다. 이후 값 변화는 update의
                 // reapply가 같은 뷰 트리에 액션만 다시 적용해 처리한다(재인플레이트 없음).
-                val inflatedRoot = RemoteViews(context.packageName, R.layout.notification_agenda)
+                val inflatedRoot = RemoteViews(context.packageName, R.layout.notification_list)
                     .apply(context, null)
                 // apply에 parent를 넘기지 않으면 레이아웃 XML의 폭·높이가 LayoutParams로
                 // 만들어지지 않아 뷰가 내용 폭만 차지한다 — 화면 폭을 채우게 직접 지정한다.
@@ -102,7 +102,7 @@ internal fun NotificationSpacingPreview(
 }
 
 /**
- * 여백 다섯 종이 모두 드러나는 표본 아젠다: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
+ * 여백 다섯 종이 모두 드러나는 표본 일정 목록: 날짜 헤더 세 개(오늘·내일·모레) + 일정 네 개.
  * 시각은 [currentTimeMilliseconds] 기준으로 만들어 상대 시간 라벨도 실제와 같이 붙는다.
  *
  * 행 조합이 담당하는 설정:
@@ -115,7 +115,7 @@ internal fun NotificationSpacingPreview(
 private fun createPreviewSampleEntries(
     context: Context,
     currentTimeMilliseconds: Long,
-): List<AgendaListEntry> {
+): List<EventListEntry> {
     val zone = ZoneId.systemDefault()
     val today = Instant.ofEpochMilli(currentTimeMilliseconds).atZone(zone).toLocalDate()
     val tomorrow = today.plusDays(1)
@@ -126,11 +126,11 @@ private fun createPreviewSampleEntries(
     fun limitToTodayEvening(timeMilliseconds: Long): Long =
         minOf(timeMilliseconds, todayEveningMilliseconds)
     return listOf(
-        AgendaListEntry.DayHeader(
+        EventListEntry.DayHeader(
             dayStartMilliseconds = today.atStartOfDay(zone).toInstant().toEpochMilli(),
         ),
-        AgendaListEntry.Event(
-            AgendaEntry(
+        EventListEntry.Event(
+            EventEntry(
                 eventId = 1L,
                 title = context.getString(R.string.preview_sample_title_meeting),
                 beginTimeMilliseconds = limitToTodayEvening(
@@ -144,8 +144,8 @@ private fun createPreviewSampleEntries(
                 calendarColor = PREVIEW_CALENDAR_COLOR_BLUE,
             ),
         ),
-        AgendaListEntry.Event(
-            AgendaEntry(
+        EventListEntry.Event(
+            EventEntry(
                 eventId = 2L,
                 title = context.getString(R.string.preview_sample_title_walk),
                 // 1시간 미만 구간 표본 — 실제 알림처럼 실시간 카운트다운 행이 보인다.
@@ -160,15 +160,15 @@ private fun createPreviewSampleEntries(
                 calendarColor = PREVIEW_CALENDAR_COLOR_GREEN,
             ),
         ),
-        AgendaListEntry.DayHeader(
+        EventListEntry.DayHeader(
             dayStartMilliseconds = tomorrow.atStartOfDay(zone).toInstant().toEpochMilli(),
         ),
-        AgendaListEntry.Event(
-            AgendaEntry(
+        EventListEntry.Event(
+            EventEntry(
                 eventId = 3L,
                 title = context.getString(R.string.preview_sample_title_birthday),
                 // 종일 일정의 경계는 UTC 자정이다 — 실제 데이터와 같은 규칙
-                // (AgendaListBuilder의 calendar-provider-allday-utc QUIRK 참조)을 따른다.
+                // (EventListBuilder의 calendar-provider-allday-utc QUIRK 참조)을 따른다.
                 beginTimeMilliseconds =
                     tomorrow.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
                 endTimeMilliseconds =
@@ -178,11 +178,11 @@ private fun createPreviewSampleEntries(
                 calendarColor = PREVIEW_CALENDAR_COLOR_PURPLE,
             ),
         ),
-        AgendaListEntry.DayHeader(
+        EventListEntry.DayHeader(
             dayStartMilliseconds = dayAfterTomorrow.atStartOfDay(zone).toInstant().toEpochMilli(),
         ),
-        AgendaListEntry.Event(
-            AgendaEntry(
+        EventListEntry.Event(
+            EventEntry(
                 eventId = 4L,
                 title = context.getString(R.string.preview_sample_title_movie),
                 beginTimeMilliseconds =

@@ -5,7 +5,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 /** 알림에 표시할 일정 한 건. 렌더링과 일정 열기에 필요한 최소 정보만 담는다. */
-data class AgendaEntry(
+data class EventEntry(
     /** 캘린더 프로바이더 Events 테이블의 일정 ID(반복 일정은 시리즈 원본). 알림 줄 클릭으로 일정을 열 때 쓴다. */
     val eventId: Long,
     val title: String,
@@ -22,7 +22,7 @@ data class AgendaEntry(
      * QUIRK) 그대로 쓰면 UTC보다 뒤인 지역(한국, UTC+9)에서 어제 종일 일정이 다음 날 오전까지
      * 안 끝난 것으로 판정된다 — end의 UTC 날짜를 현지 자정으로 옮겨 마지막 날이 끝나는
      * 현지 시각으로 보정한다. 표시 창 필터(CalendarReader)와 제목 (종료됨) 표시·감춤
-     * 분류(AgendaRemoteViewsFactory)가 이 값을 쓴다.
+     * 분류(NotificationViewsFactory)가 이 값을 쓴다.
      */
     val finishTimeMilliseconds: Long
         get() {
@@ -36,10 +36,10 @@ data class AgendaEntry(
         }
 }
 
-/** 아젠다 목록의 한 줄: 날짜 그룹 헤더 또는 일정 항목. */
-sealed interface AgendaListEntry {
-    data class DayHeader(val dayStartMilliseconds: Long) : AgendaListEntry
-    data class Event(val entry: AgendaEntry) : AgendaListEntry
+/** 일정 목록의 한 줄: 날짜 그룹 헤더 또는 일정 항목. */
+sealed interface EventListEntry {
+    data class DayHeader(val dayStartMilliseconds: Long) : EventListEntry
+    data class Event(val entry: EventEntry) : EventListEntry
 }
 
 /** 설정 화면에 보여줄 기기의 캘린더 한 개. */

@@ -13,30 +13,30 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.calinoti.app.R
-import com.calinoti.app.data.AgendaEntry
-import com.calinoti.app.data.AgendaListEntry
+import com.calinoti.app.data.EventEntry
+import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
-import com.calinoti.app.scheduling.AgendaRefreshReceiver
+import com.calinoti.app.scheduling.NotificationRefreshReceiver
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** 아젠다 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
-class AgendaNotificationManager(
+/** 일정 지속 알림의 채널 생성·발행과 알림 권한 확인을 담당한다. */
+class NotificationPublisher(
     private val context: Context,
-    private val remoteViewsFactory: AgendaRemoteViewsFactory,
+    private val remoteViewsFactory: NotificationViewsFactory,
 ) {
 
     fun ensureNotificationChannel() {
         val channel = NotificationChannel(
-            AGENDA_CHANNEL_ID,
-            context.getString(R.string.notification_channel_agenda_name),
+            EVENTS_CHANNEL_ID,
+            context.getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-            description = context.getString(R.string.notification_channel_agenda_description)
+            description = context.getString(R.string.notification_channel_description)
         }
         NotificationManagerCompat.from(context).createNotificationChannel(channel)
     }
@@ -57,8 +57,8 @@ class AgendaNotificationManager(
     fun shouldPromptForNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission()
 
-    fun publishAgendaNotification(
-        listEntries: List<AgendaListEntry>,
+    fun publishEventListNotification(
+        listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
@@ -72,7 +72,7 @@ class AgendaNotificationManager(
         currentTimeMilliseconds: Long,
     ) {
         if (!hasNotificationPermission()) return
-        val notification = buildAgendaNotification(
+        val notification = buildEventListNotification(
             listEntries,
             collapsedHiddenItemTypes,
             expandedHiddenItemTypes,
@@ -86,11 +86,11 @@ class AgendaNotificationManager(
             dayHeaderFormatPattern,
             currentTimeMilliseconds,
         )
-        NotificationManagerCompat.from(context).notify(AGENDA_NOTIFICATION_ID, notification)
+        NotificationManagerCompat.from(context).notify(EVENT_LIST_NOTIFICATION_ID, notification)
     }
 
-    private fun buildAgendaNotification(
-        listEntries: List<AgendaListEntry>,
+    private fun buildEventListNotification(
+        listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
         maxVisibleEntries: Int,
@@ -105,7 +105,7 @@ class AgendaNotificationManager(
     ): Notification {
         // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙 집합을 받는다 — 두 규칙은 서로 독립이며,
         // 어느 쪽이든 빈 집합이면 감춤 없이 전부 표시한다(필터는 빈 집합에서 멱등하다).
-        return NotificationCompat.Builder(context, AGENDA_CHANNEL_ID)
+        return NotificationCompat.Builder(context, EVENTS_CHANNEL_ID)
             .setSmallIcon(smallIconResourceIdFor(currentTimeMilliseconds))
             .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
             .setCustomContentView(
@@ -151,11 +151,11 @@ class AgendaNotificationManager(
     /**
      * 시스템 헤더를 다음 일정 정보로 채운다. 헤더는 시스템이 그리는 영역이라 없앨 수는
      * 없고, 시간 자리를 남은 시간 카운트다운(setChronometerCountDown)으로, subText를
-     * 일정 제목으로 바꾸는 것만 가능하다. 카운트다운이 0에 닿으면 AgendaRefreshScheduler가
+     * 일정 제목으로 바꾸는 것만 가능하다. 카운트다운이 0에 닿으면 NotificationRefreshScheduler가
      * 일정 시작 시각에 알림을 다시 게시해 다음 일정 기준으로 넘어간다.
      */
     private fun NotificationCompat.Builder.applyHeaderContent(
-        nextUpcomingEvent: AgendaEntry?,
+        nextUpcomingEvent: EventEntry?,
     ): NotificationCompat.Builder {
         if (nextUpcomingEvent == null) {
             setShowWhen(false)
@@ -165,7 +165,7 @@ class AgendaNotificationManager(
         setUsesChronometer(true)
         setChronometerCountDown(true)
         setSubText(
-            nextUpcomingEvent.title.ifEmpty { context.getString(R.string.agenda_untitled_event) },
+            nextUpcomingEvent.title.ifEmpty { context.getString(R.string.untitled_event) },
         )
         return this
     }
@@ -176,11 +176,11 @@ class AgendaNotificationManager(
      * 감춰진 종일 일정이 시스템 헤더(subText·카운트다운)로 새어 나갈 일도 없다.
      */
     private fun findNextUpcomingEvent(
-        listEntries: List<AgendaListEntry>,
+        listEntries: List<EventListEntry>,
         currentTimeMilliseconds: Long,
-    ): AgendaEntry? =
+    ): EventEntry? =
         listEntries
-            .filterIsInstance<AgendaListEntry.Event>()
+            .filterIsInstance<EventListEntry.Event>()
             .map { it.entry }
             .firstOrNull { entry ->
                 !entry.isAllDay && entry.beginTimeMilliseconds > currentTimeMilliseconds
@@ -227,7 +227,7 @@ class AgendaNotificationManager(
         PendingIntent.getBroadcast(
             context,
             DISMISS_RESTORE_REQUEST_CODE,
-            Intent(context, AgendaRefreshReceiver::class.java),
+            Intent(context, NotificationRefreshReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -245,8 +245,8 @@ class AgendaNotificationManager(
     }
 
     private companion object {
-        const val AGENDA_CHANNEL_ID = "agenda"
-        const val AGENDA_NOTIFICATION_ID = 1001
+        const val EVENTS_CHANNEL_ID = "events"
+        const val EVENT_LIST_NOTIFICATION_ID = 1001
         const val CONTENT_REQUEST_CODE = 1002
         const val DISMISS_RESTORE_REQUEST_CODE = 1003
 

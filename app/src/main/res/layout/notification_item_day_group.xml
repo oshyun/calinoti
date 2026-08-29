@@ -3,10 +3,10 @@
   날짜 그룹 한 덩어리: [날짜][일정 열]. 날짜는 내용 폭만 차지하고 일정 열(weight=1)이 남은
   폭 전체를 차지하므로, 그룹 안 모든 일정 줄이 날짜 오른쪽의 같은 x에서 시작한다 — 둘째
   일정부터의 왼쪽 공백이 첫 일정의 시작 위치와 항상 일치한다.
-  날짜 헤더의 폭은 AgendaRemoteViewsFactory가 목록에서 가장 넓은 날짜 텍스트로 런타임에
+  날짜 헤더의 폭은 NotificationViewsFactory가 목록에서 가장 넓은 날짜 텍스트로 런타임에
   고정한다(API 31+, 그 전 버전은 wrap_content) — 날짜 길이가 달라도 그룹 사이 일정 열의
   시작 x가 같아진다.
-  일정 줄은 AgendaRemoteViewsFactory가 notification_day_group_events에 addView로 채운다.
+  일정 줄은 NotificationViewsFactory가 notification_day_group_events에 addView로 채운다.
   날짜 앞 여백·날짜와 일정 열 사이 간격·행 사이 수직 간격도 그곳에서 런타임에 적용한다
   (사용자 설정).
 -->
