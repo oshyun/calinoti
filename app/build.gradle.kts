@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.calinoti.app"
-    compileSdk = 35
+    // 36: androidx.core 1.17의 AAR 메타데이터가 compileSdk 36을 요구한다(Live Updates API 사용 목적).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.calinoti.app"
