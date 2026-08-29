@@ -31,6 +31,14 @@ object AgendaRefreshScheduler {
             for (entry in entries) {
                 if (entry.beginTimeMilliseconds > currentTimeMilliseconds) {
                     add(entry.beginTimeMilliseconds)
+                    // 카운트다운 전환 경계: 시작 1시간 전까지는 (N시간 뒤) 정적 라벨이고,
+                    // 그 이후부터는 실시간 카운트다운을 보여준다. 경계에도 갱신을 걸어
+                    // 전환 시점을 정확히 맞춘다.
+                    val countdownSwitchMilliseconds =
+                        entry.beginTimeMilliseconds - TimeUnit.HOURS.toMillis(1)
+                    if (countdownSwitchMilliseconds > currentTimeMilliseconds) {
+                        add(countdownSwitchMilliseconds)
+                    }
                 }
                 if (entry.endTimeMilliseconds > currentTimeMilliseconds) {
                     add(entry.endTimeMilliseconds)

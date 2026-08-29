@@ -1,7 +1,11 @@
 package com.calinoti.app.ui
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -163,6 +167,33 @@ fun CalendarStatusScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(resumeObserver) }
     }
 
+    // 배터리 최적화 제외 상태. 시스템 확인 다이얼로그나 시스템 설정에서 바꾸고 돌아와도
+    // 따라오게 ON_RESUME에서 다시 읽는다.
+    val context = LocalContext.current
+    var isBatteryOptimizationIgnored by remember {
+        mutableStateOf(
+            context.getSystemService(PowerManager::class.java)
+                .isIgnoringBatteryOptimizations(context.packageName),
+        )
+    }
+    DisposableEffect(lifecycleOwner) {
+        val batteryStateObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isBatteryOptimizationIgnored = context.getSystemService(PowerManager::class.java)
+                    .isIgnoringBatteryOptimizations(context.packageName)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(batteryStateObserver)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(batteryStateObserver) }
+    }
+
+    /** 배터리 최적화 제외를 묻는 시스템 확인 다이얼로그를 연다. */
+    fun requestIgnoreBatteryOptimizations() {
+        val requestIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(Uri.parse("package:${context.packageName}"))
+        context.startActivity(requestIntent)
+    }
+
     // 프로바이더 쿼리는 IPC라서 컴포지션(메인 스레드)에서 직접 돌리지 않는다.
     // null은 아직 불러오는 중임을 뜻한다 — "캘린더 없음"과 구분해 로딩 중 깜빡임을 막는다.
     val calendars by produceState<List<UserCalendar>?>(null, hasCalendarPermission) {
@@ -263,6 +294,35 @@ fun CalendarStatusScreen(
                     TextButton(onClick = openAppSettings) {
                         Text(stringResource(R.string.open_app_settings_button))
                     }
+                }
+            }
+
+            // 시스템이 통제하는 항목이라 권한 안내 아래에 함께 둔다. 필수는 아니라 누락돼도
+            // 경보처럼 접힘을 무시하지 않는다 — 선택 항목으로 안내만 한다.
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.battery_optimization_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = stringResource(
+                    if (isBatteryOptimizationIgnored) R.string.battery_optimization_ignored_state
+                    else R.string.battery_optimization_restricted_state,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.battery_optimization_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!isBatteryOptimizationIgnored) {
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = ::requestIgnoreBatteryOptimizations) {
+                    Text(stringResource(R.string.battery_optimization_request_button))
                 }
             }
         }
@@ -1366,7 +1426,6 @@ private fun clickTargetSummaryLabel(
 }
 
 /**
-<<<<<<< HEAD
  * 언어 섹션의 접힘 요약. 앱 전용 설정이 없으면 "시스템 기본", 한국어·English면 그 언어명,
  * 그 외(adb 등으로 설정된 낯선 locale)면 그 언어의 표시 이름을 보여준다.
  */
@@ -1376,7 +1435,9 @@ private fun languageSummaryLabel(currentAppLocale: Locale?): String = when {
     currentAppLocale.language == "ko" -> stringResource(R.string.language_korean_label)
     currentAppLocale.language == "en" -> stringResource(R.string.language_english_label)
     else -> currentAppLocale.displayName
-=======
+}
+
+/**
  * 갱신 주기(분)를 접힌 헤더 요약용 기간 텍스트로 바꾼다. 시간으로 나누어떨어지면
  * "6시간"처럼 묶어 보여주고, 아니면 분 그대로 "30분"으로 보여준다.
  */
@@ -1388,7 +1449,6 @@ private fun notificationUpdateIntervalSummary(intervalMinutes: Int): String {
         else -> stringResource(R.string.duration_minutes_format, intervalMinutes)
     }
     return stringResource(R.string.notification_update_interval_summary_format, durationText)
->>>>>>> b8aa6ef (Add configurable notification update interval setting)
 }
 
 /**

@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  일정 항목 한 줄: [시간][제목(굵게, 캘린더 색)][위치(회색, 말줄임)]
+  일정 항목 한 줄: [시간][제목(굵게, 캘린더 색)][임박 카운트다운][위치(회색, 말줄임)]
   날짜 그룹 행(notification_item_day_group)의 일정 열 안에 쌓이는 줄이다 — 시간 있는
   일정의 시간과 종일 일정의 제목 모두 열의 왼쪽에서 시작하므로 두 유형의 왼쪽 x가 일치한다.
   종일 일정은 시간 텍스트를 숨기고, 위치가 없으면 위치 칸을 숨긴다.
+  임박 카운트다운은 시작이 1시간 미만으로 남은 시간 있는 일정만 보이는 Chronometer다 —
+  시스템이 실시간으로 줄여 그려 갱신 없이도 초 단위로 정확하다(AgendaRemoteViewsFactory가
+  setChronometer로 걸고 평소엔 숨긴다).
   시간·제목·위치 텍스트를 누르면 캘린더 앱에서 해당 일정을 연다. 텍스트가 없는
   오른쪽 여백은 클릭이 없어 알림 전체 contentIntent(지정 캘린더 앱 열기)로 넘어간다.
   위치 칸이 텍스트만큼만 넓어야 여백이 생기므로 weight 확장 대신 wrap_content다 —
@@ -34,6 +37,14 @@
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end" />
+
+    <Chronometer
+        android:id="@+id/event_relative_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:maxLines="1"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/event_location_text"

@@ -95,9 +95,10 @@ data class UserPreferences(
         /** 날짜 헤더 형식의 기본 패턴. 초기 버전부터 쓰던 표시("08.29, 금요일")다. */
         const val DEFAULT_DAY_HEADER_FORMAT_PATTERN = "MM.dd, EEEE"
 
-        // 안전망 갱신 주기의 조절 범위(분). 15분은 Doze에서 allow-while-idle 알람의
-        // 시스템 하한이라 그 아래로는 기대대로 울리지 않는다.
-        const val NOTIFICATION_UPDATE_INTERVAL_MIN_MINUTES = 15
+        // 안전망 갱신 주기의 조절 범위(분). 10분은 활성 사용 중에도 의미 있는 최솟값이다.
+        // Doze(절전)에서는 allow-while-idle 알람이 앱당 15분 간격으로 스로틀되므로 그보다
+        // 짧은 주기를 정해도 절전 중엔 15분 간격으로 늘어진다.
+        const val NOTIFICATION_UPDATE_INTERVAL_MIN_MINUTES = 10
         const val NOTIFICATION_UPDATE_INTERVAL_MAX_MINUTES = 1440
 
         /** 알림 갱신 주기의 조절 범위. 설정 화면의 입력 검증이 이를 참조한다. */
