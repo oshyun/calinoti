@@ -147,12 +147,8 @@ private fun createPreviewSampleEntries(
         AgendaListEntry.Event(
             AgendaEntry(
                 eventId = 2L,
-<<<<<<< HEAD
                 title = context.getString(R.string.preview_sample_title_walk),
-=======
-                title = "가벼운 산책",
                 // 1시간 미만 구간 표본 — 실제 알림처럼 실시간 카운트다운 행이 보인다.
->>>>>>> c317cd1 (Improve remaining-time accuracy: live countdown, 10-min interval, battery exemption)
                 beginTimeMilliseconds = limitToTodayEvening(
                     currentTimeMilliseconds + TimeUnit.MINUTES.toMillis(30),
                 ),
