@@ -3,7 +3,7 @@
     <!-- Calinoti = "cal(endar) in noti(fication) bar"의 줄임말 -->
     <string name="app_name" translatable="false">Calinoti</string>
 
-    <string name="notification_channel_agenda_name">일정 아젠다</string>
+    <string name="notification_channel_agenda_name">일정</string>
     <string name="notification_channel_agenda_description">다가오는 캘린더 일정을 알림으로 표시합니다</string>
 
     <string name="agenda_empty_text">표시할 일정이 없습니다</string>
@@ -24,13 +24,15 @@
          제목과 톤(색·크기)을 나눠 입히므로 제목을 포함하지 않는다. -->
     <string name="agenda_multiday_end_date_suffix_format">(~%1$s까지)</string>
 
-    <string name="calendar_permission_title">캘린더 권한 필요</string>
-    <string name="calendar_permission_description">캘린더 일정을 알림으로 표시하려면 캘린더 읽기 권한이 필요합니다.</string>
-    <string name="notification_permission_title">알림 권한 필요</string>
-    <string name="notification_permission_description">일정 알림을 표시하려면 알림 권한이 필요합니다.</string>
+    <string name="calendar_permission_title">캘린더 권한</string>
+    <string name="calendar_permission_description">캘린더 일정을 읽어 알림에 표시하기 위해서만 사용합니다. 일정을 읽는 외의 용도로는 사용하지 않습니다.</string>
+    <string name="notification_permission_title">알림 권한</string>
+    <string name="notification_permission_description">일정을 알림으로 표시하기 위해서만 사용합니다. 알림 표시 외의 용도로는 사용하지 않습니다.</string>
+    <string name="permission_state_granted">허용됨</string>
+    <string name="permission_state_needed">필요함</string>
+    <string name="permission_usage_note">요청한 권한은 위 목적에만 사용하며, 그 외의 용도로는 사용하지 않습니다.</string>
     <string name="calendar_permission_button">권한 허용하기</string>
     <string name="open_app_settings_button">시스템 설정에서 허용하기</string>
-    <string name="all_permissions_granted_message">권한이 준비되었습니다. 알림에서 일정을 확인하세요.</string>
 
     <string name="battery_optimization_title">배터리 제한 없음</string>
     <string name="battery_optimization_ignored_state">설정됨 — 절전 중에도 일정 갱신이 지연되지 않습니다</string>

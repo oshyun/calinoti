@@ -125,6 +125,9 @@ fun CalendarStatusScreen(
     var hasCalendarPermission by remember {
         mutableStateOf(calendarReader.hasCalendarPermission())
     }
+    var hasNotificationPermission by remember {
+        mutableStateOf(notificationManager.hasNotificationPermission())
+    }
     var shouldPromptForNotificationPermission by remember {
         mutableStateOf(notificationManager.shouldPromptForNotificationPermission())
     }
@@ -141,11 +144,14 @@ fun CalendarStatusScreen(
     // 권한 다이얼로그 콜백과 ON_RESUME 복귀가 같은 규칙을 쓴다.
     fun recheckPermissionsAndRefreshIfChanged() {
         val calendarPermissionNow = calendarReader.hasCalendarPermission()
+        val notificationPermissionNow = notificationManager.hasNotificationPermission()
         val notificationPromptNow = notificationManager.shouldPromptForNotificationPermission()
         val permissionStateChanged =
             calendarPermissionNow != hasCalendarPermission ||
+                notificationPermissionNow != hasNotificationPermission ||
                 notificationPromptNow != shouldPromptForNotificationPermission
         hasCalendarPermission = calendarPermissionNow
+        hasNotificationPermission = notificationPermissionNow
         shouldPromptForNotificationPermission = notificationPromptNow
         if (permissionStateChanged) refreshAgenda()
     }
@@ -217,16 +223,10 @@ fun CalendarStatusScreen(
         coroutineScope.launch { update() }
     }
 
-    // 누락된 권한만 골라 안내한다 — 있는 권한까지 "필요"라고 표시하지 않는다.
-    val missingPermissionNotices = buildList {
-        if (!hasCalendarPermission) {
-            add(R.string.calendar_permission_title to R.string.calendar_permission_description)
-        }
-        if (shouldPromptForNotificationPermission) {
-            add(R.string.notification_permission_title to R.string.notification_permission_description)
-        }
-    }
-    val hasMissingPermissions = missingPermissionNotices.isNotEmpty()
+    // 권한이 누락됐는지. 알림 권한은 런타임 요청 대상이 아닌 버전(Android 12 이하)에서는
+    // 시스템이 부여하므로 검사 대상에서 뺀다.
+    val hasMissingPermissions = !hasCalendarPermission ||
+        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission)
 
     // 섹션 펼침 상태는 회전·프로세스 재시작에도 유지되고, 앱을 다시 열면 기본 접힘으로 돌아온다.
     var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
@@ -266,33 +266,43 @@ fun CalendarStatusScreen(
             isExpanded = isPermissionsSectionExpanded,
             onToggleExpanded = { isPermissionsSectionExpanded = !isPermissionsSectionExpanded },
         ) {
-            if (missingPermissionNotices.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.all_permissions_granted_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            } else {
-                missingPermissionNotices.forEachIndexed { noticeIndex, (titleResourceId, descriptionResourceId) ->
-                    if (noticeIndex > 0) Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(titleResourceId),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(descriptionResourceId),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+            PermissionItem(
+                title = stringResource(R.string.calendar_permission_title),
+                stateText = stringResource(
+                    if (hasCalendarPermission) R.string.permission_state_granted
+                    else R.string.permission_state_needed,
+                ),
+                description = stringResource(R.string.calendar_permission_description),
+            ) {
+                if (!hasCalendarPermission) {
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
+                        Text(stringResource(R.string.calendar_permission_button))
+                    }
                 }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
-                    Text(stringResource(R.string.calendar_permission_button))
-                }
-                // 알림 권한을 영구 거부하면 시스템 다이얼로그가 아예 뜨지 않는다 —
-                // 그때 유일한 출구인 시스템 설정으로 보내는 탈출구.
-                if (shouldPromptForNotificationPermission) {
-                    TextButton(onClick = openAppSettings) {
-                        Text(stringResource(R.string.open_app_settings_button))
+            }
+
+            // 알림 권한은 런타임 요청 UI가 있는 버전(Android 13 이상)에서만 항목으로 보인다.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Spacer(Modifier.height(16.dp))
+                PermissionItem(
+                    title = stringResource(R.string.notification_permission_title),
+                    stateText = stringResource(
+                        if (hasNotificationPermission) R.string.permission_state_granted
+                        else R.string.permission_state_needed,
+                    ),
+                    description = stringResource(R.string.notification_permission_description),
+                ) {
+                    if (!hasNotificationPermission) {
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = { permissionLauncher.launch(requiredPermissions) }) {
+                            Text(stringResource(R.string.calendar_permission_button))
+                        }
+                        // 알림 권한을 영구 거부하면 시스템 다이얼로그가 아예 뜨지 않는다 —
+                        // 그때 유일한 출구인 시스템 설정으로 보내는 탈출구.
+                        TextButton(onClick = openAppSettings) {
+                            Text(stringResource(R.string.open_app_settings_button))
+                        }
                     }
                 }
             }
@@ -300,31 +310,28 @@ fun CalendarStatusScreen(
             // 시스템이 통제하는 항목이라 권한 안내 아래에 함께 둔다. 필수는 아니라 누락돼도
             // 경보처럼 접힘을 무시하지 않는다 — 선택 항목으로 안내만 한다.
             Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.battery_optimization_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = stringResource(
+            PermissionItem(
+                title = stringResource(R.string.battery_optimization_title),
+                stateText = stringResource(
                     if (isBatteryOptimizationIgnored) R.string.battery_optimization_ignored_state
                     else R.string.battery_optimization_restricted_state,
                 ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.battery_optimization_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (!isBatteryOptimizationIgnored) {
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = ::requestIgnoreBatteryOptimizations) {
-                    Text(stringResource(R.string.battery_optimization_request_button))
+                description = stringResource(R.string.battery_optimization_description),
+            ) {
+                if (!isBatteryOptimizationIgnored) {
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = ::requestIgnoreBatteryOptimizations) {
+                        Text(stringResource(R.string.battery_optimization_request_button))
+                    }
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.permission_usage_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         if (hasCalendarPermission) {
@@ -906,6 +913,34 @@ fun CalendarStatusScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * 권한 관리 섹션의 항목 한 개 — 제목 → 상태 → 사용 이유의 같은 구조를 캘린더·알림·배터리
+ * 항목이 공유한다. [action]은 설정 버튼 같은 후속 동작 자리다. 준비 여부 판단은 호출부가
+ * 하고, 이 항목은 자리만 제공한다.
+ */
+@Composable
+private fun PermissionItem(
+    title: String,
+    stateText: String,
+    description: String,
+    action: @Composable () -> Unit,
+) {
+    Text(text = title, style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(2.dp))
+    Text(
+        text = stateText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = description,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    action()
 }
 
 /**
