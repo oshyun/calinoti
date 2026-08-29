@@ -77,7 +77,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import android.os.LocaleList
 import com.calinoti.app.R
+import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.HiddenItemType
@@ -92,10 +94,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * 권한 안내와 설정(캘린더 선택·표시 옵션)으로 이뤄진 앱의 유일한 화면.
+ * 권한 안내와 설정(캘린더 선택·표시 옵션·언어)으로 이뤄진 앱의 유일한 화면.
  * 각 설정 묶음은 [CollapsibleSection]으로 접히며, 헤더 요약으로 접은 채 현재 상태를 확인할 수 있다.
  * 설정 변경은 저장만 담당한다 — 알림 갱신은 AgendaApplication의 설정 감시가 자동으로 한다.
  */
@@ -106,6 +109,7 @@ fun CalendarStatusScreen(
     notificationManager: AgendaNotificationManager,
     remoteViewsFactory: AgendaRemoteViewsFactory,
     userPreferencesRepository: UserPreferencesRepository,
+    appLocaleController: AppLocaleController,
     versionLabel: String,
     refreshAgenda: () -> Unit,
     openAppSettings: () -> Unit,
@@ -200,6 +204,7 @@ fun CalendarStatusScreen(
     var isHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isLanguageSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
     // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
@@ -764,6 +769,43 @@ fun CalendarStatusScreen(
             }
         }
 
+        // 언어는 캘린더·알림 권한과 무관한 앱 전역 설정이라 권한 게이트 밖에 둔다.
+        // API 33 미만은 per-app language가 없어 섹션을 아예 노출하지 않는다.
+        if (appLocaleController.isLanguageSelectionSupported) {
+            val currentAppLocales = appLocaleController.currentAppLocales()
+            // 빈 LocaleList(시스템 기본)에서 get(0)은 예외라 미리 걸러 둔다.
+            val currentAppLocale: Locale? =
+                if (currentAppLocales.isEmpty) null else currentAppLocales[0]
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_language),
+                summary = languageSummaryLabel(currentAppLocale),
+                isExpanded = isLanguageSectionExpanded,
+                onToggleExpanded = { isLanguageSectionExpanded = !isLanguageSectionExpanded },
+            ) {
+                Text(
+                    text = stringResource(R.string.language_section_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                RadioOptionRow(
+                    label = stringResource(R.string.language_system_default_label),
+                    isSelected = currentAppLocale == null,
+                    onClick = { appLocaleController.selectAppLocale(null) },
+                )
+                RadioOptionRow(
+                    label = stringResource(R.string.language_korean_label),
+                    isSelected = currentAppLocale?.language == "ko",
+                    onClick = { appLocaleController.selectAppLocale("ko") },
+                )
+                RadioOptionRow(
+                    label = stringResource(R.string.language_english_label),
+                    isSelected = currentAppLocale?.language == "en",
+                    onClick = { appLocaleController.selectAppLocale("en") },
+                )
+            }
+        }
+
         // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
         Spacer(Modifier.height(32.dp))
         Text(
@@ -1211,7 +1253,7 @@ private fun ClickTargetSelector(
     )
     Spacer(Modifier.height(4.dp))
     // 기본값과 Calinoti 열기는 캘린더 앱이 없는 기기에서도 유효한 선택지라 항상 보여준다.
-    ClickTargetOptionRow(
+    RadioOptionRow(
         label = stringResource(R.string.calendar_app_default_option),
         isSelected =
             selectedPackageName == UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
@@ -1219,7 +1261,7 @@ private fun ClickTargetSelector(
             onSelectClickTarget(UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME)
         },
     )
-    ClickTargetOptionRow(
+    RadioOptionRow(
         label = stringResource(R.string.click_target_self_option),
         isSelected = selectedPackageName == selfClickTargetPackageName,
         onClick = { onSelectClickTarget(selfClickTargetPackageName) },
@@ -1233,7 +1275,7 @@ private fun ClickTargetSelector(
         )
         else -> {
             for (calendarApp in installedCalendarApps) {
-                ClickTargetOptionRow(
+                RadioOptionRow(
                     label = calendarApp.label,
                     // 라벨만으로 구분되지 않는 동명 앱이 많아 제작자 힌트로 패키지 이름을 함께 보여준다.
                     hint = calendarApp.packageName,
@@ -1245,9 +1287,9 @@ private fun ClickTargetSelector(
     }
 }
 
-/** 클릭 동작 옵션 한 행. [hint]는 동명 앱을 구분하게 하는 패키지 이름 같은 보조 텍스트다. */
+/** 라디오 옵션 한 행. [hint]는 동명 앱을 구분하게 하는 패키지 이름 같은 보조 텍스트다. */
 @Composable
-private fun ClickTargetOptionRow(
+private fun RadioOptionRow(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -1289,6 +1331,18 @@ private fun clickTargetSummaryLabel(
             ?.firstOrNull { it.packageName == clickTargetPackageName }
             ?.label
             ?: stringResource(R.string.calendar_app_default_option)
+}
+
+/**
+ * 언어 섹션의 접힘 요약. 앱 전용 설정이 없으면 "시스템 기본", 한국어·English면 그 언어명,
+ * 그 외(adb 등으로 설정된 낯선 locale)면 그 언어의 표시 이름을 보여준다.
+ */
+@Composable
+private fun languageSummaryLabel(currentAppLocale: Locale?): String = when {
+    currentAppLocale == null -> stringResource(R.string.language_system_default_label)
+    currentAppLocale.language == "ko" -> stringResource(R.string.language_korean_label)
+    currentAppLocale.language == "en" -> stringResource(R.string.language_english_label)
+    else -> currentAppLocale.displayName
 }
 
 /**

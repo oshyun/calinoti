@@ -585,7 +585,19 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         Instant.ofEpochMilli(timeMilliseconds)
             .atZone(ZoneId.systemDefault())
             .toLocalTime()
-            .format(timeFormatter)
+            .format(createTimeFormatter())
+
+    /**
+     * 시각 포맷. 시스템의 12/24시간 설정을 자동으로 따른다. companion 상수로 두지 않는다 —
+     * 클래스 로드 시점에 locale이 굳어 프로세스가 살아 있는 채 언어를 바꾸면 오전/오후 표기가
+     * 옛 언어에 남는다. 조립 시점마다 만들어 현재 언어를 따르게 한다.
+     */
+    private fun createTimeFormatter(): DateTimeFormatter =
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+
+    /** 여러 날 종일 일정의 종료일 표기(~08.30까지)에 쓰는 "MM.dd" 포맷. [createTimeFormatter]와 같은 이유로 조립 시점에 만든다. */
+    private fun createMultidayEndDateFormatter(): DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MM.dd", Locale.getDefault())
 
     /**
      * 일정 줄의 제목 텍스트. 여러 날에 걸친 종일 일정이면 제목에 종료일을 붙이고,
@@ -606,7 +618,7 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         if (multidayAllDayLastDay != null) {
             val endDateSuffix = context.getString(
                 R.string.agenda_multiday_end_date_suffix_format,
-                multidayAllDayLastDay.format(multidayEndDateFormatter),
+                multidayAllDayLastDay.format(createMultidayEndDateFormatter()),
             )
             val endDateSuffixStartIndex = titleText.length + RELATIVE_TIME_LABEL_SEPARATOR.length
             titleText
@@ -699,23 +711,26 @@ class AgendaRemoteViewsFactory(private val context: Context) {
                 findAllDayStartDate(entry),
             )
             if (daysUntilStart <= 0) return null
-            return context.getString(R.string.agenda_relative_days_format, daysUntilStart)
+            return formatRelativeDaysLabel(daysUntilStart)
         }
         val remainingMilliseconds = entry.beginTimeMilliseconds - currentTimeMilliseconds
+        val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMilliseconds)
+        val remainingHours = TimeUnit.MILLISECONDS.toHours(remainingMilliseconds)
         return when {
             remainingMilliseconds <= 0 -> context.getString(R.string.agenda_in_progress)
             remainingMilliseconds < TimeUnit.MINUTES.toMillis(1) ->
                 context.getString(R.string.agenda_relative_soon)
-            remainingMilliseconds < TimeUnit.HOURS.toMillis(1) -> context.getString(
-                R.string.agenda_relative_minutes_format,
-                TimeUnit.MILLISECONDS.toMinutes(remainingMilliseconds),
+            remainingMilliseconds < TimeUnit.HOURS.toMillis(1) -> context.resources.getQuantityString(
+                R.plurals.agenda_relative_minutes,
+                remainingMinutes.toInt(),
+                remainingMinutes,
             )
-            remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.getString(
-                R.string.agenda_relative_hours_format,
-                TimeUnit.MILLISECONDS.toHours(remainingMilliseconds),
+            remainingMilliseconds < TimeUnit.DAYS.toMillis(1) -> context.resources.getQuantityString(
+                R.plurals.agenda_relative_hours,
+                remainingHours.toInt(),
+                remainingHours,
             )
-            else -> context.getString(
-                R.string.agenda_relative_days_format,
+            else -> formatRelativeDaysLabel(
                 ChronoUnit.DAYS.between(
                     findLocalDateOf(currentTimeMilliseconds),
                     findLocalDateOf(entry.beginTimeMilliseconds),
@@ -723,6 +738,14 @@ class AgendaRemoteViewsFactory(private val context: Context) {
             )
         }
     }
+
+    /** 상대 일수 라벨((N일 뒤)). 영어의 1일/2일 이상 복수형 차이는 리소스 plurals가 담당한다. */
+    private fun formatRelativeDaysLabel(days: Long): String =
+        context.resources.getQuantityString(
+            R.plurals.agenda_relative_days,
+            days.toInt(),
+            days,
+        )
 
     /**
      * 종일 일정의 마지막 날(하루짜리 포함). 종일 일정의 end는 UTC 자정(마지막 날 다음 날,
@@ -841,13 +864,5 @@ class AgendaRemoteViewsFactory(private val context: Context) {
         // 고정값이고, 접힘·펼침 뷰가 같은 조합을 요청하면 FLAG_UPDATE_CURRENT로
         // 같은 레코드가 갱신 재사용된다.
         const val EVENT_CLICK_REQUEST_CODE = 1004
-
-        // 여러 날 종일 일정의 종료일 표기(~08.30까지)에 쓰는 "MM.dd" 포맷. 날짜 헤더와
-        // 달리 사용자 지정 패턴을 따르지 않는다 — 종료일은 짧은 날짜 표기가 자연스럽고,
-        // 헤더 패턴의 요일(금요일)이 "~08.30, 금요일까지"처럼 뒤섞이지 않게 한다.
-        val multidayEndDateFormatter = DateTimeFormatter.ofPattern("MM.dd", Locale.getDefault())
-
-        // 시스템의 12/24시간 설정을 자동으로 따른다.
-        val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
 }

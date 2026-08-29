@@ -1,19 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Calinoti = "cal(endar) in noti(fication) bar"의 줄임말 -->
-    <string name="app_name">Calinoti</string>
+    <string name="app_name" translatable="false">Calinoti</string>
 
     <string name="notification_channel_agenda_name">일정 아젠다</string>
     <string name="notification_channel_agenda_description">다가오는 캘린더 일정을 알림으로 표시합니다</string>
 
     <string name="agenda_empty_text">표시할 일정이 없습니다</string>
     <string name="agenda_untitled_event">제목 없는 일정</string>
-    <string name="agenda_relative_days_format">(%1$d일 뒤)</string>
-    <string name="agenda_relative_hours_format">(%1$d시간 뒤)</string>
-    <string name="agenda_relative_minutes_format">(%1$d분 뒤)</string>
+    <!-- 상대 시간 표기. 한국어 CLDR은 other 복수형만 있고 영어는 one/other가 갈리므로 plurals로 둔다. -->
+    <plurals name="agenda_relative_days">
+        <item quantity="other">(%1$d일 뒤)</item>
+    </plurals>
+    <plurals name="agenda_relative_hours">
+        <item quantity="other">(%1$d시간 뒤)</item>
+    </plurals>
+    <plurals name="agenda_relative_minutes">
+        <item quantity="other">(%1$d분 뒤)</item>
+    </plurals>
     <string name="agenda_relative_soon">(곧)</string>
     <!-- 오늘 날짜 헤더에 붙이는 접미사. -->
-    <string name="today_label">(오늘)</string>
+    <string name="today_label" translatable="false">(오늘)</string>
     <string name="agenda_in_progress">(진행 중)</string>
     <string name="agenda_finished">(종료됨)</string>
     <!-- 여러 날에 걸친 종일 일정 제목 뒤에 붙이는 종료일 표기: "제목 (~08.30까지)"의 "(~08.30까지)" 부분.
@@ -72,6 +79,13 @@
     <string name="text_size_sp_format">%1$d sp</string>
     <string name="settings_display_preview_caption">미리보기</string>
     <string name="settings_display_preview_description">실제 알림과 같은 배열입니다. 아래 설정을 바꾸면 바로 반영됩니다. (표시 항목 수·감춤 설정은 반영하지 않습니다)</string>
+    <!-- 여백 미리보기의 표본 일정 제목·위치. 실제 데이터가 아니라 배열을 보여주는 표본이다. -->
+    <string name="preview_sample_title_meeting">주간 회의</string>
+    <string name="preview_sample_location_meeting">회의실 B</string>
+    <string name="preview_sample_title_walk">가벼운 산책</string>
+    <string name="preview_sample_title_birthday">생일</string>
+    <string name="preview_sample_title_movie">영화 관람</string>
+    <string name="preview_sample_location_movie">시네마 3관</string>
 
     <string name="settings_section_notification_actions">알림 동작</string>
     <string name="notification_action_summary_format">일정 %1$s · 알림 %2$s</string>
@@ -104,6 +118,13 @@
     <string name="day_header_format_preset_korean">한글형</string>
     <string name="day_header_format_preset_with_year">연도 포함</string>
     <string name="day_header_format_preset_compact">간단형</string>
+
+    <string name="settings_section_language">언어</string>
+    <string name="language_section_description">알림과 화면에 바로 적용됩니다.</string>
+    <string name="language_system_default_label">시스템 기본</string>
+    <!-- 언어명은 어느 화면 언어에서도 원어명으로 보여준다. -->
+    <string name="language_korean_label" translatable="false">한국어</string>
+    <string name="language_english_label" translatable="false">English</string>
 
     <string name="refresh_now_button">지금 새로고침</string>
     <string name="version_format">v%1$s (%2$d)</string>

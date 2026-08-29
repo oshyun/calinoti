@@ -1,5 +1,6 @@
 package com.calinoti.app.ui
 
+import android.content.Context
 import android.view.ViewGroup
 import android.widget.RemoteViews
 import androidx.compose.foundation.background
@@ -44,7 +45,7 @@ internal fun NotificationSpacingPreview(
     // 컴포지션 시점에 고정한다.
     val previewTimeMilliseconds = remember { System.currentTimeMillis() }
     val sampleEntries = remember(previewTimeMilliseconds) {
-        createPreviewSampleEntries(previewTimeMilliseconds)
+        createPreviewSampleEntries(context, previewTimeMilliseconds)
     }
     // NotificationSpacing이 data class라 값이 같으면 재조립되지 않는다 — 슬라이더가 바뀐
     // 값 하나만 넘어와도 나머지 다섯 값이 같으면 같은 인스턴스로 재사용된다.
@@ -111,7 +112,10 @@ internal fun NotificationSpacingPreview(
  * - 일정 사이 여백 → 오늘의 두 일정 사이 간격
  * - 날짜 사이 여백 → 그룹 사이 간격
  */
-private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<AgendaListEntry> {
+private fun createPreviewSampleEntries(
+    context: Context,
+    currentTimeMilliseconds: Long,
+): List<AgendaListEntry> {
     val zone = ZoneId.systemDefault()
     val today = Instant.ofEpochMilli(currentTimeMilliseconds).atZone(zone).toLocalDate()
     val tomorrow = today.plusDays(1)
@@ -128,7 +132,7 @@ private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<Agen
         AgendaListEntry.Event(
             AgendaEntry(
                 eventId = 1L,
-                title = "주간 회의",
+                title = context.getString(R.string.preview_sample_title_meeting),
                 beginTimeMilliseconds = limitToTodayEvening(
                     currentTimeMilliseconds + TimeUnit.HOURS.toMillis(2),
                 ),
@@ -136,14 +140,14 @@ private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<Agen
                     currentTimeMilliseconds + TimeUnit.HOURS.toMillis(3),
                 ),
                 isAllDay = false,
-                location = "회의실 B",
+                location = context.getString(R.string.preview_sample_location_meeting),
                 calendarColor = PREVIEW_CALENDAR_COLOR_BLUE,
             ),
         ),
         AgendaListEntry.Event(
             AgendaEntry(
                 eventId = 2L,
-                title = "가벼운 산책",
+                title = context.getString(R.string.preview_sample_title_walk),
                 beginTimeMilliseconds = limitToTodayEvening(
                     currentTimeMilliseconds + TimeUnit.HOURS.toMillis(5),
                 ),
@@ -161,7 +165,7 @@ private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<Agen
         AgendaListEntry.Event(
             AgendaEntry(
                 eventId = 3L,
-                title = "생일",
+                title = context.getString(R.string.preview_sample_title_birthday),
                 // 종일 일정의 경계는 UTC 자정이다 — 실제 데이터와 같은 규칙
                 // (AgendaListBuilder의 calendar-provider-allday-utc QUIRK 참조)을 따른다.
                 beginTimeMilliseconds =
@@ -179,13 +183,13 @@ private fun createPreviewSampleEntries(currentTimeMilliseconds: Long): List<Agen
         AgendaListEntry.Event(
             AgendaEntry(
                 eventId = 4L,
-                title = "영화 관람",
+                title = context.getString(R.string.preview_sample_title_movie),
                 beginTimeMilliseconds =
                     dayAfterTomorrow.atTime(10, 0).atZone(zone).toInstant().toEpochMilli(),
                 endTimeMilliseconds =
                     dayAfterTomorrow.atTime(11, 0).atZone(zone).toInstant().toEpochMilli(),
                 isAllDay = false,
-                location = "시네마 3관",
+                location = context.getString(R.string.preview_sample_location_movie),
                 calendarColor = PREVIEW_CALENDAR_COLOR_BLUE,
             ),
         ),

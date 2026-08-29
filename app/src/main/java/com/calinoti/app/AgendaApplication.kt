@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.util.Log
+import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.UserPreferencesRepository
@@ -23,10 +24,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 앱 전역 구성요소를 수동으로 조립해 보관한다.
  *
- * 갱신 트리거는 네 가지이고 전부 launchAgendaRefresh로 모인다:
+ * 갱신 트리거는 다섯 가지이고 전부 launchAgendaRefresh로 모인다:
  * - ContentObserver: 캘린더 앱에서 일정 변경 (프로세스가 살아 있는 동안만 동작)
  * - DataStore 감시: 설정 변경 — 갱신 의무를 개별 UI 콜백이 기억하지 않도록 여기서 강제한다
- * - onConfigurationChanged: 다크 테마 전환 (프로세스가 살아 있는 동안만 동작)
+ * - onConfigurationChanged: 다크 테마·언어 전환 (프로세스가 살아 있는 동안만 동작)
+ * - onResume 폴백: 구성 변경 미전달에 대비한 언어 변경 재확인 (MainActivity)
  * - 수동 새로고침(설정 화면 버튼)
  * 프로세스가 죽은 뒤의 갱신은 AgendaRefreshScheduler의 알람과 재부팅 리시버가 담당한다.
  */
@@ -39,7 +41,12 @@ class AgendaApplication : Application() {
     /** 마지막으로 본 시스템 다크 테마. 전환 순간만 걸러 내기 위한 기준값이다. */
     private var lastSeenSystemNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
 
+    /** 마지막으로 본 유효 locale의 언어 태그. 언어 변경 순간만 걸러 내기 위한 기준값이다. */
+    private var lastSeenLocaleTag: String? = null
+
     lateinit var userPreferencesRepository: UserPreferencesRepository
+        private set
+    lateinit var appLocaleController: AppLocaleController
         private set
     lateinit var calendarReader: CalendarReader
         private set
@@ -58,7 +65,9 @@ class AgendaApplication : Application() {
         super.onCreate()
         lastSeenSystemNightMode =
             resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        lastSeenLocaleTag = resources.configuration.locales[0].toLanguageTag()
         userPreferencesRepository = UserPreferencesRepository(this)
+        appLocaleController = AppLocaleController(this)
         calendarReader = CalendarReader(this)
         calendarAppReader = CalendarAppReader(this)
         remoteViewsFactory = AgendaRemoteViewsFactory(this)
@@ -83,16 +92,34 @@ class AgendaApplication : Application() {
     }
 
     /**
-     * 다크 테마 전환에 알림을 다시 그린다. RemoteViews는 조립 시점의 uiMode로 캘린더 색 톤과
-     * values-night 보조 텍스트 색을 굽기 때문에, 카드 배경은 SystemUI가 새로 그려도 텍스트 색은
-     * 이전 테마에 묶여 있다. night mask가 바뀐 경우만 걸러 회전·밀도 등 다른 구성 변경에는
-     * 반응하지 않게 한다. 프로세스가 죽은 상태에서의 전환은 다음 알람까지 늦는다.
+     * 다크 테마·언어 전환에 알림을 다시 그린다. RemoteViews는 조립 시점의 uiMode로 캘린더 색
+     * 톤과 values-night 보조 텍스트 색을 굽고 문자열·날짜는 조립 시점의 locale로 풀기 때문에,
+     * 카드 배경은 SystemUI가 새로 그려도 텍스트는 이전 구성에 묶여 있다. night mask와 유효
+     * locale이 바뀐 경우만 걸러 회전·밀도 등 다른 구성 변경에는 반응하지 않게 한다.
+     * 프로세스가 죽은 상태에서의 전환은 다음 알람까지 늦는다.
      */
     override fun onConfigurationChanged(newConfiguration: Configuration) {
         super.onConfigurationChanged(newConfiguration)
         val newSystemNightMode = newConfiguration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (newSystemNightMode == lastSeenSystemNightMode) return
+        val nightModeChanged = newSystemNightMode != lastSeenSystemNightMode
         lastSeenSystemNightMode = newSystemNightMode
+        if (nightModeChanged) launchAgendaRefresh()
+        refreshIfLocaleChanged(newConfiguration)
+    }
+
+    /**
+     * 유효 locale(앱 전용 언어 설정이 있으면 그것, 없으면 시스템 언어)이 바뀌면 채널 이름·설명을
+     * 새 언어로 갱신하고 알림을 다시 게시한다. 앱 언어가 "시스템 기본"일 때의 시스템 언어
+     * 변경까지 함께 잡히도록 앱에 전달된 구성의 첫 locale을 비교한다. onConfigurationChanged가
+     * 구성 변경을 전달하지 않는 경우를 위한 폴백으로 MainActivity.onResume에서도 호출하며,
+     * 두 경로가 [lastSeenLocaleTag]를 공유해 동시 호출에도 갱신은 한 번만 접수된다.
+     */
+    fun refreshIfLocaleChanged(latestConfiguration: Configuration) {
+        val latestLocaleTag = latestConfiguration.locales[0].toLanguageTag()
+        if (latestLocaleTag == lastSeenLocaleTag) return
+        lastSeenLocaleTag = latestLocaleTag
+        // 같은 채널 ID로 다시 만들면 이름·설명만 새 언어로 갱신된다(중요도 등 behavior는 유지).
+        notificationManager.ensureNotificationChannel()
         launchAgendaRefresh()
     }
 
