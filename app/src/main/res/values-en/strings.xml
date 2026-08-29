@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English translation. app_name과 언어명 2개(language_korean_label·language_english_label)는
+     translatable="false"라 여기에 두지 않는다. -->
+<resources>
+    <string name="notification_channel_agenda_name">Event agenda</string>
+    <string name="notification_channel_agenda_description">Shows upcoming calendar events in a notification</string>
+
+    <string name="agenda_empty_text">No events to show</string>
+    <string name="agenda_untitled_event">Untitled event</string>
+    <plurals name="agenda_relative_days">
+        <item quantity="one">(in %1$d day)</item>
+        <item quantity="other">(in %1$d days)</item>
+    </plurals>
+    <plurals name="agenda_relative_hours">
+        <item quantity="one">(in %1$d hour)</item>
+        <item quantity="other">(in %1$d hours)</item>
+    </plurals>
+    <plurals name="agenda_relative_minutes">
+        <item quantity="one">(in %1$d minute)</item>
+        <item quantity="other">(in %1$d minutes)</item>
+    </plurals>
+    <string name="agenda_relative_soon">(soon)</string>
+    <string name="agenda_in_progress">(in progress)</string>
+    <string name="agenda_finished">(done)</string>
+    <!-- 물결표(~) 접두는 한국어 관습이라 영어에서는 쓰지 않는다. -->
+    <string name="agenda_multiday_end_date_suffix_format">(until %1$s)</string>
+
+    <string name="calendar_permission_title">Calendar permission needed</string>
+    <string name="calendar_permission_description">Reading your calendar is required to show its events in the notification.</string>
+    <string name="notification_permission_title">Notification permission needed</string>
+    <string name="notification_permission_description">Posting notifications is required to show your agenda.</string>
+    <string name="calendar_permission_button">Grant permission</string>
+    <string name="open_app_settings_button">Allow in system settings</string>
+    <string name="all_permissions_granted_message">Permissions are ready. Check your events in the notification.</string>
+
+    <string name="settings_section_permissions">Permissions</string>
+    <string name="permissions_summary_granted">Ready</string>
+    <string name="permissions_summary_needed">Action needed</string>
+
+    <string name="settings_section_calendars">Calendar selection</string>
+    <string name="calendars_all_selected">Shows all calendars when nothing is selected</string>
+    <string name="no_calendars_found">No calendars found</string>
+    <string name="calendars_summary_all">All calendars</string>
+    <string name="calendars_summary_selected_format">%1$d of %2$d selected</string>
+
+    <string name="settings_section_event_range">Date range</string>
+    <string name="event_range_summary_format">Day %1$d to %2$d · max %3$d items</string>
+    <string name="window_start_days_label">First day shown</string>
+    <string name="window_end_days_label">Last day shown</string>
+    <string name="days_unit_suffix">days</string>
+    <string name="window_start_days_hint">0 starts from today; negative values start that many days earlier</string>
+    <string name="window_end_days_hint">0 goes up to today; positive values extend that many days ahead</string>
+    <string name="display_window_order_invalid_message">The first day must be the same as or earlier than the last day</string>
+    <string name="toggle_number_sign_button">±</string>
+    <string name="max_visible_entries_label">Max visible entries</string>
+    <string name="entries_unit_suffix">items</string>
+    <string name="max_visible_entries_invalid_message">Enter a number of 1 or more</string>
+
+    <string name="settings_section_hidden_items">Hide from notification</string>
+    <string name="hidden_items_summary">Hide some all-day events from the collapsed and expanded notification</string>
+    <string name="hidden_items_description">Hides all-day events by state. Timed events are not affected.</string>
+    <string name="hidden_items_column_collapsed_label">Collapsed</string>
+    <string name="hidden_items_column_expanded_label">Expanded</string>
+    <string name="hidden_item_started_today_label">Hide all-day events started today</string>
+    <string name="hidden_item_started_today_description">Hides all-day events that start today, including multi-day events.</string>
+    <string name="hidden_item_in_progress_label">Hide all-day events in progress</string>
+    <string name="hidden_item_in_progress_description">Hides all-day events that started earlier and are still ongoing.</string>
+    <string name="hidden_item_upcoming_label">Hide upcoming all-day events</string>
+    <string name="hidden_item_upcoming_description">Hides all-day events that start tomorrow or later.</string>
+    <string name="hidden_item_finished_label">Hide past all-day events</string>
+    <string name="hidden_item_finished_description">Hides all-day events that already ended. They appear only when the date range includes the past.</string>
+
+    <string name="settings_section_notification_display">Notification appearance</string>
+    <string name="notification_display_summary">Adjusts text size, spacing, and more</string>
+    <string name="timed_event_text_size_label">Timed event text size</string>
+    <string name="all_day_event_text_size_label">All-day event text size</string>
+    <string name="text_size_sp_format">%1$d sp</string>
+    <string name="settings_display_preview_caption">Preview</string>
+    <string name="settings_display_preview_description">Laid out exactly like the real notification. Changes below apply immediately. (Entry limits and hiding rules are not reflected)</string>
+    <string name="preview_sample_title_meeting">Weekly meeting</string>
+    <string name="preview_sample_location_meeting">Meeting room B</string>
+    <string name="preview_sample_title_walk">Short walk</string>
+    <string name="preview_sample_title_birthday">Birthday</string>
+    <string name="preview_sample_title_movie">Movie night</string>
+    <string name="preview_sample_location_movie">Cinema 3</string>
+
+    <string name="settings_section_notification_actions">Notification behavior</string>
+    <string name="notification_action_summary_format">Event: %1$s · Notification: %2$s</string>
+    <string name="notification_action_summary_fixed_format">Event: %1$s · Notification: %2$s · pinned</string>
+    <string name="event_click_action_title">Event tap action</string>
+    <string name="event_click_action_description">Choose what opens when an event row is tapped.</string>
+    <string name="notification_click_action_title">Notification tap action (blank area)</string>
+    <string name="notification_click_action_description">Choose what opens when a blank area of the notification is tapped.</string>
+    <string name="calendar_app_default_option">Default (system picks)</string>
+    <string name="click_target_self_option">Open Calinoti</string>
+    <string name="no_calendar_apps_found">No calendar apps found</string>
+    <string name="notification_pinned_label">Pin notification</string>
+    <string name="notification_pinned_description">Brings the notification back instantly when swiped away, so it never disappears. Turn off to swipe it away freely.</string>
+    <string name="day_header_start_padding_label">Space before day headers</string>
+    <string name="time_to_title_spacing_label">Space between time and title</string>
+    <string name="day_header_to_event_spacing_label">Space between day header and events</string>
+    <string name="between_events_spacing_label">Space between events</string>
+    <string name="between_day_headers_spacing_label">Space between days</string>
+    <string name="spacing_dp_format">%1$d dp</string>
+
+    <string name="day_header_format_label">Day header format</string>
+    <string name="day_header_format_description">Format of the day headers in the notification.</string>
+    <string name="day_header_format_preset_label">Preset</string>
+    <string name="day_header_format_custom_option">Custom</string>
+    <string name="day_header_format_hint">Custom formats use tokens such as yyyy (year), MM (month), dd (day), E (short weekday), EEEE (full weekday).</string>
+    <string name="day_header_format_preview_format">Preview: %1$s</string>
+    <string name="day_header_format_invalid_message">Not a valid date format. Include date tokens such as MM or dd.</string>
+    <string name="day_header_format_preset_basic">Basic</string>
+    <string name="day_header_format_preset_weekday_short">Short weekday</string>
+    <!-- 프리셋 패턴 "M월 d일 (E)"은 데이터라 언어와 무관하게 보존되며, 라벨만 번역한다. -->
+    <string name="day_header_format_preset_korean">Korean style</string>
+    <string name="day_header_format_preset_with_year">With year</string>
+    <string name="day_header_format_preset_compact">Compact</string>
+
+    <string name="settings_section_language">Language</string>
+    <string name="language_section_description">Applies to the notification and this screen right away.</string>
+    <string name="language_system_default_label">System default</string>
+
+    <string name="refresh_now_button">Refresh now</string>
+    <string name="version_format">v%1$s (%2$d)</string>
+</resources>

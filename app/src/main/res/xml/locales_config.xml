@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 앱이 지원하는 언어 목록. 시스템 설정의 "앱 언어" 항목(API 33+)에 이 목록이 노출된다.
+     기본 폴백 locale(ko)을 반드시 포함한다. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="ko" />
+    <locale android:name="en" />
+</locale-config>
