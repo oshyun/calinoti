@@ -114,7 +114,7 @@ CHECK_BODY="$(echo "$RELEASE_CHECK" | sed '$d')"
 
 if [[ "$CHECK_CODE" -eq 200 ]]; then
     if [[ "$FORCE" -eq 1 ]]; then
-        EXISTING_ID="$(echo "$CHECK_BODY" | grep -E '"id":\s*[0-9]+' | head -n 1 | sed -E 's/.*"id":\s*([0-9]+).*/\1/')"
+        EXISTING_ID="$(echo "$CHECK_BODY" | grep -E '"id"[[:space:]]*:[[:space:]]*[0-9]+' | head -n 1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/')"
         echo "Existing release found (ID: $EXISTING_ID). Deleting due to --force..."
         if [[ "$DRY_RUN" -eq 0 ]]; then
             curl -s -X DELETE \
@@ -158,7 +158,7 @@ if [[ "$CREATE_CODE" -ne 201 ]]; then
     exit 1
 fi
 
-UPLOAD_URL="$(echo "$CREATE_BODY" | grep -E '"upload_url":' | head -n 1 | sed -E 's/.*"upload_url":\s*"([^"]+)".*/\1/' | sed 's/{?name,label}//')"
+UPLOAD_URL="$(echo "$CREATE_BODY" | grep -E '"upload_url":' | head -n 1 | sed -E 's/.*"upload_url"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' | sed -E 's/\{[^\}]*\}//')"
 
 if [[ -z "$UPLOAD_URL" ]]; then
     echo "Error: Could not extract upload_url from release response." >&2
@@ -195,7 +195,7 @@ LATEST_BODY="$(echo "$LATEST_RES" | sed '$d')"
 if [[ "$LATEST_CODE" -ne 200 ]]; then
     echo "Warning: /releases/latest returned HTTP $LATEST_CODE" >&2
 else
-    DOWNLOAD_URL="$(echo "$LATEST_BODY" | grep -E '"browser_download_url":' | head -n 1 | sed -E 's/.*"browser_download_url":\s*"([^"]+)".*/\1/')"
+    DOWNLOAD_URL="$(echo "$LATEST_BODY" | grep -E '"browser_download_url":' | head -n 1 | sed -E 's/.*"browser_download_url"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
     echo "Release published successfully!"
     echo "Download URL: $DOWNLOAD_URL"
 fi

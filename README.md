@@ -27,6 +27,8 @@
 - 시작 1시간 미만 일정은 실시간 카운트다운 표시 — 시스템 Chronometer가 알람 없이 초 단위로 갱신
 - 갱신 시점: 일정 변경 시(프로세스 생존 중), 다음 일정 시작·종료 시각, 일정 시작 1시간 전
   (카운트다운 전환), 자정, 재부팅 직후, 설정한 안전망 갱신 주기마다
+- 앱 내 업데이트 확인: 설정 화면 하단의 "업데이트 확인" 버튼을 통해 GitHub Releases의 최신 버전을 조회하고, 새 버전이 있으면 다운로드 및 설치를 진행합니다.
+  - 앱 설치를 위해 "알 수 없는 앱 설치"(`REQUEST_INSTALL_PACKAGES`) 권한 허용이 필요하며, 권한이 없을 경우 설정 화면으로 자동 안내됩니다.
 
 ## 요구사항
 
@@ -62,6 +64,11 @@ app/src/main/java/com/calinoti/app/
 ├── scheduling/
 │   ├── NotificationRefreshScheduler.kt     # AlarmManager 다음 갱신 예약
 │   └── NotificationRefreshReceiver.kt      # 알람 수신 → 갱신, 재부팅(BOOT_COMPLETED) 복원
+├── update/
+│   ├── ApkDownloader.kt        # 릴리스 APK 다운로드 및 캐시 관리
+│   ├── AppUpdateController.kt  # 업데이트 상태 머신 및 설치 인텐트 조립
+│   ├── GitHubReleaseClient.kt  # GitHub Releases API 최신 릴리스 조회
+│   └── VersionComparison.kt    # 버전 문자열 파싱 및 비교
 └── ui/                          # Compose 테마와 설정 화면
 ```
 
