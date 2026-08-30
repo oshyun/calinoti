@@ -51,6 +51,7 @@
     <string name="settings_section_permissions">Permissions</string>
     <string name="permissions_summary_granted">Ready</string>
     <string name="permissions_summary_needed">Action needed</string>
+    <string name="permissions_summary_format">%1$d of %2$d granted</string>
 
     <string name="settings_section_calendars">Calendar selection</string>
     <string name="calendars_all_selected">Shows all calendars when nothing is selected</string>
@@ -100,8 +101,12 @@
     <string name="preview_sample_location_movie">Cinema 3</string>
 
     <string name="settings_section_notification_actions">Notification behavior</string>
+    <string name="settings_section_notification_click_actions">Notification tap actions</string>
     <string name="notification_action_summary_format">Event: %1$s · Notification: %2$s</string>
     <string name="notification_action_summary_fixed_format">Event: %1$s · Notification: %2$s · pinned</string>
+    <string name="notification_click_action_summary_format">Event: %1$s · Notification: %2$s</string>
+    <string name="settings_section_misc">Other</string>
+    <string name="settings_section_misc_summary">Pin notification · Live notification · Update interval</string>
     <string name="event_click_action_title">Event tap action</string>
     <string name="event_click_action_description">Choose what opens when an event row is tapped.</string>
     <string name="notification_click_action_title">Notification tap action (blank area)</string>

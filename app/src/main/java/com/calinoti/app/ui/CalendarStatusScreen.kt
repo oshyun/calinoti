@@ -239,15 +239,22 @@ fun CalendarStatusScreen(
     val hasMissingPermissions = !hasCalendarPermission ||
         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission)
 
+    // 권한 섹션 요약: 필수(캘린더) + 선택(배터리 최적화). API 33+에서는 알림 권한도 필수에 포함.
+    // 분모는 체크 대상 권한 수, 분자는 허용된 수.
+    val totalPermissionCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 3 else 2
+    val grantedPermissionCount = (if (hasCalendarPermission) 1 else 0) +
+        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && hasNotificationPermission) 1 else 0) +
+        (if (isBatteryOptimizationIgnored) 1 else 0)
+
     // 섹션 펼침 상태는 회전·프로세스 재시작에도 유지되고, 앱을 다시 열면 기본 접힘으로 돌아온다.
     var isPermissionsSectionExpanded by rememberSaveable { mutableStateOf(hasMissingPermissions) }
     var isCalendarsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isEventRangeSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isHiddenItemsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isNotificationDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isNotificationActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isNotificationClickActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isMiscSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isLanguageSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var isNotificationUpdateIntervalSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
     // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
@@ -271,8 +278,9 @@ fun CalendarStatusScreen(
         CollapsibleSection(
             title = stringResource(R.string.settings_section_permissions),
             summary = stringResource(
-                if (hasMissingPermissions) R.string.permissions_summary_needed
-                else R.string.permissions_summary_granted,
+                R.string.permissions_summary_format,
+                grantedPermissionCount,
+                totalPermissionCount,
             ),
             isExpanded = isPermissionsSectionExpanded,
             onToggleExpanded = { isPermissionsSectionExpanded = !isPermissionsSectionExpanded },
@@ -784,26 +792,17 @@ fun CalendarStatusScreen(
                 selfClickTargetPackageName = selfClickTargetPackageName,
                 installedCalendarApps = installedCalendarApps,
             )
-            val notificationActionSummary =
-                if (userPreferences.isNotificationPinned) {
-                    stringResource(
-                        R.string.notification_action_summary_fixed_format,
-                        eventClickTargetLabel,
-                        notificationClickTargetLabel,
-                    )
-                } else {
-                    stringResource(
-                        R.string.notification_action_summary_format,
-                        eventClickTargetLabel,
-                        notificationClickTargetLabel,
-                    )
-                }
+            val notificationClickActionSummary = stringResource(
+                R.string.notification_click_action_summary_format,
+                eventClickTargetLabel,
+                notificationClickTargetLabel,
+            )
             CollapsibleSection(
-                title = stringResource(R.string.settings_section_notification_actions),
-                summary = notificationActionSummary,
-                isExpanded = isNotificationActionSectionExpanded,
+                title = stringResource(R.string.settings_section_notification_click_actions),
+                summary = notificationClickActionSummary,
+                isExpanded = isNotificationClickActionSectionExpanded,
                 onToggleExpanded = {
-                    isNotificationActionSectionExpanded = !isNotificationActionSectionExpanded
+                    isNotificationClickActionSectionExpanded = !isNotificationClickActionSectionExpanded
                 },
             ) {
                 ClickTargetSelector(
@@ -833,8 +832,18 @@ fun CalendarStatusScreen(
                         }
                     },
                 )
+            }
 
-                Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // 기타: 알림 고정·실시간 알림·갱신 주기를 하나의 섹션으로 묶는다.
+            CollapsibleSection(
+                title = stringResource(R.string.settings_section_misc),
+                summary = stringResource(R.string.settings_section_misc_summary),
+                isExpanded = isMiscSectionExpanded,
+                onToggleExpanded = { isMiscSectionExpanded = !isMiscSectionExpanded },
+            ) {
+                // ── 알림 고정 ────────────────────────────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.notification_pinned_label),
@@ -857,6 +866,8 @@ fun CalendarStatusScreen(
                 )
 
                 Spacer(Modifier.height(12.dp))
+
+                // ── 실시간 알림 ──────────────────────────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.imminent_live_notification_label),
@@ -878,22 +889,15 @@ fun CalendarStatusScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // 갱신 주기는 표시·동작이 아니라 알림을 언제 다시 읽어오는지의 문제라 별도 섹션으로 둔다.
-            CollapsibleSection(
-                title = stringResource(R.string.settings_section_notification_update_interval),
-                summary = notificationUpdateIntervalSummary(
-                    userPreferences.notificationUpdateIntervalMinutes,
-                ),
-                isExpanded = isNotificationUpdateIntervalSectionExpanded,
-                onToggleExpanded = {
-                    isNotificationUpdateIntervalSectionExpanded =
-                        !isNotificationUpdateIntervalSectionExpanded
-                },
-            ) {
+                // ── 갱신 주기 ────────────────────────────────────────────────
+                Text(
+                    text = stringResource(R.string.settings_section_notification_update_interval),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(4.dp))
                 IntegerSettingField(
                     fieldLabelResourceId = R.string.notification_update_interval_label,
                     unitSuffixResourceId = R.string.minutes_unit_suffix,
