@@ -14,6 +14,9 @@ import com.calinoti.app.data.UserPreferencesRepository
 import com.calinoti.app.notification.ImminentEventNotifier
 import com.calinoti.app.notification.NotificationPublisher
 import com.calinoti.app.notification.NotificationViewsFactory
+import com.calinoti.app.update.ApkDownloader
+import com.calinoti.app.update.AppUpdateController
+import com.calinoti.app.update.GitHubReleaseClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +62,8 @@ class CalinotiApplication : Application() {
         private set
     lateinit var notificationRefresher: NotificationRefresher
         private set
+    lateinit var appUpdateController: AppUpdateController
+        private set
 
     /** 설정 화면의 여백 미리보기가 실제 알림과 같은 조립 경로를 쓰게 공유한다. */
     lateinit var remoteViewsFactory: NotificationViewsFactory
@@ -83,6 +88,12 @@ class CalinotiApplication : Application() {
             calendarReader = calendarReader,
             notificationManager = notificationManager,
             imminentEventNotifier = imminentEventNotifier,
+        )
+        appUpdateController = AppUpdateController(
+            context = this,
+            gitHubReleaseClient = GitHubReleaseClient(),
+            apkDownloader = ApkDownloader(this),
+            controllerScope = applicationScope,
         )
 
         notificationManager.ensureNotificationChannel()

@@ -17,9 +17,10 @@ class MainActivity : ComponentActivity() {
         val calinotiApplication = application as CalinotiApplication
         // 화면은 파라미터만 받게 한다 — 버전 조회(IPC)는 컴포지션 밖 여기서 한 번만.
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val installedVersionName = packageInfo.versionName ?: ""
         val versionLabel = getString(
             R.string.version_format,
-            packageInfo.versionName,
+            installedVersionName,
             PackageInfoCompat.getLongVersionCode(packageInfo),
         )
         setContent {
@@ -31,6 +32,8 @@ class MainActivity : ComponentActivity() {
                     remoteViewsFactory = calinotiApplication.remoteViewsFactory,
                     userPreferencesRepository = calinotiApplication.userPreferencesRepository,
                     appLocaleController = calinotiApplication.appLocaleController,
+                    appUpdateController = calinotiApplication.appUpdateController,
+                    installedVersionName = installedVersionName,
                     versionLabel = versionLabel,
                     refreshEvents = calinotiApplication::launchNotificationRefresh,
                     openAppSettings = ::startAppDetailsSettings,
