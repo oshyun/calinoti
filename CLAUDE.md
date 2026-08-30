@@ -17,6 +17,7 @@
 
 - APK 배포는 작업 브랜치의 main 머지가 끝난 뒤 main tree에서 `scripts/publish-release.sh`를 통해 GitHub Releases에 게시한다.
   머지 전 worktree에서 미리 빌드한 APK는 배포하지 않는다 (단, 배포 스크립트 검증을 위한 임시 게시는 허용).
+- **APK를 데스크탑에 복사하지 않는다.** 설치는 GitHub Releases 페이지 또는 앱 내 업데이트 기능으로 한다.
 - 머지가 완료되면 머지만 할지, 머지 뒤 bump·빌드·GitHub 릴리스 게시까지 진행할지 사용자에게 묻는다.
   게시를 골랐을 때는 그 응답 이후로는 확인 없이 bump부터 빌드·릴리스 게시까지 한 흐름으로 진행한다.
 - 릴리스 태그는 `v<versionName>` 형식이며, 첨부 에셋은 `Calinoti-v<versionName>-debug.apk`로 게시한다.
