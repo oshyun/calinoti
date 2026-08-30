@@ -189,11 +189,15 @@ fun CalendarStatusScreen(
                 .isIgnoringBatteryOptimizations(context.packageName),
         )
     }
+    var canRequestPackageInstalls by remember {
+        mutableStateOf(appUpdateController.canRequestPackageInstalls())
+    }
     DisposableEffect(lifecycleOwner) {
         val batteryStateObserver = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isBatteryOptimizationIgnored = context.getSystemService(PowerManager::class.java)
                     .isIgnoringBatteryOptimizations(context.packageName)
+                canRequestPackageInstalls = appUpdateController.canRequestPackageInstalls()
             }
         }
         lifecycleOwner.lifecycle.addObserver(batteryStateObserver)
@@ -959,7 +963,7 @@ fun CalendarStatusScreen(
         Spacer(Modifier.height(12.dp))
         UpdateCheckSection(
             updateState = updateState,
-            canRequestPackageInstalls = appUpdateController.canRequestPackageInstalls(),
+            canRequestPackageInstalls = canRequestPackageInstalls,
             onCheckForUpdate = { appUpdateController.checkForUpdate(installedVersionName) },
             onInstall = { apkFile ->
                 if (appUpdateController.canRequestPackageInstalls()) {
