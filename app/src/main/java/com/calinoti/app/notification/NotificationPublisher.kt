@@ -38,7 +38,19 @@ class NotificationPublisher(
         ).apply {
             description = context.getString(R.string.notification_channel_description)
         }
+        // 임박 일정 실시간 알림 채널. IMPORTANCE_MIN은 Live Updates 승격 조건에서 제외되므로
+        // DEFAULT로 만들되 사운드는 채널에서 끈다(승격 카드가 반복 울리는 일을 막는다).
+        val imminentChannel = NotificationChannel(
+            ImminentEventNotifier.IMMINENT_CHANNEL_ID,
+            context.getString(R.string.notification_channel_imminent_name),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            description = context.getString(R.string.notification_channel_imminent_description)
+            setSound(null, null)
+            enableVibration(false)
+        }
         NotificationManagerCompat.from(context).createNotificationChannel(channel)
+        NotificationManagerCompat.from(context).createNotificationChannel(imminentChannel)
     }
 
     /** 알림 권한 상태의 단일 출처. 발행 가드와 UI 확인이 이 함수 하나를 쓴다. */
@@ -107,7 +119,10 @@ class NotificationPublisher(
         // 어느 쪽이든 빈 집합이면 감춤 없이 전부 표시한다(필터는 빈 집합에서 멱등하다).
         return NotificationCompat.Builder(context, EVENTS_CHANNEL_ID)
             .setSmallIcon(smallIconResourceIdFor(currentTimeMilliseconds))
-            .applyHeaderContent(findNextUpcomingEvent(listEntries, currentTimeMilliseconds))
+            .applyHeaderContent(
+                findNextUpcomingEvent(listEntries, currentTimeMilliseconds),
+                currentTimeMilliseconds,
+            )
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
@@ -150,23 +165,39 @@ class NotificationPublisher(
 
     /**
      * 시스템 헤더를 다음 일정 정보로 채운다. 헤더는 시스템이 그리는 영역이라 없앨 수는
-     * 없지만, chronometer 같은 시간 플래그를 쓰지 않고 subText만 남기면 One UI가 헤더의
-     * 이름 자리를 앱 이름 대신 subText로 그린다(Network Guru와 같은 방식). 헤더에서
-     * 남은 시간은 없어지므로 본문 목록 행의 Chronometer 카운트다운이 그 역할을 대신한다.
-     * 일정 시작 시각에는 NotificationRefreshScheduler가 알림을 다시 게시해 다음 일정
-     * 기준으로 넘어간다.
+     * 없고, One UI는 커스텀 뷰 알림의 헤더에 앱 이름을 항상 그리므로(subText는 옆에 병기)
+     * 그 자리에 유용한 다음 일정 정보를 넣는다. 시작이 1시간 이상 남으면 subText에 상대
+     * 시간 라벨과 제목을 넣고 시간 자리를 숨긴다. 1시간 미만 구간은 subText를 제목만 남기고
+     * 시간 자리를 Chronometer 카운트다운으로 바꿔 초 단위로 줄어들게 한다 — 이 조합에서
+     * One UI 헤더는 [앱 이름][제목][카운트다운]으로 그려진다. 일정 시작 시각에는
+     * NotificationRefreshScheduler가 알림을 다시 게시해 다음 일정 기준으로 넘어간다.
      */
     private fun NotificationCompat.Builder.applyHeaderContent(
         nextUpcomingEvent: EventEntry?,
+        currentTimeMilliseconds: Long,
     ): NotificationCompat.Builder {
-        setShowWhen(false)
         if (nextUpcomingEvent == null) {
+            setShowWhen(false)
             return this
         }
-        val nextUpcomingEventTitle = nextUpcomingEvent.title.ifEmpty {
-            context.getString(R.string.untitled_event)
+        val headerSubText = remoteViewsFactory.formatUpcomingHeaderSubText(
+            nextUpcomingEvent,
+            currentTimeMilliseconds,
+        )
+        if (headerSubText != null) {
+            setShowWhen(false)
+            setSubText(headerSubText)
+            return this
         }
-        setSubText(context.getString(R.string.next_event_subtext_format, nextUpcomingEventTitle))
+        // 시작이 임박한 구간 — 남은 시간을 헤더의 Chronometer 카운트다운으로 보여준다.
+        // setShowWhen(false)이면 when·chronometer가 함께 숨겨지므로 이 구간에서만 켠다.
+        setShowWhen(true)
+        setWhen(nextUpcomingEvent.beginTimeMilliseconds)
+        setUsesChronometer(true)
+        setChronometerCountDown(true)
+        setSubText(
+            nextUpcomingEvent.title.ifEmpty { context.getString(R.string.untitled_event) },
+        )
         return this
     }
 
@@ -236,7 +267,7 @@ class NotificationPublisher(
      * 상태바에 떠 있는 동안 오늘이 며칠인지 바로 보인다. 알림은 자정 갱신과 일정
      * 변경마다 다시 발행되므로 날짜가 바뀌면 아이콘도 따라 바뀐다.
      */
-    private fun smallIconResourceIdFor(currentTimeMilliseconds: Long): Int {
+    internal fun smallIconResourceIdFor(currentTimeMilliseconds: Long): Int {
         val dayOfMonth = LocalDate.ofInstant(
             Instant.ofEpochMilli(currentTimeMilliseconds),
             ZoneId.systemDefault(),

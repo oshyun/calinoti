@@ -11,6 +11,7 @@ import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.UserPreferencesRepository
+import com.calinoti.app.notification.ImminentEventNotifier
 import com.calinoti.app.notification.NotificationPublisher
 import com.calinoti.app.notification.NotificationViewsFactory
 import kotlinx.coroutines.CancellationException
@@ -54,6 +55,8 @@ class CalinotiApplication : Application() {
         private set
     lateinit var notificationManager: NotificationPublisher
         private set
+    lateinit var imminentEventNotifier: ImminentEventNotifier
+        private set
     lateinit var notificationRefresher: NotificationRefresher
         private set
 
@@ -72,11 +75,14 @@ class CalinotiApplication : Application() {
         calendarAppReader = CalendarAppReader(this)
         remoteViewsFactory = NotificationViewsFactory(this)
         notificationManager = NotificationPublisher(this, remoteViewsFactory)
+        imminentEventNotifier =
+            ImminentEventNotifier(this, remoteViewsFactory, notificationManager)
         notificationRefresher = NotificationRefresher(
             context = this,
             userPreferencesRepository = userPreferencesRepository,
             calendarReader = calendarReader,
             notificationManager = notificationManager,
+            imminentEventNotifier = imminentEventNotifier,
         )
 
         notificationManager.ensureNotificationChannel()

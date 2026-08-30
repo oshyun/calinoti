@@ -844,6 +844,29 @@ fun CalendarStatusScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.imminent_live_notification_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = userPreferences.isImminentLiveNotificationEnabled,
+                        onCheckedChange = { isChecked ->
+                            updatePreferences {
+                                userPreferencesRepository
+                                    .updateImminentLiveNotificationEnabled(isChecked)
+                            }
+                        },
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.imminent_live_notification_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Spacer(Modifier.height(12.dp))

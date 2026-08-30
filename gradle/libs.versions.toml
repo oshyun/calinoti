@@ -1,8 +1,8 @@
 # 의존성 버전의 단일 출처(SSOT). 모든 모듈은 여기 선언된 버전만 참조한다.
 [versions]
-agp = "8.7.3"
+agp = "8.9.1"
 kotlin = "2.0.21"
-coreKtx = "1.13.1"
+coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.10.01"

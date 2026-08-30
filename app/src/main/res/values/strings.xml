@@ -5,10 +5,13 @@
 
     <string name="notification_channel_name">일정</string>
     <string name="notification_channel_description">다가오는 캘린더 일정을 알림으로 표시합니다</string>
+    <string name="notification_channel_imminent_name">임박 일정</string>
+    <string name="notification_channel_imminent_description">시작이 임박한 일정의 카운트다운 알림을 표시합니다</string>
 
     <string name="event_list_empty_text">표시할 일정이 없습니다</string>
     <string name="untitled_event">제목 없는 일정</string>
-    <string name="next_event_subtext_format">다음 일정: %1$s</string>
+    <!-- 시스템 헤더 subText의 다음 일정 라벨. 상대 시간 라벨과 제목의 순서·조합을 언어별로 정한다. -->
+    <string name="upcoming_event_header_format">%1$s %2$s</string>
     <!-- 상대 시간 표기. 한국어 CLDR은 other 복수형만 있고 영어는 one/other가 갈리므로 plurals로 둔다.
          시작 1시간 미만 구간은 라벨 대신 실시간 카운트다운이 보여주므로 분·곧 표기는 없다. -->
     <plurals name="event_relative_days">
@@ -16,6 +19,13 @@
     </plurals>
     <plurals name="event_relative_hours">
         <item quantity="other">(%1$d시간 뒤)</item>
+    </plurals>
+    <!-- 시스템 헤더 subText용 상대 시간(괄호 없음). -->
+    <plurals name="upcoming_relative_days">
+        <item quantity="other">%1$d일후</item>
+    </plurals>
+    <plurals name="upcoming_relative_hours">
+        <item quantity="other">%1$d시간후</item>
     </plurals>
     <!-- 오늘 날짜 헤더에 붙이는 접미사. -->
     <string name="today_label" translatable="false">(오늘)</string>
@@ -105,6 +115,9 @@
     <string name="no_calendar_apps_found">캘린더 앱을 찾을 수 없습니다</string>
     <string name="notification_pinned_label">알림 고정</string>
     <string name="notification_pinned_description">밀어 내도 즉시 다시 나타나 삭제되지 않게 유지합니다. 끄면 자유롭게 밀어 낼 수 있습니다.</string>
+    <string name="imminent_live_notification_label">실시간 알림</string>
+    <string name="imminent_live_notification_description">일정 시작 1시간 전부터 초 단위 카운트다운 알림을 별도로 띄웁니다. One UI 8 이상에서는 상태바 칩·실시간 영역에도 표시되고, 그 외 기기에서는 고정 알림으로 표시됩니다.</string>
+    <string name="imminent_notification_time_format">시작 %1$s</string>
     <string name="day_header_start_padding_label">날짜 항목 앞 여백</string>
     <string name="time_to_title_spacing_label">시간과 제목 사이 여백</string>
     <string name="day_header_to_event_spacing_label">날짜와 일정 사이 여백</string>

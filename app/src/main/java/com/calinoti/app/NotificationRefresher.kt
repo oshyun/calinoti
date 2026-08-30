@@ -6,6 +6,7 @@ import com.calinoti.app.data.EventListBuilder
 import com.calinoti.app.data.CalendarReader
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
+import com.calinoti.app.notification.ImminentEventNotifier
 import com.calinoti.app.notification.NotificationPublisher
 import com.calinoti.app.scheduling.NotificationRefreshScheduler
 import kotlinx.coroutines.CancellationException
@@ -22,6 +23,7 @@ class NotificationRefresher(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val calendarReader: CalendarReader,
     private val notificationManager: NotificationPublisher,
+    private val imminentEventNotifier: ImminentEventNotifier,
 ) {
     private val refreshMutex = Mutex()
 
@@ -50,6 +52,11 @@ class NotificationRefresher(
                     spacing = preferences.notificationSpacing,
                     isNotificationPinned = preferences.isNotificationPinned,
                     dayHeaderFormatPattern = preferences.dayHeaderFormatPattern,
+                    currentTimeMilliseconds = currentTimeMilliseconds,
+                )
+                imminentEventNotifier.refresh(
+                    listEntries = listEntries,
+                    isEnabled = preferences.isImminentLiveNotificationEnabled,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 NotificationRefreshScheduler.scheduleNextRefresh(
