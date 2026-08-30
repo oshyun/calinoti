@@ -6,10 +6,12 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.calinoti.app.R
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
+import java.util.concurrent.TimeUnit
 
 /**
  * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다. Live Updates
@@ -89,11 +91,32 @@ class ImminentEventNotifier(
                 remoteViewsFactory.formatTimeText(event.beginTimeMilliseconds),
             )
         val eventViewIntent = CalendarIntents.buildEventViewIntent(event.eventId)
+        // Live Updates 승격 조건(AOSP hasPromotableCharacteristics)은 통화 스타일이 아니면
+        // colorized + Progress/MetricStyle을 요구한다 — BigTextStyle만으로는 칩으로 승격되지
+        // 않는다. 시작 1시간을 게이지로 삼아 경과만큼 채운다(design guide: 채우기가 남은
+        // 시간과 일치해야 한다). 색은 일정이 속한 캘린더 색을 따른다.
+        val oneHourMilliseconds = TimeUnit.HOURS.toMillis(1)
+        val remainingMilliseconds = (event.beginTimeMilliseconds - currentTimeMilliseconds)
+            .coerceIn(0L, oneHourMilliseconds)
+        val elapsedPercent =
+            ((oneHourMilliseconds - remainingMilliseconds) * 100 / oneHourMilliseconds).toInt()
+        val accentColor = event.calendarColor.takeIf { it != 0 }
+            ?: ContextCompat.getColor(context, R.color.notification_text_secondary)
         return NotificationCompat.Builder(context, IMMINENT_CHANNEL_ID)
             .setSmallIcon(notificationPublisher.smallIconResourceIdFor(currentTimeMilliseconds))
             .setContentTitle(event.title.ifEmpty { context.getString(R.string.untitled_event) })
             .setContentText(contentText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+            .setColor(accentColor)
+            .setColorized(true)
+            .setStyle(
+                NotificationCompat.ProgressStyle()
+                    .setProgress(elapsedPercent)
+                    .setStyledByProgress(true)
+                    .addProgressSegment(
+                        // 게이지 전체 길이는 세그먼트 길이의 합이다(0..100 범위).
+                        NotificationCompat.ProgressStyle.Segment(100).setColor(accentColor),
+                    ),
+            )
             .setShowWhen(true)
             .setWhen(event.beginTimeMilliseconds)
             .setUsesChronometer(true)
