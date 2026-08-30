@@ -941,15 +941,6 @@ fun CalendarStatusScreen(
             }
         }
 
-        // 새로고침은 설정 묶음이 아니라 화면 전체에 적용되는 즉시 동작이라 섹션 밖에 둔다.
-        // 캘린더를 다시 읽는 동작이라 권한이 있을 때만 보인다.
-        if (hasCalendarPermission) {
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = refreshEvents) {
-                Text(stringResource(R.string.refresh_now_button))
-            }
-        }
-
         // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
         Spacer(Modifier.height(32.dp))
         Text(
