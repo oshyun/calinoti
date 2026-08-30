@@ -43,6 +43,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -94,9 +95,12 @@ import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
 import com.calinoti.app.notification.NotificationPublisher
 import com.calinoti.app.notification.NotificationViewsFactory
+import com.calinoti.app.update.AppUpdateController
+import com.calinoti.app.update.UpdateUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -114,10 +118,13 @@ fun CalendarStatusScreen(
     remoteViewsFactory: NotificationViewsFactory,
     userPreferencesRepository: UserPreferencesRepository,
     appLocaleController: AppLocaleController,
+    appUpdateController: AppUpdateController,
+    installedVersionName: String,
     versionLabel: String,
     refreshEvents: () -> Unit,
     openAppSettings: () -> Unit,
 ) {
+    val updateState by appUpdateController.state.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val userPreferences by userPreferencesRepository.userPreferences
         .collectAsState(initial = UserPreferences.DEFAULTS)
@@ -948,6 +955,141 @@ fun CalendarStatusScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        Spacer(Modifier.height(12.dp))
+        UpdateCheckSection(
+            updateState = updateState,
+            canRequestPackageInstalls = appUpdateController.canRequestPackageInstalls(),
+            onCheckForUpdate = { appUpdateController.checkForUpdate(installedVersionName) },
+            onInstall = { apkFile ->
+                if (appUpdateController.canRequestPackageInstalls()) {
+                    context.startActivity(appUpdateController.buildInstallIntent(apkFile))
+                } else {
+                    context.startActivity(appUpdateController.buildUnknownAppSourcesIntent())
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun UpdateCheckSection(
+    updateState: UpdateUiState,
+    canRequestPackageInstalls: Boolean,
+    onCheckForUpdate: () -> Unit,
+    onInstall: (File) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        when (updateState) {
+            is UpdateUiState.Idle -> {
+                Button(onClick = onCheckForUpdate) {
+                    Text(stringResource(R.string.update_check_button))
+                }
+            }
+
+            is UpdateUiState.Checking -> {
+                Button(onClick = {}, enabled = false) {
+                    Text(stringResource(R.string.update_check_button))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.update_checking),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            is UpdateUiState.UpToDate -> {
+                Text(
+                    text = stringResource(R.string.update_up_to_date),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onCheckForUpdate) {
+                    Text(stringResource(R.string.update_check_button))
+                }
+            }
+
+            is UpdateUiState.Available -> {
+                Text(
+                    text = stringResource(R.string.update_found_format, updateState.remoteVersionName),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            is UpdateUiState.Downloading -> {
+                if (updateState.percent != null) {
+                    LinearProgressIndicator(
+                        progress = { updateState.percent / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.update_downloading_format,
+                            updateState.remoteVersionName,
+                            updateState.percent,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.update_downloading_indeterminate_format,
+                            updateState.remoteVersionName,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            is UpdateUiState.ReadyToInstall -> {
+                Text(
+                    text = stringResource(
+                        R.string.update_ready_to_install_format,
+                        updateState.remoteVersionName,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = { onInstall(updateState.apkFile) }) {
+                    val labelRes = if (canRequestPackageInstalls) {
+                        R.string.update_install_button
+                    } else {
+                        R.string.update_install_permission_needed_button
+                    }
+                    Text(stringResource(labelRes))
+                }
+            }
+
+            is UpdateUiState.Error -> {
+                val errorMessage = if (updateState.statusCode != null) {
+                    stringResource(updateState.messageResId, updateState.statusCode)
+                } else {
+                    stringResource(updateState.messageResId)
+                }
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onCheckForUpdate) {
+                    Text(stringResource(R.string.update_check_button))
+                }
+            }
+        }
     }
 }
 

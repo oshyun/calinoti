@@ -158,4 +158,17 @@
     <string name="duration_minutes_format">%1$d분</string>
 
     <string name="version_format">v%1$s (%2$d)</string>
+
+    <string name="update_check_button">업데이트 확인</string>
+    <string name="update_checking">업데이트 확인 중…</string>
+    <string name="update_up_to_date">최신 버전입니다</string>
+    <string name="update_found_format">새 버전 v%1$s — 다운로드를 시작합니다</string>
+    <string name="update_downloading_format">v%1$s 다운로드 중 (%2$d%%)</string>
+    <string name="update_downloading_indeterminate_format">v%1$s 다운로드 중…</string>
+    <string name="update_ready_to_install_format">v%1$s 다운로드 완료</string>
+    <string name="update_install_button">설치</string>
+    <string name="update_install_permission_needed_button">설치 허용을 위해 설정 열기</string>
+    <string name="update_error_network">네트워크 오류로 업데이트를 확인할 수 없습니다</string>
+    <string name="update_error_server_format">서버 응답 오류 (%1$d)</string>
+    <string name="update_error_release_unavailable">릴리스 정보를 가져올 수 없습니다</string>
 </resources>
