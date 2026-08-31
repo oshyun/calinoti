@@ -152,6 +152,9 @@
     <string name="notification_update_interval_hint">지정한 간격으로 알림 내용을 다시 읽어옵니다. 일정 시작·종료 시각과 자정에는 이 설정과 무관하게 갱신됩니다. 절전 모드에서는 시스템 제한으로 최소 15분 간격이 될 수 있습니다.</string>
     <string name="notification_update_interval_invalid_message">10~1440분(24시간) 사이로 입력하세요</string>
 
+    <string name="settings_section_app_info">앱 정보</string>
+    <string name="settings_section_app_info_summary">버전 확인 및 업데이트</string>
+
     <string name="version_format">v%1$s (%2$d)</string>
 
     <string name="update_check_button">업데이트 확인</string>
