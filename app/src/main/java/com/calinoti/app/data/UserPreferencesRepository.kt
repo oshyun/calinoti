@@ -359,69 +359,43 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateWindowStartDays(windowStartDays: Int) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[WINDOW_START_DAYS_KEY] = windowStartDays
-        }
-    }
+    suspend fun updateWindowStartDays(windowStartDays: Int) =
+        updateStoredValue(WINDOW_START_DAYS_KEY, windowStartDays)
 
-    suspend fun updateWindowEndDays(windowEndDays: Int) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[WINDOW_END_DAYS_KEY] = windowEndDays
-        }
-    }
+    suspend fun updateWindowEndDays(windowEndDays: Int) =
+        updateStoredValue(WINDOW_END_DAYS_KEY, windowEndDays)
 
-    suspend fun updateMaxVisibleEntries(maxVisibleEntries: Int) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[MAX_VISIBLE_ENTRIES_KEY] = maxVisibleEntries
-        }
-    }
+    suspend fun updateMaxVisibleEntries(maxVisibleEntries: Int) =
+        updateStoredValue(MAX_VISIBLE_ENTRIES_KEY, maxVisibleEntries)
 
-    suspend fun updateNotificationTextSize(textSizeSp: Int) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[NOTIFICATION_TEXT_SIZE_KEY] = textSizeSp
-        }
-    }
+    suspend fun updateNotificationTextSize(textSizeSp: Int) =
+        updateStoredValue(NOTIFICATION_TEXT_SIZE_KEY, textSizeSp)
 
-    suspend fun updateAllDayEventTextSize(textSizeSp: Int) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[ALL_DAY_EVENT_TEXT_SIZE_KEY] = textSizeSp
-        }
-    }
+    suspend fun updateAllDayEventTextSize(textSizeSp: Int) =
+        updateStoredValue(ALL_DAY_EVENT_TEXT_SIZE_KEY, textSizeSp)
 
-    suspend fun updateEventClickTargetPackageName(packageName: String) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[EVENT_CLICK_TARGET_PACKAGE_NAME_KEY] = packageName
-        }
-    }
+    suspend fun updateEventClickTargetPackageName(packageName: String) =
+        updateStoredValue(EVENT_CLICK_TARGET_PACKAGE_NAME_KEY, packageName)
 
-    suspend fun updateNotificationClickTargetPackageName(packageName: String) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY] = packageName
-        }
-    }
+    suspend fun updateNotificationClickTargetPackageName(packageName: String) =
+        updateStoredValue(NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY, packageName)
 
-    suspend fun updateNotificationPinned(isPinned: Boolean) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[NOTIFICATION_PINNED_KEY] = isPinned
-        }
-    }
+    suspend fun updateNotificationPinned(isPinned: Boolean) =
+        updateStoredValue(NOTIFICATION_PINNED_KEY, isPinned)
 
-    suspend fun updateImminentLiveNotificationEnabled(isEnabled: Boolean) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[IMMINENT_LIVE_NOTIFICATION_KEY] = isEnabled
-        }
-    }
+    suspend fun updateImminentLiveNotificationEnabled(isEnabled: Boolean) =
+        updateStoredValue(IMMINENT_LIVE_NOTIFICATION_KEY, isEnabled)
 
-    suspend fun updateDayHeaderFormatPattern(formatPattern: String) {
-        context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY] = formatPattern
-        }
-    }
+    suspend fun updateDayHeaderFormatPattern(formatPattern: String) =
+        updateStoredValue(DAY_HEADER_FORMAT_PATTERN_KEY, formatPattern)
 
-    suspend fun updateNotificationUpdateIntervalMinutes(intervalMinutes: Int) {
+    suspend fun updateNotificationUpdateIntervalMinutes(intervalMinutes: Int) =
+        updateStoredValue(NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY, intervalMinutes)
+
+    /** 단일 키 설정값 하나를 저장한다. 위 갱신 메서드들이 공유하는 쓰기 한 줄이다. */
+    private suspend fun <T> updateStoredValue(key: Preferences.Key<T>, value: T) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY] = intervalMinutes
+            storedPreferences[key] = value
         }
     }
 

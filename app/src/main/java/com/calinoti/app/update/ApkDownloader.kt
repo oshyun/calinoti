@@ -102,16 +102,12 @@ class ApkDownloader(private val context: Context) {
             onProgress(100, downloadedBytes, if (totalBytes > 0) totalBytes else downloadedBytes)
 
             targetFile
-        } catch (cancelled: CancellationException) {
+        } catch (error: Exception) {
+            // 취소(CancellationException)도 같은 정리 경로를 쓴다 — 재던져 그대로 전파된다.
             if (targetFile.exists()) {
                 targetFile.delete()
             }
-            throw cancelled
-        } catch (e: Exception) {
-            if (targetFile.exists()) {
-                targetFile.delete()
-            }
-            throw e
+            throw error
         } finally {
             connection?.disconnect()
         }

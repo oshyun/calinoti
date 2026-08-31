@@ -27,8 +27,6 @@
     <plurals name="upcoming_relative_hours">
         <item quantity="other">%1$d시간후</item>
     </plurals>
-    <!-- 오늘 날짜 헤더에 붙이는 접미사. -->
-    <string name="today_label" translatable="false">(오늘)</string>
     <string name="event_in_progress">(진행 중)</string>
     <string name="event_finished">(종료됨)</string>
     <!-- 여러 날에 걸친 종일 일정 제목 뒤에 붙이는 종료일 표기: "제목 (~08.30까지)"의 "(~08.30까지)" 부분.
@@ -52,8 +50,6 @@
     <string name="battery_optimization_request_button">배터리 제한 없음으로 설정하기</string>
 
     <string name="settings_section_permissions">권한 관리</string>
-    <string name="permissions_summary_granted">준비됨</string>
-    <string name="permissions_summary_needed">설정 필요</string>
     <string name="permissions_summary_format">%1$d/%2$d개 허용됨</string>
 
     <string name="settings_section_calendars">캘린더 선택</string>
@@ -104,10 +100,7 @@
     <string name="preview_sample_title_movie">영화 관람</string>
     <string name="preview_sample_location_movie">시네마 3관</string>
 
-    <string name="settings_section_notification_actions">알림 동작</string>
     <string name="settings_section_notification_click_actions">알림 클릭 동작</string>
-    <string name="notification_action_summary_format">일정 %1$s · 알림 %2$s</string>
-    <string name="notification_action_summary_fixed_format">일정 %1$s · 알림 %2$s · 고정</string>
     <string name="notification_click_action_summary_format">일정 %1$s · 알림 %2$s</string>
     <string name="settings_section_misc">기타</string>
     <string name="settings_section_misc_summary">알림 고정 · 실시간 알림 · 갱신 주기</string>
@@ -154,20 +147,16 @@
     <string name="language_korean_label" translatable="false">한국어</string>
     <string name="language_english_label" translatable="false">English</string>
     <string name="settings_section_notification_update_interval">알림 갱신 주기</string>
-    <string name="notification_update_interval_summary_format">%1$s 간격</string>
     <string name="notification_update_interval_label">갱신 간격</string>
     <string name="minutes_unit_suffix">분</string>
     <string name="notification_update_interval_hint">지정한 간격으로 알림 내용을 다시 읽어옵니다. 일정 시작·종료 시각과 자정에는 이 설정과 무관하게 갱신됩니다. 절전 모드에서는 시스템 제한으로 최소 15분 간격이 될 수 있습니다.</string>
     <string name="notification_update_interval_invalid_message">10~1440분(24시간) 사이로 입력하세요</string>
-    <string name="duration_hours_format">%1$d시간</string>
-    <string name="duration_minutes_format">%1$d분</string>
 
     <string name="version_format">v%1$s (%2$d)</string>
 
     <string name="update_check_button">업데이트 확인</string>
     <string name="update_checking">업데이트 확인 중…</string>
     <string name="update_up_to_date">최신 버전입니다</string>
-    <string name="update_found_format">새 버전 v%1$s — 다운로드를 시작합니다</string>
     <string name="update_downloading_format">v%1$s 다운로드 중 (%2$d%%)</string>
     <string name="update_downloading_indeterminate_format">v%1$s 다운로드 중…</string>
     <string name="update_ready_to_install_format">v%1$s 다운로드 완료</string>

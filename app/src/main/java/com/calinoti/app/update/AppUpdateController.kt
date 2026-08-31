@@ -22,7 +22,6 @@ sealed interface UpdateUiState {
     data object Idle : UpdateUiState
     data object Checking : UpdateUiState
     data object UpToDate : UpdateUiState
-    data class Available(val remoteVersionName: String) : UpdateUiState
     data class Downloading(
         val remoteVersionName: String,
         val percent: Int?,
@@ -45,8 +44,8 @@ sealed interface UpdateUiState {
  */
 class AppUpdateController(
     private val context: Context,
-    private val gitHubReleaseClient: GitHubReleaseClient = GitHubReleaseClient(),
-    private val apkDownloader: ApkDownloader = ApkDownloader(context),
+    private val gitHubReleaseClient: GitHubReleaseClient,
+    private val apkDownloader: ApkDownloader,
     private val controllerScope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
@@ -64,7 +63,6 @@ class AppUpdateController(
                 val release = gitHubReleaseClient.fetchLatestRelease()
                 val remoteVersionName = release.tagName.trim().removePrefix("v").removePrefix("V")
                 if (isRemoteVersionNewer(installed = installedVersionName, remote = remoteVersionName)) {
-                    _state.value = UpdateUiState.Available(remoteVersionName)
                     _state.value = UpdateUiState.Downloading(
                         remoteVersionName = remoteVersionName,
                         percent = null,

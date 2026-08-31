@@ -114,7 +114,7 @@ import kotlin.math.roundToInt
 fun CalendarStatusScreen(
     calendarReader: CalendarReader,
     calendarAppReader: CalendarAppReader,
-    notificationManager: NotificationPublisher,
+    notificationPublisher: NotificationPublisher,
     remoteViewsFactory: NotificationViewsFactory,
     userPreferencesRepository: UserPreferencesRepository,
     appLocaleController: AppLocaleController,
@@ -133,10 +133,10 @@ fun CalendarStatusScreen(
         mutableStateOf(calendarReader.hasCalendarPermission())
     }
     var hasNotificationPermission by remember {
-        mutableStateOf(notificationManager.hasNotificationPermission())
+        mutableStateOf(notificationPublisher.hasNotificationPermission())
     }
     var shouldPromptForNotificationPermission by remember {
-        mutableStateOf(notificationManager.shouldPromptForNotificationPermission())
+        mutableStateOf(notificationPublisher.shouldPromptForNotificationPermission())
     }
 
     val requiredPermissions = remember {
@@ -151,8 +151,8 @@ fun CalendarStatusScreen(
     // 권한 다이얼로그 콜백과 ON_RESUME 복귀가 같은 규칙을 쓴다.
     fun recheckPermissionsAndRefreshIfChanged() {
         val calendarPermissionNow = calendarReader.hasCalendarPermission()
-        val notificationPermissionNow = notificationManager.hasNotificationPermission()
-        val notificationPromptNow = notificationManager.shouldPromptForNotificationPermission()
+        val notificationPermissionNow = notificationPublisher.hasNotificationPermission()
+        val notificationPromptNow = notificationPublisher.shouldPromptForNotificationPermission()
         val permissionStateChanged =
             calendarPermissionNow != hasCalendarPermission ||
                 notificationPermissionNow != hasNotificationPermission ||
@@ -1021,14 +1021,6 @@ private fun UpdateCheckSection(
                 }
             }
 
-            is UpdateUiState.Available -> {
-                Text(
-                    text = stringResource(R.string.update_found_format, updateState.remoteVersionName),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
             is UpdateUiState.Downloading -> {
                 if (updateState.percent != null) {
                     LinearProgressIndicator(
@@ -1656,20 +1648,6 @@ private fun languageSummaryLabel(currentAppLocale: Locale?): String = when {
     currentAppLocale.language == "ko" -> stringResource(R.string.language_korean_label)
     currentAppLocale.language == "en" -> stringResource(R.string.language_english_label)
     else -> currentAppLocale.displayName
-}
-
-/**
- * 갱신 주기(분)를 접힌 헤더 요약용 기간 텍스트로 바꾼다. 시간으로 나누어떨어지면
- * "6시간"처럼 묶어 보여주고, 아니면 분 그대로 "30분"으로 보여준다.
- */
-@Composable
-private fun notificationUpdateIntervalSummary(intervalMinutes: Int): String {
-    val durationText = when {
-        intervalMinutes % 60 == 0 ->
-            stringResource(R.string.duration_hours_format, intervalMinutes / 60)
-        else -> stringResource(R.string.duration_minutes_format, intervalMinutes)
-    }
-    return stringResource(R.string.notification_update_interval_summary_format, durationText)
 }
 
 /**

@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
                 CalendarStatusScreen(
                     calendarReader = calinotiApplication.calendarReader,
                     calendarAppReader = calinotiApplication.calendarAppReader,
-                    notificationManager = calinotiApplication.notificationManager,
+                    notificationPublisher = calinotiApplication.notificationPublisher,
                     remoteViewsFactory = calinotiApplication.remoteViewsFactory,
                     userPreferencesRepository = calinotiApplication.userPreferencesRepository,
                     appLocaleController = calinotiApplication.appLocaleController,

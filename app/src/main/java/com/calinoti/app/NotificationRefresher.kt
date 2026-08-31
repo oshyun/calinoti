@@ -22,7 +22,7 @@ class NotificationRefresher(
     private val context: Context,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val calendarReader: CalendarReader,
-    private val notificationManager: NotificationPublisher,
+    private val notificationPublisher: NotificationPublisher,
     private val imminentEventNotifier: ImminentEventNotifier,
 ) {
     private val refreshMutex = Mutex()
@@ -39,7 +39,7 @@ class NotificationRefresher(
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 val listEntries = EventListBuilder.buildDayGroupedEntries(eventEntries)
-                notificationManager.publishEventListNotification(
+                notificationPublisher.publishEventListNotification(
                     listEntries = listEntries,
                     collapsedHiddenItemTypes = preferences.collapsedHiddenItemTypes,
                     expandedHiddenItemTypes = preferences.expandedHiddenItemTypes,

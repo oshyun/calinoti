@@ -40,7 +40,6 @@
     <string name="permission_usage_note">The permissions you grant are used only for the purposes above and for nothing else.</string>
     <string name="calendar_permission_button">Grant permission</string>
     <string name="open_app_settings_button">Allow in system settings</string>
-    <string name="all_permissions_granted_message">Permissions are ready. Check your events in the notification.</string>
 
     <string name="battery_optimization_title">Unrestricted battery</string>
     <string name="battery_optimization_ignored_state">Allowed — event updates are not delayed even while the device sleeps</string>
@@ -49,8 +48,6 @@
     <string name="battery_optimization_request_button">Allow unrestricted battery</string>
 
     <string name="settings_section_permissions">Permissions</string>
-    <string name="permissions_summary_granted">Ready</string>
-    <string name="permissions_summary_needed">Action needed</string>
     <string name="permissions_summary_format">%1$d of %2$d granted</string>
 
     <string name="settings_section_calendars">Calendar selection</string>
@@ -100,10 +97,7 @@
     <string name="preview_sample_title_movie">Movie night</string>
     <string name="preview_sample_location_movie">Cinema 3</string>
 
-    <string name="settings_section_notification_actions">Notification behavior</string>
     <string name="settings_section_notification_click_actions">Notification tap actions</string>
-    <string name="notification_action_summary_format">Event: %1$s · Notification: %2$s</string>
-    <string name="notification_action_summary_fixed_format">Event: %1$s · Notification: %2$s · pinned</string>
     <string name="notification_click_action_summary_format">Event: %1$s · Notification: %2$s</string>
     <string name="settings_section_misc">Other</string>
     <string name="settings_section_misc_summary">Pin notification · Live notification · Update interval</string>
@@ -148,20 +142,16 @@
     <string name="language_system_default_label">System default</string>
 
     <string name="settings_section_notification_update_interval">Notification update interval</string>
-    <string name="notification_update_interval_summary_format">Every %1$s</string>
     <string name="notification_update_interval_label">Update interval</string>
     <string name="minutes_unit_suffix">min</string>
     <string name="notification_update_interval_hint">Reads the notification content again at the set interval. Updates at event start/end times and at midnight happen regardless of this setting. In power saving mode the system may limit updates to at least 15-minute intervals.</string>
     <string name="notification_update_interval_invalid_message">Enter a value between 10 and 1440 minutes (24 hours)</string>
-    <string name="duration_hours_format">%1$d hr</string>
-    <string name="duration_minutes_format">%1$d min</string>
 
     <string name="version_format">v%1$s (%2$d)</string>
 
     <string name="update_check_button">Check for updates</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_up_to_date">You\'re using the latest version</string>
-    <string name="update_found_format">New version v%1$s found — starting download</string>
     <string name="update_downloading_format">Downloading v%1$s (%2$d%%)</string>
     <string name="update_downloading_indeterminate_format">Downloading v%1$s…</string>
     <string name="update_ready_to_install_format">v%1$s downloaded</string>

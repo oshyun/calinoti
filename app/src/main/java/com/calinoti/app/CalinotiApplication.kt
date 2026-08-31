@@ -56,7 +56,7 @@ class CalinotiApplication : Application() {
         private set
     lateinit var calendarAppReader: CalendarAppReader
         private set
-    lateinit var notificationManager: NotificationPublisher
+    lateinit var notificationPublisher: NotificationPublisher
         private set
     lateinit var imminentEventNotifier: ImminentEventNotifier
         private set
@@ -79,14 +79,14 @@ class CalinotiApplication : Application() {
         calendarReader = CalendarReader(this)
         calendarAppReader = CalendarAppReader(this)
         remoteViewsFactory = NotificationViewsFactory(this)
-        notificationManager = NotificationPublisher(this, remoteViewsFactory)
+        notificationPublisher = NotificationPublisher(this, remoteViewsFactory)
         imminentEventNotifier =
-            ImminentEventNotifier(this, remoteViewsFactory, notificationManager)
+            ImminentEventNotifier(this, remoteViewsFactory, notificationPublisher)
         notificationRefresher = NotificationRefresher(
             context = this,
             userPreferencesRepository = userPreferencesRepository,
             calendarReader = calendarReader,
-            notificationManager = notificationManager,
+            notificationPublisher = notificationPublisher,
             imminentEventNotifier = imminentEventNotifier,
         )
         appUpdateController = AppUpdateController(
@@ -96,7 +96,7 @@ class CalinotiApplication : Application() {
             controllerScope = applicationScope,
         )
 
-        notificationManager.ensureNotificationChannel()
+        notificationPublisher.ensureNotificationChannel()
         registerCalendarObserverIfPermitted()
         applicationScope.launch {
             // 설정 변경마다 갱신을 접수한다. 초기값도 한 번 접수되지만 겹침은 병합된다.
@@ -136,7 +136,7 @@ class CalinotiApplication : Application() {
         if (latestLocaleTag == lastSeenLocaleTag) return
         lastSeenLocaleTag = latestLocaleTag
         // 같은 채널 ID로 다시 만들면 이름·설명만 새 언어로 갱신된다(중요도 등 behavior는 유지).
-        notificationManager.ensureNotificationChannel()
+        notificationPublisher.ensureNotificationChannel()
         launchNotificationRefresh()
     }
 
