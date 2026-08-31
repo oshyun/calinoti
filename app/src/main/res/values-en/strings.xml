@@ -147,6 +147,9 @@
     <string name="notification_update_interval_hint">Reads the notification content again at the set interval. Updates at event start/end times and at midnight happen regardless of this setting. In power saving mode the system may limit updates to at least 15-minute intervals.</string>
     <string name="notification_update_interval_invalid_message">Enter a value between 10 and 1440 minutes (24 hours)</string>
 
+    <string name="settings_section_app_info">App info</string>
+    <string name="settings_section_app_info_summary">Version check &amp; updates</string>
+
     <string name="version_format">v%1$s (%2$d)</string>
 
     <string name="update_check_button">Check for updates</string>

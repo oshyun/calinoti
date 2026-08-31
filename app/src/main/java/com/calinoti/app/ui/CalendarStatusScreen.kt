@@ -255,6 +255,7 @@ fun CalendarStatusScreen(
     var isNotificationClickActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isMiscSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isLanguageSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isAppInfoSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
     // 다시 접는 것은 막지 않는다: 다음 권한 변경이 있기 전까지는 사용자 선택을 존중한다.
@@ -957,26 +958,32 @@ fun CalendarStatusScreen(
         }
 
         // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
-        Spacer(Modifier.height(32.dp))
-        Text(
-            text = versionLabel,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
         Spacer(Modifier.height(12.dp))
-        UpdateCheckSection(
-            updateState = updateState,
-            canRequestPackageInstalls = canRequestPackageInstalls,
-            onCheckForUpdate = { appUpdateController.checkForUpdate(installedVersionName) },
-            onInstall = { apkFile ->
-                if (appUpdateController.canRequestPackageInstalls()) {
-                    context.startActivity(appUpdateController.buildInstallIntent(apkFile))
-                } else {
-                    context.startActivity(appUpdateController.buildUnknownAppSourcesIntent())
-                }
-            },
-        )
+        CollapsibleSection(
+            title = stringResource(R.string.settings_section_app_info),
+            summary = stringResource(R.string.settings_section_app_info_summary),
+            isExpanded = isAppInfoSectionExpanded,
+            onToggleExpanded = { isAppInfoSectionExpanded = !isAppInfoSectionExpanded },
+        ) {
+            Text(
+                text = versionLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            UpdateCheckSection(
+                updateState = updateState,
+                canRequestPackageInstalls = canRequestPackageInstalls,
+                onCheckForUpdate = { appUpdateController.checkForUpdate(installedVersionName) },
+                onInstall = { apkFile ->
+                    if (appUpdateController.canRequestPackageInstalls()) {
+                        context.startActivity(appUpdateController.buildInstallIntent(apkFile))
+                    } else {
+                        context.startActivity(appUpdateController.buildUnknownAppSourcesIntent())
+                    }
+                },
+            )
+        }
     }
 }
 
