@@ -102,8 +102,8 @@ data class UserPreferences(
         const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
         const val NOTIFICATION_TEXT_SIZE_MAX_SP = 32
 
-        /** 날짜 헤더 형식의 기본 패턴. 초기 버전부터 쓰던 표시("08.29, 금요일")다. */
-        const val DEFAULT_DAY_HEADER_FORMAT_PATTERN = "MM.dd, EEEE"
+        /** 날짜 헤더 형식의 기본 패턴("08.29 (금)"). 설정 화면 프리셋의 "MM.dd (E)"와 같은 값이다. */
+        const val DEFAULT_DAY_HEADER_FORMAT_PATTERN = "MM.dd (E)"
 
         // 안전망 갱신 주기의 조절 범위(분). 10분은 활성 사용 중에도 의미 있는 최솟값이다.
         // Doze(절전)에서는 allow-while-idle 알람이 앱당 15분 간격으로 스로틀되므로 그보다
@@ -122,23 +122,32 @@ data class UserPreferences(
         /** 클릭 동작 미지정을 뜻하는 저장값. 빈 문자열이면 시스템이 처리 앱을 고른다. */
         const val UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME = ""
 
+        // 필드 기본값은 사용자가 설정 화면에서 고른 값이다 (2026-09 설정 파일 기준).
         val DEFAULTS = UserPreferences(
             selectedCalendarIds = null,
             windowStartDays = 0,
-            windowEndDays = 7,
-            maxVisibleEntries = 10,
-            notificationTextSizeSp = 12,
-            allDayEventTextSizeSp = 10,
+            windowEndDays = 90,
+            maxVisibleEntries = 100,
+            notificationTextSizeSp = 8,
+            allDayEventTextSizeSp = 8,
             eventClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
             isImminentLiveNotificationEnabled = false,
-            collapsedHiddenItemTypes = emptySet(),
-            expandedHiddenItemTypes = emptySet(),
+            collapsedHiddenItemTypes = setOf(
+                HiddenItemType.ALL_DAY_STARTED_TODAY,
+                HiddenItemType.ALL_DAY_IN_PROGRESS,
+                HiddenItemType.ALL_DAY_UPCOMING,
+                HiddenItemType.ALL_DAY_FINISHED,
+            ),
+            expandedHiddenItemTypes = setOf(
+                HiddenItemType.ALL_DAY_UPCOMING,
+                HiddenItemType.ALL_DAY_FINISHED,
+            ),
             keywordHideRules = emptyList(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
-            notificationUpdateIntervalMinutes = 360,
+            notificationUpdateIntervalMinutes = 10,
         )
     }
 }
@@ -218,9 +227,13 @@ private fun Preferences.parseSelectedCalendarIds(): Set<Long>? =
         ?.mapNotNull { it.toLongOrNull() }
         ?.toSet()
 
-/** 저장된 감춤 항목 이름 집합을 enum 집합으로 되돌린다. 낯선 이름은 건너뛴다. */
+/**
+ * 저장된 감춤 항목 이름 집합을 enum 집합으로 되돌린다. 낯선 이름은 건너뛴다. 키가 없으면
+ * [defaultHiddenItemTypes](기본값)를 반환한다 — 감춤 집합의 기본값은 DEFAULTS가 단일 출처다.
+ */
 private fun Preferences.parseHiddenItemTypes(
     hiddenItemTypesKey: Preferences.Key<Set<String>>,
+    defaultHiddenItemTypes: Set<HiddenItemType>,
 ): Set<HiddenItemType> =
     this[hiddenItemTypesKey]
         ?.mapNotNull { storedName ->
@@ -228,7 +241,7 @@ private fun Preferences.parseHiddenItemTypes(
             HiddenItemType.entries.firstOrNull { it.name == storedName }
         }
         ?.toSet()
-        ?: emptySet()
+        ?: defaultHiddenItemTypes
 
 /** 여백 키 조회. 없으면 기본값, 있으면 조절 범위 밖의 오래된 저장값도 범위 안으로 끌어온다. */
 private fun Preferences.readSpacingDp(key: Preferences.Key<Int>, defaultDp: Int): Int =
@@ -356,10 +369,14 @@ class UserPreferencesRepository(private val context: Context) {
                     isImminentLiveNotificationEnabled =
                         storedPreferences[IMMINENT_LIVE_NOTIFICATION_KEY]
                             ?: UserPreferences.DEFAULTS.isImminentLiveNotificationEnabled,
-                    collapsedHiddenItemTypes =
-                        storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_COLLAPSED_KEY),
-                    expandedHiddenItemTypes =
-                        storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_EXPANDED_KEY),
+                    collapsedHiddenItemTypes = storedPreferences.parseHiddenItemTypes(
+                        HIDDEN_ITEM_TYPES_COLLAPSED_KEY,
+                        UserPreferences.DEFAULTS.collapsedHiddenItemTypes,
+                    ),
+                    expandedHiddenItemTypes = storedPreferences.parseHiddenItemTypes(
+                        HIDDEN_ITEM_TYPES_EXPANDED_KEY,
+                        UserPreferences.DEFAULTS.expandedHiddenItemTypes,
+                    ),
                     keywordHideRules = storedPreferences.parseKeywordHideRules(),
                     dayHeaderFormatPattern =
                         storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY]
@@ -402,7 +419,12 @@ class UserPreferencesRepository(private val context: Context) {
         itemType: HiddenItemType,
         isChecked: Boolean,
     ) {
-        toggleHiddenItemTypes(HIDDEN_ITEM_TYPES_COLLAPSED_KEY, itemType, isChecked)
+        toggleHiddenItemTypes(
+            hiddenItemTypesKey = HIDDEN_ITEM_TYPES_COLLAPSED_KEY,
+            defaultHiddenItemTypes = UserPreferences.DEFAULTS.collapsedHiddenItemTypes,
+            itemType = itemType,
+            isChecked = isChecked,
+        )
     }
 
     /** 펼친 알림 감춤 항목 토글. [toggleCollapsedHiddenItemType]과 같은 규칙으로 반영한다. */
@@ -410,16 +432,28 @@ class UserPreferencesRepository(private val context: Context) {
         itemType: HiddenItemType,
         isChecked: Boolean,
     ) {
-        toggleHiddenItemTypes(HIDDEN_ITEM_TYPES_EXPANDED_KEY, itemType, isChecked)
+        toggleHiddenItemTypes(
+            hiddenItemTypesKey = HIDDEN_ITEM_TYPES_EXPANDED_KEY,
+            defaultHiddenItemTypes = UserPreferences.DEFAULTS.expandedHiddenItemTypes,
+            itemType = itemType,
+            isChecked = isChecked,
+        )
     }
 
     private suspend fun toggleHiddenItemTypes(
         hiddenItemTypesKey: Preferences.Key<Set<String>>,
+        defaultHiddenItemTypes: Set<HiddenItemType>,
         itemType: HiddenItemType,
         isChecked: Boolean,
     ) {
         context.userPreferencesDataStore.edit { storedPreferences ->
-            val currentHiddenItemTypes = storedPreferences.parseHiddenItemTypes(hiddenItemTypesKey)
+            // 키가 없는(기본값 표시 중) 첫 토글도 UI가 본 값과 같은 기준으로 계산되게
+            // 기본값을 출발점으로 쓴다 — 그렇지 않으면 기본값 항목이 체크돼 보이는데
+            // 해제해도 집합에 없어 반영이 어긋난다.
+            val currentHiddenItemTypes = storedPreferences.parseHiddenItemTypes(
+                hiddenItemTypesKey,
+                defaultHiddenItemTypes,
+            )
             val nextHiddenItemTypes =
                 if (isChecked) currentHiddenItemTypes + itemType else currentHiddenItemTypes - itemType
             storedPreferences[hiddenItemTypesKey] =

@@ -24,17 +24,14 @@ data class NotificationSpacing(
         /** 슬라이더와 저장값 클램프가 공유하는 조절 범위의 단일 출처. */
         val RANGE_DP = 0..24
 
-        // 기본값은 사용자가 설정 화면에서 고른 배치 값이다. (초기 기본값은 v1.2.4까지 레이아웃
-        // XML에 하드코딩되던 값의 시각 등가로 정했다.) 날짜와 일정 사이 여백은 옛 세로 간격
-        // 설정이 수평 간격으로 바뀐 값이라 0이면 날짜에 일정이 붙으므로, 없어진 일정 시작
-        // 여백의 기본값(8)을 이어받았다.
+        // 기본값은 사용자가 설정 화면에서 고른 배치 값이다.
         val DEFAULTS = NotificationSpacing(
-            outerVerticalPaddingDp = 4,
+            outerVerticalPaddingDp = 0,
             dayHeaderStartPaddingDp = 0,
-            dayHeaderToEventSpacingDp = 8,
+            dayHeaderToEventSpacingDp = 5,
             betweenEventsSpacingDp = 0,
-            betweenDayHeadersSpacingDp = 4,
-            timeToTitleSpacingDp = 4,
+            betweenDayHeadersSpacingDp = 0,
+            timeToTitleSpacingDp = 3,
         )
     }
 }
