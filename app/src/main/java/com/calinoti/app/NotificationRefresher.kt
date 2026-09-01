@@ -43,6 +43,7 @@ class NotificationRefresher(
                     listEntries = listEntries,
                     collapsedHiddenItemTypes = preferences.collapsedHiddenItemTypes,
                     expandedHiddenItemTypes = preferences.expandedHiddenItemTypes,
+                    keywordHideRules = preferences.keywordHideRules,
                     maxVisibleEntries = preferences.maxVisibleEntries,
                     notificationTextSizeSp = preferences.notificationTextSizeSp,
                     allDayEventTextSizeSp = preferences.allDayEventTextSizeSp,
@@ -57,6 +58,7 @@ class NotificationRefresher(
                 imminentEventNotifier.refresh(
                     listEntries = listEntries,
                     isEnabled = preferences.isImminentLiveNotificationEnabled,
+                    keywordHideRules = preferences.keywordHideRules,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 NotificationRefreshScheduler.scheduleNextRefresh(

@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -41,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,6 +58,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -87,8 +90,13 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
+import com.calinoti.app.data.EventEntry
+import com.calinoti.app.data.EventListBuilder
+import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.HiddenItemType
 import com.calinoti.app.data.InstalledCalendarApp
+import com.calinoti.app.data.KeywordHideCondition
+import com.calinoti.app.data.KeywordHideRule
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
@@ -101,7 +109,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -172,9 +182,15 @@ fun CalendarStatusScreen(
     // 시스템 설정에서 권한을 바꾸고 돌아와도 카드와 알림이 즉시 따라오게 한다.
     // ON_RESUME이 "권한이 바뀌었을 수 있는" 단일 체크포인트다 (돌아오는 시점에만 상태를 다시 읽는다).
     val lifecycleOwner = LocalLifecycleOwner.current
+    // 화면에 다시 돌아온 횟수. 단어 감춤 규칙 미리보기의 일정 캐시를 다시 읽게 하는 키로
+    // 쓴다 — 앱 밖(캘린더 앱)에서 일정을 바꾸고 돌아와도 미리보기가 최신이 된다.
+    var resumeCount by remember { mutableStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         val resumeObserver = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) recheckPermissionsAndRefreshIfChanged()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                resumeCount++
+                recheckPermissionsAndRefreshIfChanged()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(resumeObserver)
         onDispose { lifecycleOwner.lifecycle.removeObserver(resumeObserver) }
@@ -584,6 +600,124 @@ fun CalendarStatusScreen(
                             }
                         },
                     )
+                }
+
+                // ── 단어로 감추기 ────────────────────────────────────────────
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.keyword_hide_rules_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.keyword_hide_rules_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                // 미리보기에 쓸 표시 창 일정 캐시. 이 섹션은 펼쳐졌을 때만 컴포지션되므로
+                // 접혀 있는 동안엔 쿼리가 일어나지 않고, 펼칠 때마다 다시 읽어 신선하다.
+                // 규칙 타이핑마다 재쿼리하지 않는다 — 편집은 이 캐시에 매칭만 다시 적용한다.
+                // 표시 범위·캘린더 선택이 바뀌면 키가 바뀌어 새 창 기준으로 다시 읽는다.
+                // resumeCount는 앱 밖에서 일정이 바뀐 뒤 돌아올 때의 최신화를 담당한다.
+                val previewWindowEntries by produceState<List<EventEntry>?>(
+                    null,
+                    userPreferences.windowStartDays,
+                    userPreferences.windowEndDays,
+                    userPreferences.selectedCalendarIds,
+                    resumeCount,
+                ) {
+                    // 이전 창의 일정이 남아 새 기준으로 평가되는 것처럼 보이지 않게
+                    // 재시작마다 로딩 상태부터 시작한다.
+                    value = null
+                    value = withContext(Dispatchers.IO) {
+                        calendarReader.loadEventEntries(
+                            selectedCalendarIds = userPreferences.selectedCalendarIds,
+                            windowStartDays = userPreferences.windowStartDays,
+                            windowEndDays = userPreferences.windowEndDays,
+                            currentTimeMilliseconds = System.currentTimeMillis(),
+                        )
+                    }
+                }
+                // 하루종일 상태 표와 같은 두 열(접힌/펼친)에 규칙 토글을 맞춘다.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.weight(1f))
+                    HiddenStateColumnCell {
+                        Text(
+                            text = stringResource(R.string.hidden_items_column_collapsed_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HiddenStateColumnCell {
+                        Text(
+                            text = stringResource(R.string.hidden_items_column_expanded_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                for ((ruleIndex, rule) in userPreferences.keywordHideRules.withIndex()) {
+                    // 규칙·조건 ID로 key를 걸어 편집 중 컴포지션 위치와 필드 상태가 유지되게 한다.
+                    key(rule.id) {
+                        KeywordHideRuleCard(
+                            rule = rule,
+                            ruleNumber = ruleIndex + 1,
+                            isLastRule = ruleIndex == userPreferences.keywordHideRules.lastIndex,
+                            previewWindowEntries = previewWindowEntries,
+                            dayHeaderFormatPattern = userPreferences.dayHeaderFormatPattern,
+                            onAddCondition = {
+                                updatePreferences {
+                                    userPreferencesRepository.addKeywordHideRuleCondition(rule.id)
+                                }
+                            },
+                            onRemoveCondition = { conditionId ->
+                                updatePreferences {
+                                    userPreferencesRepository.removeKeywordHideRuleCondition(
+                                        ruleId = rule.id,
+                                        conditionId = conditionId,
+                                    )
+                                }
+                            },
+                            onUpdateConditionKeyword = { conditionId, keyword ->
+                                updatePreferences {
+                                    userPreferencesRepository.updateKeywordHideRuleConditionKeyword(
+                                        ruleId = rule.id,
+                                        conditionId = conditionId,
+                                        keyword = keyword,
+                                    )
+                                }
+                            },
+                            // 토글 반영은 저장값 기준으로 원자적이라 연속 토글이 서로를 덮어쓰지 않는다.
+                            onHiddenWhenCollapsedChange = { isChecked ->
+                                updatePreferences {
+                                    userPreferencesRepository.toggleKeywordHideRuleCollapsed(
+                                        ruleId = rule.id,
+                                        isChecked = isChecked,
+                                    )
+                                }
+                            },
+                            onHiddenWhenExpandedChange = { isChecked ->
+                                updatePreferences {
+                                    userPreferencesRepository.toggleKeywordHideRuleExpanded(
+                                        ruleId = rule.id,
+                                        isChecked = isChecked,
+                                    )
+                                }
+                            },
+                            onRemoveRule = {
+                                updatePreferences { userPreferencesRepository.removeKeywordHideRule(rule.id) }
+                            },
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        updatePreferences { userPreferencesRepository.addKeywordHideRule() }
+                    },
+                ) {
+                    Text(stringResource(R.string.keyword_hide_rule_add_button))
                 }
             }
 
@@ -1711,6 +1845,180 @@ private fun HiddenStateColumnCell(
         contentAlignment = Alignment.Center,
     ) {
         cellContent()
+    }
+}
+
+/**
+ * 단어 감춤 규칙 한 개의 편집 영역. 조건 행(단어 입력·삭제), 조건 추가, 접힌/펼친 적용
+ * 토글과 규칙 삭제, 그리고 이 규칙에 걸리는 표시 창 일정의 실시간 미리보기를 담는다.
+ * 토글 두 개는 [HiddenStateColumnCell]로 하루종일 상태 표와 같은 48dp 열에 놰 정렬된다.
+ */
+@Composable
+private fun KeywordHideRuleCard(
+    rule: KeywordHideRule,
+    ruleNumber: Int,
+    isLastRule: Boolean,
+    previewWindowEntries: List<EventEntry>?,
+    dayHeaderFormatPattern: String,
+    onAddCondition: () -> Unit,
+    onRemoveCondition: (Long) -> Unit,
+    onUpdateConditionKeyword: (Long, String) -> Unit,
+    onHiddenWhenCollapsedChange: (Boolean) -> Unit,
+    onHiddenWhenExpandedChange: (Boolean) -> Unit,
+    onRemoveRule: () -> Unit,
+) {
+    Column {
+        for (condition in rule.conditions) {
+            key(condition.id) {
+                KeywordConditionRow(
+                    condition = condition,
+                    onUpdateKeyword = { keyword ->
+                        onUpdateConditionKeyword(condition.id, keyword)
+                    },
+                    onRemove = { onRemoveCondition(condition.id) },
+                )
+            }
+        }
+        TextButton(onClick = onAddCondition) {
+            Text(stringResource(R.string.keyword_hide_condition_add_button))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.keyword_hide_rule_label_format, ruleNumber),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            HiddenStateColumnCell {
+                Checkbox(
+                    checked = rule.isHiddenWhenCollapsed,
+                    onCheckedChange = onHiddenWhenCollapsedChange,
+                )
+            }
+            HiddenStateColumnCell {
+                Checkbox(
+                    checked = rule.isHiddenWhenExpanded,
+                    onCheckedChange = onHiddenWhenExpandedChange,
+                )
+            }
+            IconButton(onClick = onRemoveRule) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.keyword_hide_delete_rule_button),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        KeywordHideRulePreview(rule, previewWindowEntries, dayHeaderFormatPattern)
+        if (!isLastRule) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+/**
+ * 규칙의 단어 조건 한 줄. 입력은 raw(무trim)로 매 키마다 저장한다 — 저장 시점에 trim하면
+ * 라운드트립 뒤 공백이 사라져 이어지는 입력이 유실된다. trim은 매칭 판정 시점에만 한다.
+ * 필드 문구는 저장값이 아니라 조건 ID를 키로 한 번만 초기화한다 — 저장값을 키로 하면
+ * 저장 도착 사이의 키 입력이 옛 값으로 되돌려진다.
+ */
+@Composable
+private fun KeywordConditionRow(
+    condition: KeywordHideCondition,
+    onUpdateKeyword: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var draftKeyword by remember(condition.id) { mutableStateOf(condition.keyword) }
+    OutlinedTextField(
+        value = draftKeyword,
+        onValueChange = { typedKeyword ->
+            draftKeyword = typedKeyword
+            onUpdateKeyword(typedKeyword)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.keyword_hide_condition_keyword_label)) },
+        singleLine = true,
+        supportingText = if (draftKeyword.isBlank()) {
+            // 공백 조건은 행을 유지한다 — 비우는 순간 행이 사라지면 다시 입력하기 번거롭다.
+            // 대신 무시된다는 안내를 보여준다.
+            { Text(stringResource(R.string.keyword_hide_condition_keyword_blank_hint)) }
+        } else {
+            null
+        },
+        trailingIcon = {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription =
+                        stringResource(R.string.keyword_hide_delete_condition_button),
+                )
+            }
+        },
+    )
+}
+
+/**
+ * 규칙에 걸리는 표시 창 일정의 실시간 미리보기. 규칙(저장값)이 바뀔 때마다 캐시된 일정에
+ * 매칭을 다시 적용해 즉시 그린다. maxVisibleEntries나 하루종일 상태 감춤과는 섞지 않는다 —
+ * 이 규칙이 무엇을 잡는지 보는 자리이기 때문이다. 날짜 라벨은 알림과 같은 묶음 규칙
+ * (EventListBuilder)으로 구해 종일 일정의 UTC 날짜 보정까지 동일하게 보인다.
+ */
+@Composable
+private fun KeywordHideRulePreview(
+    rule: KeywordHideRule,
+    previewWindowEntries: List<EventEntry>?,
+    dayHeaderFormatPattern: String,
+) {
+    if (previewWindowEntries == null) {
+        // 아직 표시 창 일정을 읽는 중이다 — 아직 모르는 감춤 개수를 지어 보여주지 않는다.
+        Text(
+            text = stringResource(R.string.keyword_hide_preview_loading),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val matchedEntries = previewWindowEntries.filter { rule.matchesEvent(it) }
+    Text(
+        text = stringResource(R.string.keyword_hide_preview_caption_format, matchedEntries.size),
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+    if (matchedEntries.isEmpty()) {
+        Text(
+            text = stringResource(R.string.keyword_hide_preview_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    // ifEmpty의 람다는 컴포지션 컨텍스트가 아니므로 stringResource는 루프 밖에서 뽑아 둔다.
+    val untitledEventLabel = stringResource(R.string.untitled_event)
+    var currentDayHeader: EventListEntry.DayHeader? = null
+    for (listEntry in EventListBuilder.buildDayGroupedEntries(matchedEntries)) {
+        when (listEntry) {
+            is EventListEntry.DayHeader -> currentDayHeader = listEntry
+            is EventListEntry.Event -> {
+                val matchedDayHeader = currentDayHeader
+                val dayLabelText = matchedDayHeader?.let { dayHeader ->
+                    NotificationViewsFactory.formatDayHeaderSample(
+                        dayHeaderFormatPattern,
+                        Instant.ofEpochMilli(dayHeader.dayStartMilliseconds)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate(),
+                    )
+                }
+                Text(
+                    text = listOfNotNull(
+                        listEntry.entry.title.ifEmpty { untitledEventLabel },
+                        listEntry.entry.calendarDisplayName,
+                        dayLabelText,
+                    ).filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }
 

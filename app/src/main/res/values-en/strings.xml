@@ -71,7 +71,7 @@
 
     <string name="settings_section_hidden_items">Hide from notification</string>
     <string name="hidden_items_summary">Hide some all-day events from the collapsed and expanded notification</string>
-    <string name="hidden_items_description">Hides all-day events by state. Timed events are not affected.</string>
+    <string name="hidden_items_description">Hides all-day events by state. The keyword rules below can also hide timed events.</string>
     <string name="hidden_items_column_collapsed_label">Collapsed</string>
     <string name="hidden_items_column_expanded_label">Expanded</string>
     <string name="hidden_item_started_today_label">Hide all-day events started today</string>
@@ -82,6 +82,21 @@
     <string name="hidden_item_upcoming_description">Hides all-day events that start tomorrow or later.</string>
     <string name="hidden_item_finished_label">Hide past all-day events</string>
     <string name="hidden_item_finished_description">Hides all-day events that already ended. They appear only when the date range includes the past.</string>
+
+    <!-- Keyword hiding rules. Conditions within a rule are ANDed; rules are ORed.
+         A keyword matches either the event title or the calendar display name. -->
+    <string name="keyword_hide_rules_title">Hide by keywords</string>
+    <string name="keyword_hide_rules_description">Hides events whose title or calendar name contains all of the keywords. Multiple keywords within a rule narrow it down (AND), while multiple rules hide an event when any one of them matches (OR). Use a calendar name as a keyword to hide events from a specific calendar. Events with an empty title can only match by calendar name. Hiding rules also apply to the imminent live notification.</string>
+    <string name="keyword_hide_rule_label_format">Rule %1$d</string>
+    <string name="keyword_hide_rule_add_button">Add rule</string>
+    <string name="keyword_hide_condition_add_button">Add condition</string>
+    <string name="keyword_hide_condition_keyword_label">Keyword</string>
+    <string name="keyword_hide_condition_keyword_blank_hint">Left blank, this condition is ignored</string>
+    <string name="keyword_hide_delete_rule_button">Delete rule</string>
+    <string name="keyword_hide_delete_condition_button">Delete condition</string>
+    <string name="keyword_hide_preview_caption_format">%1$d events match this rule</string>
+    <string name="keyword_hide_preview_empty">No events match this rule</string>
+    <string name="keyword_hide_preview_loading">Loading events…</string>
 
     <string name="settings_section_notification_display">Notification appearance</string>
     <string name="notification_display_summary">Adjusts text size, spacing, and more</string>
@@ -96,6 +111,7 @@
     <string name="preview_sample_title_birthday">Birthday</string>
     <string name="preview_sample_title_movie">Movie night</string>
     <string name="preview_sample_location_movie">Cinema 3</string>
+    <string name="preview_sample_calendar_display_name">My calendar</string>
 
     <string name="settings_section_notification_click_actions">Notification tap actions</string>
     <string name="notification_click_action_summary_format">Event: %1$s · Notification: %2$s</string>
