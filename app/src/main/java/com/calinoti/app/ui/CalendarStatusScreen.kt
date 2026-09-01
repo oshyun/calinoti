@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -81,6 +83,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -261,11 +264,14 @@ fun CalendarStatusScreen(
     // 설정 내보내기·가져오기의 진행·결과 상태. 결과는 섹션 안에 한 줄 메시지로 보여준다.
     var lastBackupResult by remember { mutableStateOf<BackupResult?>(null) }
     var isBackupRunning by remember { mutableStateOf(false) }
-    // 파일을 읽어 검증까지 끝낸 가져오기 대기값. null은 대기 중이 아님을 뜻한다.
-    var pendingImportedPreferences by remember { mutableStateOf<UserPreferences?>(null) }
+    // 내보내기 버튼을 누른 뒤 확정된 YAML 원문. null은 미리보기 중이 아님을 뜻한다.
+    // rememberSaveable: 파일 관리 앱을 다녀오는 동안 프로세스가 죽어도 미리본 그대로 저장되게 한다.
+    var pendingExportYamlText by rememberSaveable { mutableStateOf<String?>(null) }
+    // 파일을 읽어 검증까지 끝낸 가져오기 대기값(원문 + 파싱 결과). null은 대기 중이 아님을 뜻한다.
+    var pendingImportedSettings by remember { mutableStateOf<PendingImportedSettings?>(null) }
 
-    /** 현재 설정을 사용자가 고른 파일에 YAML로 쓴다. */
-    fun exportSettingsTo(targetFileUri: Uri) {
+    /** 현재 설정의 YAML 원문을 만들어 미리보기 다이얼로그를 띄운다. 저장은 확인 뒤다. */
+    fun prepareSettingsExport() {
         coroutineScope.launch {
             isBackupRunning = true
             try {
@@ -274,10 +280,29 @@ fun CalendarStatusScreen(
                     exportedAtUtc = Instant.now(),
                     appVersionName = installedVersionName,
                 )
-                val exportedYamlText = encodeUserPreferencesBackup(exportedSettings)
+                pendingExportYamlText = encodeUserPreferencesBackup(exportedSettings)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (runtimeError: Exception) {
+                lastBackupResult = BackupResult(
+                    messageResourceId = R.string.settings_backup_export_failure_format,
+                    isFailure = true,
+                    failureDetail = runtimeError.message ?: runtimeError.javaClass.simpleName,
+                )
+            } finally {
+                isBackupRunning = false
+            }
+        }
+    }
+
+    /** 미리본 YAML 원문을 사용자가 고른 파일에 그대로 쓴다. 저장할 때 다시 만들지 않는다. */
+    fun exportSettingsTo(targetFileUri: Uri, yamlTextToWrite: String) {
+        coroutineScope.launch {
+            isBackupRunning = true
+            try {
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(targetFileUri)
-                        ?.use { outputStream -> outputStream.write(exportedYamlText.toByteArray()) }
+                        ?.use { outputStream -> outputStream.write(yamlTextToWrite.toByteArray()) }
                         ?: throw IOException("대상 파일을 열 수 없습니다")
                 }
                 lastBackupResult = BackupResult(
@@ -298,18 +323,24 @@ fun CalendarStatusScreen(
         }
     }
 
+    /** 내보내기 기본 파일명. 날짜를 붙여 파일 관리 앱에서 여러 버전이 구분되게 한다. */
+    fun buildExportFileName(): String = "calinoti-settings-${LocalDate.now()}.yaml"
+
     /** 가져올 파일을 읽고 검증한다. 적용은 확인 다이얼로그를 통과한 뒤다. */
     fun readImportedSettings(sourceFileUri: Uri) {
         coroutineScope.launch {
             isBackupRunning = true
             try {
-                val importedPreferences = withContext(Dispatchers.IO) {
+                val importedSettings = withContext(Dispatchers.IO) {
                     val fileContent = context.contentResolver.openInputStream(sourceFileUri)
                         ?.use { inputStream -> inputStream.readBytes().toString(Charsets.UTF_8) }
                         ?: throw IOException("파일을 열 수 없습니다")
-                    decodeUserPreferencesBackup(fileContent).toUserPreferences()
+                    PendingImportedSettings(
+                        fileContent = fileContent,
+                        preferences = decodeUserPreferencesBackup(fileContent).toUserPreferences(),
+                    )
                 }
-                pendingImportedPreferences = importedPreferences
+                pendingImportedSettings = importedSettings
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (runtimeError: Exception) {
@@ -328,7 +359,15 @@ fun CalendarStatusScreen(
         // 파일 관리 앱의 "새 파일 만들기"로 위치·이름을 사용자가 정한다. 결과 Uri는 이 화면이
         // 살아 있는 동안만 쓸 수 있어 곧바로 쓴다(영구 권한 불필요).
         ActivityResultContracts.CreateDocument("application/yaml"),
-    ) { createdFileUri -> if (createdFileUri != null) exportSettingsTo(createdFileUri) }
+    ) { createdFileUri ->
+        // 미리본 텍스트를 지역값으로 확정한 뒤 상태를 지운다. 취소(결과 null)여도 다이얼로그는
+        // 닫는다 — 닫지 않으면 파일 선택을 취소했을 때 미리보기가 다시 떠 있다.
+        val yamlTextToWrite = pendingExportYamlText
+        pendingExportYamlText = null
+        if (createdFileUri != null && yamlTextToWrite != null) {
+            exportSettingsTo(createdFileUri, yamlTextToWrite)
+        }
+    }
 
     val importSettingsLauncher = rememberLauncherForActivityResult(
         // YAML의 MIME 등록이 기기마다 달라 필터를 두면 파일이 아예 안 보이는 기기가 있다.
@@ -1193,7 +1232,7 @@ fun CalendarStatusScreen(
             )
             Spacer(Modifier.height(12.dp))
             Button(
-                onClick = { exportSettingsLauncher.launch("calinoti-settings.yaml") },
+                onClick = { prepareSettingsExport() },
                 enabled = !isBackupRunning,
             ) {
                 Text(stringResource(R.string.settings_backup_export_button))
@@ -1262,18 +1301,59 @@ fun CalendarStatusScreen(
         }
     }
 
+    // 내보내기 전 저장 내용을 보여준다. 저장은 미리본 텍스트를 그대로 쓴다(저장할 때 다시 만들지 않는다).
+    pendingExportYamlText?.let { exportYamlText ->
+        AlertDialog(
+            onDismissRequest = { pendingExportYamlText = null },
+            title = { Text(stringResource(R.string.settings_backup_export_preview_title)) },
+            text = {
+                Column {
+                    Text(
+                        text = stringResource(R.string.settings_backup_export_preview_message),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    YamlPreviewText(yamlText = exportYamlText)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { exportSettingsLauncher.launch(buildExportFileName()) }) {
+                    Text(stringResource(R.string.settings_backup_save_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingExportYamlText = null }) {
+                    Text(stringResource(R.string.settings_backup_cancel_button))
+                }
+            },
+        )
+    }
+
     // 파일을 읽어 검증까지 끝낸 뒤에만 뜬다. 적용은 파일 값으로 전부 교체라 되돌릴 수 없으므로
     // 한 단계의 확인을 둔다.
-    pendingImportedPreferences?.let { importedPreferences ->
+    pendingImportedSettings?.let { importedSettings ->
         AlertDialog(
-            onDismissRequest = { pendingImportedPreferences = null },
+            onDismissRequest = { pendingImportedSettings = null },
             title = { Text(stringResource(R.string.settings_backup_import_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_backup_import_confirm_message)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_backup_import_confirm_message))
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_backup_import_file_content_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    YamlPreviewText(yamlText = importedSettings.fileContent)
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    pendingImportedPreferences = null
+                    pendingImportedSettings = null
                     updatePreferences {
-                        userPreferencesRepository.importPreferences(importedPreferences)
+                        userPreferencesRepository.importPreferences(importedSettings.preferences)
                         lastBackupResult = BackupResult(
                             messageResourceId = R.string.settings_backup_import_success,
                             isFailure = false,
@@ -1284,7 +1364,7 @@ fun CalendarStatusScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingImportedPreferences = null }) {
+                TextButton(onClick = { pendingImportedSettings = null }) {
                     Text(stringResource(R.string.settings_backup_cancel_button))
                 }
             },
@@ -1299,6 +1379,32 @@ private data class BackupResult(
     /** 실패 원인의 기술적 상세(예외 메시지). 사용자 안내용이 아니라 원인 파악용이다. */
     val failureDetail: String? = null,
 )
+
+/** 가져오기 확인 다이얼로그가 함께 보여줄 값. 원문과 파싱 결과는 항상 한 세트로 바뀐다. */
+private data class PendingImportedSettings(
+    /** 확인 다이얼로그의 미리보기에 그대로 보여줄 YAML 원문이다. */
+    val fileContent: String,
+    val preferences: UserPreferences,
+)
+
+/** 확인 다이얼로그 안에서 YAML 원문을 세로·가로로 스크롤되는 모노스페이스 텍스트로 보여준다. */
+@Composable
+private fun YamlPreviewText(yamlText: String) {
+    Column(
+        modifier = Modifier
+            .heightIn(max = 320.dp)
+            .verticalScroll(rememberScrollState())
+            .horizontalScroll(rememberScrollState()),
+    ) {
+        Text(
+            text = yamlText,
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            // 줄이 길어도 접지 않는다 — 긴 줄은 가로 스크롤로 본다.
+            softWrap = false,
+        )
+    }
+}
 
 @Composable
 private fun UpdateCheckSection(
