@@ -219,6 +219,16 @@ class NotificationViewsFactory(private val context: Context) {
             formatPattern = dayHeaderFormatPattern,
             textSizeSp = secondaryTextSizeSp,
         )
+        // 시간 열 폭도 날짜 열과 같은 방식으로 목록에서 가장 넓은 시각 텍스트 한 번 재어
+        // 모든 행이 같게 한다 — 시각 글자수가 달라도(9:00 vs 14:00) 제목의 시작 x가
+        // 같아진다. 시각-제목 간격(paddingEnd)이 폭 안쪽에서 소모되므로 간격까지 더해
+        // 가장 넓은 시각 텍스트가 잘리지 않게 한다. take(itemLimit) 전 목록을 재므로
+        // 접힌 뷰와 펼친 뷰의 폭도 같아 펼치는 순간 제목 열이 좌우로 움직이지 않는다.
+        val eventTimeMaxWidthPx = findEventTimeMaxWidthPx(
+            events = listEntries.filterIsInstance<EventListEntry.Event>().map { it.entry },
+            textSizeSp = secondaryTextSizeSp,
+            timeToTitleSpacingDp = spacing.timeToTitleSpacingDp,
+        )
         // 날짜 그룹 하나가 [날짜][일정 열] 한 행(notification_item_day_group)이고, 일정은
         // 그 그룹의 일정 열에 쌓인다. 수직 간격은 "뒤 항목의 paddingTop이 담당" 규칙으로
         // 배분한다(첫 그룹 위 여백 → 그룹 행, 그룹 사이 여백 → 다음 그룹 행, 일정 사이
@@ -245,7 +255,10 @@ class NotificationViewsFactory(private val context: Context) {
                         COMPLEX_UNIT_SP,
                         secondaryTextSizeSp,
                     )
-                    dayGroupViews.applyDayHeaderFixedWidth(dayHeaderMaxWidthPx)
+                    dayGroupViews.applyViewFixedLayoutWidth(
+                        R.id.day_header_text,
+                        dayHeaderMaxWidthPx,
+                    )
                     // 행의 시작 여백은 날짜 앞 여백이 담당하고, 오른쪽 여백은 항목 공통
                     // 여백(일정 열 폭을 줄여 제목 말줄임 지점을 만든다)이 담당한다.
                     dayGroupViews.applyItemPadding(
@@ -286,6 +299,7 @@ class NotificationViewsFactory(private val context: Context) {
                         secondaryTextSizeSp,
                         currentTimeMilliseconds,
                         spacing.timeToTitleSpacingDp,
+                        eventTimeMaxWidthPx,
                     )
                     // 일정 줄의 시작 여백은 그룹 행이, 오른쪽 여백도 그룹 행이 이미 갖고
                     // 있으므로 줄 자체의 좌우 여백은 0이다.
@@ -314,11 +328,12 @@ class NotificationViewsFactory(private val context: Context) {
         secondaryTextSizeSp: Float,
         currentTimeMilliseconds: Long,
         timeToTitleSpacingDp: Int,
+        eventTimeFixedWidthPx: Int,
     ): RemoteViews {
         val itemViews = RemoteViews(context.packageName, R.layout.notification_item_event)
         // 시각-제목 간격은 RemoteViews에 margin 액션이 없어 시간 뷰의 end padding으로 준다.
-        // 배경 없는 텍스트라 margin과 시각적으로 동일하다. 종일 일정은 시간 뷰가 GONE이라
-        // 적용돼도 그려지지 않는다.
+        // 배경 없는 텍스트라 margin과 시각적으로 동일하다. 간격은 고정 시간 열 폭 안에
+        // 포함되므로 간격 값과 무관하게 제목 시작 x는 모든 행에서 같다.
         itemViews.applyItemPadding(
             viewId = R.id.event_time_text,
             startPaddingDp = 0,
@@ -326,8 +341,12 @@ class NotificationViewsFactory(private val context: Context) {
             topPaddingDp = 0,
             bottomPaddingDp = 0,
         )
+        // 시간 열 폭을 고정해 시각 글자수와 무관하게 제목이 같은 x에서 시작하게 한다.
+        itemViews.applyViewFixedLayoutWidth(R.id.event_time_text, eventTimeFixedWidthPx)
         if (entry.isAllDay) {
-            itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
+            // 종일 일정은 시각 텍스트만 숨기고 칸은 남긴다(GONE 대신 INVISIBLE) — 빈 시간
+            // 열만큼 들여써 제목을 시간 있는 일정의 제목과 같은 x에서 시작시킨다.
+            itemViews.setViewVisibility(R.id.event_time_text, View.INVISIBLE)
         } else {
             itemViews.setViewVisibility(R.id.event_time_text, View.VISIBLE)
             itemViews.setTextViewText(R.id.event_time_text, formatTimeText(entry.beginTimeMilliseconds))
@@ -511,17 +530,17 @@ class NotificationViewsFactory(private val context: Context) {
     }
 
     /**
-     * 날짜 헤더의 폭을 [widthPx]로 고정한다 — 그룹마다 날짜 길이가 달라도 일정 열의
-     * 시작 x가 같아진다. 대상은 [R.id.day_header_text] 하나이며 LayoutParams의 width만
-     * 바꾸므로 일정 열의 weight 등 나머지 속성은 그대로 유지된다.
+     * 뷰의 폭을 [widthPx]로 고정한다 — 내용 길이가 제각각이어도 고정 열 뒤의 내용이 같은
+     * x에서 시작하게 한다. 날짜 헤더 열과 일정 줄의 시간 열이 쓴다. LayoutParams의
+     * width만 바꾸므로 나머지 레이아웃 속성(weight 등)은 그대로 유지된다.
      */
-    private fun RemoteViews.applyDayHeaderFixedWidth(widthPx: Int) {
+    private fun RemoteViews.applyViewFixedLayoutWidth(viewId: Int, widthPx: Int) {
         // QUIRK(remoteviews-layout-width): RemoteViews에서 뷰 폭을 바꾸는 공개 API는
         //   setViewLayoutWidth(API 31)부터다. 그 전 버전은 레이아웃 XML의 wrap_content를
-        //   그대로 쓴다(날짜 길이대로 폭이 변하는 기존 동작).
+        //   그대로 쓴다(내용 길이대로 폭이 변하는 기존 동작).
         // QUIRK-REMOVE-WHEN: minSdk가 31 이상이 될 때
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        setViewLayoutWidth(R.id.day_header_text, widthPx.toFloat(), COMPLEX_UNIT_PX)
+        setViewLayoutWidth(viewId, widthPx.toFloat(), COMPLEX_UNIT_PX)
     }
 
     private fun createOpenEventPendingIntent(
@@ -601,13 +620,7 @@ class NotificationViewsFactory(private val context: Context) {
         textSizeSp: Float,
     ): Int {
         val today = findLocalDateOf(currentTimeMilliseconds)
-        val textPaint = Paint().apply {
-            textSize = TypedValue.applyDimension(
-                COMPLEX_UNIT_SP,
-                textSizeSp,
-                context.resources.displayMetrics,
-            )
-        }
+        val textPaint = createMeasuredTextPaint(textSizeSp)
         var maxWidthPixels = 0f
         for (dayStartMilliseconds in dayStartMillisecondsValues) {
             val isTodayHeader = findLocalDateOf(dayStartMilliseconds) == today
@@ -617,7 +630,47 @@ class NotificationViewsFactory(private val context: Context) {
                 textPaint.measureText(findDayHeaderText(dayStartMilliseconds, formatPattern)),
             )
         }
-        return ceil(maxWidthPixels).toInt() + DAY_HEADER_WIDTH_SLACK_PX
+        return ceil(maxWidthPixels).toInt() + MEASURED_TEXT_WIDTH_SLACK_PX
+    }
+
+    /**
+     * [events] 중 시간 있는 일정의 시각 텍스트들 중 가장 넓은 텍스트의 폭(px)에
+     * [timeToTitleSpacingDp] 간격을 더한 값. 모든 행의 시간 열을 이 폭으로 고정해 제목이
+     * 같은 x에서 시작하게 하며, 간격이 폭 안쪽에서 소모돼도 가장 넓은 시각이 잘리지
+     * 않는다. 종일 일정은 시각 텍스트가 없어 측정에서 뺀다 — 시간 있는 일정이 하나도
+     * 없으면 폭이 간격에 수렴하고 그 목록은 종일 일정뿐이라 모든 제목이 여전히 같은
+     * x에서 시작한다.
+     */
+    private fun findEventTimeMaxWidthPx(
+        events: List<EventEntry>,
+        textSizeSp: Float,
+        timeToTitleSpacingDp: Int,
+    ): Int {
+        val textPaint = createMeasuredTextPaint(textSizeSp)
+        var maxWidthPixels = 0f
+        for (event in events) {
+            if (event.isAllDay) continue
+            maxWidthPixels = maxOf(
+                maxWidthPixels,
+                textPaint.measureText(formatTimeText(event.beginTimeMilliseconds)),
+            )
+        }
+        val timeToTitleSpacingPixels = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            timeToTitleSpacingDp.toFloat(),
+            context.resources.displayMetrics,
+        )
+        return ceil(maxWidthPixels).toInt() + MEASURED_TEXT_WIDTH_SLACK_PX +
+            timeToTitleSpacingPixels.toInt()
+    }
+
+    /** 열 폭 고정에 쓸 measureText용 Paint. 시각 텍스트는 볼드가 없어 기본 페이스다. */
+    private fun createMeasuredTextPaint(textSizeSp: Float): Paint = Paint().apply {
+        textSize = TypedValue.applyDimension(
+            COMPLEX_UNIT_SP,
+            textSizeSp,
+            context.resources.displayMetrics,
+        )
     }
 
     /** 짧은 시각 텍스트. 일정 행과 임박 일정 알림이 같은 포맷을 공유한다. */
@@ -967,9 +1020,9 @@ class NotificationViewsFactory(private val context: Context) {
         // 시각·위치·날짜 헤더가 제목 글자보다 작은 정도. 기존 레이아웃의 15/13sp 관계를 유지한다.
         const val SECONDARY_TEXT_SIZE_OFFSET_SP = 2
 
-        // measureText와 날짜 헤더 TextView 실제 폭의 소수점·힌팅 오차를 흡수하는 여유(px).
-        // 과하면 날짜와 일정 사이 공백이 커져 보이므로 최소값으로 둔다.
-        private const val DAY_HEADER_WIDTH_SLACK_PX = 2
+        // measureText와 TextView 실제 폭의 소수점·힌팅 오차를 흡수하는 여유(px). 날짜
+        // 헤더 열·시간 열 폭 측정이 함께 쓴다. 과하면 열 뒤 공백이 커져 보이므로 최소값으로 둔다.
+        private const val MEASURED_TEXT_WIDTH_SLACK_PX = 2
 
         // 오늘 날짜 헤더는 볼드로 그려지므로 폭 측정에도 쓰는 볼드 페이스.
         private val dayHeaderBoldTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
