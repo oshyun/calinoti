@@ -143,6 +143,8 @@ private fun createPreviewSampleEntries(
                 isAllDay = false,
                 location = context.getString(R.string.preview_sample_location_meeting),
                 calendarColor = PREVIEW_CALENDAR_COLOR_BLUE,
+                calendarDisplayName =
+                    context.getString(R.string.preview_sample_calendar_display_name),
             ),
         ),
         EventListEntry.Event(
@@ -159,6 +161,8 @@ private fun createPreviewSampleEntries(
                 isAllDay = false,
                 location = null,
                 calendarColor = PREVIEW_CALENDAR_COLOR_GREEN,
+                calendarDisplayName =
+                    context.getString(R.string.preview_sample_calendar_display_name),
             ),
         ),
         EventListEntry.DayHeader(
@@ -177,6 +181,8 @@ private fun createPreviewSampleEntries(
                 isAllDay = true,
                 location = null,
                 calendarColor = PREVIEW_CALENDAR_COLOR_PURPLE,
+                calendarDisplayName =
+                    context.getString(R.string.preview_sample_calendar_display_name),
             ),
         ),
         EventListEntry.DayHeader(
@@ -193,6 +199,8 @@ private fun createPreviewSampleEntries(
                 isAllDay = false,
                 location = context.getString(R.string.preview_sample_location_movie),
                 calendarColor = PREVIEW_CALENDAR_COLOR_BLUE,
+                calendarDisplayName =
+                    context.getString(R.string.preview_sample_calendar_display_name),
             ),
         ),
     )

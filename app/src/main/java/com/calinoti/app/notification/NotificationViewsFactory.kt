@@ -28,8 +28,12 @@ import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
+import com.calinoti.app.data.KeywordHideRule
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
+import com.calinoti.app.data.hidesEventAnywhere
+import com.calinoti.app.data.hidesEventInCollapsedView
+import com.calinoti.app.data.hidesEventInExpandedView
 import com.calinoti.app.ui.CalendarColorTone
 import java.time.DateTimeException
 import java.time.Instant
@@ -46,10 +50,14 @@ import kotlin.math.ceil
 /** 일정 데이터를 알림용 RemoteViews 레이아웃으로 조립한다. */
 class NotificationViewsFactory(private val context: Context) {
 
-    /** 알림이 접힌 상태에서 보일 요약 뷰. 접힌 뷰의 감춤 규칙을 적용한 뒤 항목 몇 개만 담는다. */
+    /**
+     * 알림이 접힌 상태에서 보일 요약 뷰. 접힌 뷰의 감춤 규칙(하루종일 상태·키워드)을
+     * 적용한 뒤 항목 몇 개만 담는다.
+     */
     fun createCollapsedViews(
         listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
+        keywordHideRules: List<KeywordHideRule>,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
         notificationTextSizeSp: Int,
@@ -57,7 +65,15 @@ class NotificationViewsFactory(private val context: Context) {
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createEventListViews(
-        filterHiddenEntries(listEntries, collapsedHiddenItemTypes, currentTimeMilliseconds),
+        filterHiddenEntries(listEntries) { entry ->
+            val hiddenItemType = findHiddenItemTypeOf(
+                entry,
+                findLocalDateOf(currentTimeMilliseconds),
+                currentTimeMilliseconds,
+            )
+            hiddenItemType in collapsedHiddenItemTypes ||
+                keywordHideRules.hidesEventInCollapsedView(entry)
+        },
         itemLimit = COLLAPSED_ITEM_LIMIT,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
         spacing = spacing,
@@ -94,11 +110,12 @@ class NotificationViewsFactory(private val context: Context) {
 
     /**
      * 알림을 펼쳤을 때 보일 전체 뷰. [maxVisibleEntries]개까지만 담는다.
-     * [expandedHiddenItemTypes]는 접힌 뷰와 독립인 펼친 뷰의 감춤 규칙이다.
+     * [expandedHiddenItemTypes]와 [keywordHideRules]는 접힌 뷰와 독립인 펼친 뷰의 감춤 규칙이다.
      */
     fun createExpandedViews(
         listEntries: List<EventListEntry>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
+        keywordHideRules: List<KeywordHideRule>,
         maxVisibleEntries: Int,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
@@ -107,7 +124,15 @@ class NotificationViewsFactory(private val context: Context) {
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): RemoteViews = createEventListViews(
-        filterHiddenEntries(listEntries, expandedHiddenItemTypes, currentTimeMilliseconds),
+        filterHiddenEntries(listEntries) { entry ->
+            val hiddenItemType = findHiddenItemTypeOf(
+                entry,
+                findLocalDateOf(currentTimeMilliseconds),
+                currentTimeMilliseconds,
+            )
+            hiddenItemType in expandedHiddenItemTypes ||
+                keywordHideRules.hidesEventInExpandedView(entry)
+        },
         itemLimit = maxVisibleEntries,
         eventRowClickTarget = resolveEventRowClickTarget(eventClickTargetPackageName),
         spacing = spacing,
@@ -118,17 +143,18 @@ class NotificationViewsFactory(private val context: Context) {
     )
 
     /**
-     * 감춤 규칙에 걸린 일정을 버리고, 일정이 모두 사라진 날짜 그룹의 헤더도 함께 버린다.
-     * 접힌 뷰와 펼친 뷰가 같은 필터를 쓴다. [hiddenItemTypes]가 비면 목록을 그대로 돌려준다 —
-     * 감춤을 끈 기본 상태에서는 기존 목록이 그대로 유지돼야 한다.
+     * [isEntryHidden]에 걸린 일정을 버리고, 일정이 모두 사라진 날짜 그룹의 헤더도 함께
+     * 버린다. 접힌 뷰와 펼친 뷰가 같은 필터를 쓴다 — 하루종일 상태 감춤과 키워드 규칙
+     * 감춤은 호출부가 이 판정 하나로 묶어 넘긴다. 아무것도 걸리지 않으면 목록을 그대로
+     * 돌려준다 — 감춤을 끈 기본 상태에서는 기존 목록이 그대로 유지돼야 한다.
      */
     private fun filterHiddenEntries(
         listEntries: List<EventListEntry>,
-        hiddenItemTypes: Set<HiddenItemType>,
-        currentTimeMilliseconds: Long,
+        isEntryHidden: (EventEntry) -> Boolean,
     ): List<EventListEntry> {
-        if (hiddenItemTypes.isEmpty()) return listEntries
-        val today = findLocalDateOf(currentTimeMilliseconds)
+        if (listEntries.filterIsInstance<EventListEntry.Event>().none { isEntryHidden(it.entry) }) {
+            return listEntries
+        }
         // EventListBuilder가 헤더를 일정 직전에만 추가하므로(첫 항목은 항상 헤더) 헤더 뒤에
         // 일정이 곧바로 오지 않으면 그 그룹은 감춤으로 비어 있는 것이다. 헤더를 잠시 들어뒀다가
         // 일정이 올 때만 내보내면 빈 그룹의 헤더가 자연히 사라진다.
@@ -138,9 +164,7 @@ class NotificationViewsFactory(private val context: Context) {
                 when (listEntry) {
                     is EventListEntry.DayHeader -> pendingDayHeader = listEntry
                     is EventListEntry.Event -> {
-                        val hiddenItemType =
-                            findHiddenItemTypeOf(listEntry.entry, today, currentTimeMilliseconds)
-                        if (hiddenItemType in hiddenItemTypes) continue
+                        if (isEntryHidden(listEntry.entry)) continue
                         pendingDayHeader?.let { dayHeader -> add(dayHeader) }
                         pendingDayHeader = null
                         add(listEntry)
@@ -865,14 +889,22 @@ class NotificationViewsFactory(private val context: Context) {
         )
     }
 
-    /** 곧 시작하는(1시간 미만으로 남은) 시간 있는 일정. 없으면 null. 종일 일정은 대상이 아니다. */
+    /**
+     * 곧 시작하는(1시간 미만으로 남은) 시간 있는 일정. 없으면 null. 종일 일정은 대상이
+     * 아니다. [keywordHideRules]에 걸린 일정은 후보에서 제외한다 — 사용자가 감추기로 한
+     * 일정이 임박 알림으로 뜨면 감춤이 무의미해진다(접힘/펼침 어느 쪽이든 감춤으로 본다).
+     */
     fun findImminentEventOrNull(
         listEntries: List<EventListEntry>,
+        keywordHideRules: List<KeywordHideRule>,
         currentTimeMilliseconds: Long,
     ): EventEntry? =
         listEntries
             .filterIsInstance<EventListEntry.Event>()
-            .firstOrNull { isImminentCountdownTarget(it.entry, currentTimeMilliseconds) }
+            .firstOrNull { listEntry ->
+                !keywordHideRules.hidesEventAnywhere(listEntry.entry) &&
+                    isImminentCountdownTarget(listEntry.entry, currentTimeMilliseconds)
+            }
             ?.entry
 
     /**

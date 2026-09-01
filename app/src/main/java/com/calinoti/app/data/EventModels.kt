@@ -15,6 +15,8 @@ data class EventEntry(
     val location: String?,
     /** 이 일정이 속한 캘린더의 표시 색(ARGB). 알림 제목 색으로 쓴다. */
     val calendarColor: Int,
+    /** 이 일정이 속한 캘린더의 표시 이름. 키워드 감춤 규칙의 캘린더명 매칭에 쓴다. */
+    val calendarDisplayName: String,
 ) {
     /**
      * 일정이 끝난 것으로 판정되는 시각의 단일 출처. 시간 있는 일정은 종료 시각 그대로다.

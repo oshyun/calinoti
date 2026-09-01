@@ -11,6 +11,7 @@ import com.calinoti.app.R
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
+import com.calinoti.app.data.KeywordHideRule
 import java.util.concurrent.TimeUnit
 
 /**
@@ -41,11 +42,15 @@ class ImminentEventNotifier(
     fun refresh(
         listEntries: List<EventListEntry>,
         isEnabled: Boolean,
+        keywordHideRules: List<KeywordHideRule>,
         currentTimeMilliseconds: Long,
     ) {
         pruneDismissedEvents(currentTimeMilliseconds)
-        val imminentEvent =
-            remoteViewsFactory.findImminentEventOrNull(listEntries, currentTimeMilliseconds)
+        val imminentEvent = remoteViewsFactory.findImminentEventOrNull(
+            listEntries,
+            keywordHideRules,
+            currentTimeMilliseconds,
+        )
         when {
             imminentEvent == null || !isEnabled || isDismissed(imminentEvent) -> cancelNotification()
             notificationPublisher.hasNotificationPermission() ->

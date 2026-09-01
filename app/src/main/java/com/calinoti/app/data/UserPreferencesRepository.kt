@@ -13,6 +13,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 
 /**
@@ -78,6 +80,12 @@ data class UserPreferences(
      */
     val expandedHiddenItemTypes: Set<HiddenItemType>,
     /**
+     * 제목·캘린더명 단어로 일정을 감추는 규칙 목록. 규칙 안 조건은 모두(AND) 충족돼야 하고
+     * 규칙 간은 OR다. 매칭 판정은 [KeywordHideRule]을, 접힌·펼친 적용은
+     * [hidesEventInCollapsedView]·[hidesEventInExpandedView]·[hidesEventAnywhere]를 본다.
+     */
+    val keywordHideRules: List<KeywordHideRule>,
+    /**
      * 날짜 헤더의 표시 형식(DateTimeFormatter 패턴 문법). 예: "MM.dd (E)" → "08.29 (금)".
      * 저장은 설정 화면에서만 일어나며 유효성 검사를 거치므로 항상 유효한 패턴이다.
      */
@@ -128,6 +136,7 @@ data class UserPreferences(
             isImminentLiveNotificationEnabled = false,
             collapsedHiddenItemTypes = emptySet(),
             expandedHiddenItemTypes = emptySet(),
+            keywordHideRules = emptyList(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
             notificationUpdateIntervalMinutes = 360,
         )
@@ -184,6 +193,13 @@ private val HIDDEN_ITEM_TYPES_COLLAPSED_KEY =
     stringSetPreferencesKey("hidden_item_types_collapsed")
 private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
     stringSetPreferencesKey("hidden_item_types_expanded")
+// 키워드 감춤 규칙은 사용자 자유 텍스트(단어)를 담으므로 구분자 직렬화 대신 JSON으로 저장한다 —
+// 단어에 구분자 문자가 들어오면 escaping이 필요해지기 때문이다. 확장 절차: 모델 필드 추가 후
+// 수정 메서드는 반드시 editKeywordHideRules 한 경로로만 쓴다(원자성·ID 발급 단일화).
+// 규칙 ID와 조건 ID는 전역 공간을 공유한다(findNextKeywordHideIdentifier) — 종별로 나눠
+// 발급하면 ID가 겹쳐 Compose key·편집 매핑이 어긋난다. 낯선 JSON·손상은 규칙 전체를
+// 버린다(빈 목록) — 이 저장소의 "낯선 저장값은 버린다" 정책과 같다.
+private val KEYWORD_HIDE_RULES_KEY = stringPreferencesKey("keyword_hide_rules")
 private val DAY_HEADER_FORMAT_PATTERN_KEY = stringPreferencesKey("day_header_format_pattern")
 private val NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY =
     intPreferencesKey("notification_update_interval_minutes")
@@ -217,6 +233,30 @@ private fun Preferences.parseHiddenItemTypes(
 /** 여백 키 조회. 없으면 기본값, 있으면 조절 범위 밖의 오래된 저장값도 범위 안으로 끌어온다. */
 private fun Preferences.readSpacingDp(key: Preferences.Key<Int>, defaultDp: Int): Int =
     this[key]?.coerceIn(NotificationSpacing.RANGE_DP) ?: defaultDp
+
+/** 규칙 JSON 직렬화 형식의 단일 출처. 낯선 필드(미래 버전이 남긴 것)는 읽을 때 버린다. */
+private val keywordHideRulesJsonFormat = Json { ignoreUnknownKeys = true }
+
+/** 저장된 규칙 JSON을 규칙 목록으로 되돌린다. 키가 없거나 손상돼 있으면 빈 목록이다. */
+private fun Preferences.parseKeywordHideRules(): List<KeywordHideRule> =
+    this[KEYWORD_HIDE_RULES_KEY]
+        ?.let { storedJson ->
+            runCatching {
+                keywordHideRulesJsonFormat.decodeFromString<List<KeywordHideRule>>(storedJson)
+            }.getOrDefault(emptyList())
+        }
+        ?: emptyList()
+
+/**
+ * 규칙 ID와 조건 ID가 공유하는 다음 식별자(전역 max + 1). 두 종의 ID가 겹치면 Compose
+ * key 충돌·편집 매핑 오류가 나므로 한 공간에서 발급한다.
+ */
+private fun List<KeywordHideRule>.findNextKeywordHideIdentifier(): Long {
+    val maxRuleIdentifier = maxOfOrNull { it.id } ?: 0L
+    val maxConditionIdentifier =
+        maxOfOrNull { rule -> rule.conditions.maxOfOrNull { it.id } ?: 0L } ?: 0L
+    return maxOf(maxRuleIdentifier, maxConditionIdentifier) + 1
+}
 
 private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "user_preferences",
@@ -293,6 +333,7 @@ class UserPreferencesRepository(private val context: Context) {
                         storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_COLLAPSED_KEY),
                     expandedHiddenItemTypes =
                         storedPreferences.parseHiddenItemTypes(HIDDEN_ITEM_TYPES_EXPANDED_KEY),
+                    keywordHideRules = storedPreferences.parseKeywordHideRules(),
                     dayHeaderFormatPattern =
                         storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY]
                             ?: UserPreferences.DEFAULTS.dayHeaderFormatPattern,
@@ -356,6 +397,118 @@ class UserPreferencesRepository(private val context: Context) {
                 if (isChecked) currentHiddenItemTypes + itemType else currentHiddenItemTypes - itemType
             storedPreferences[hiddenItemTypesKey] =
                 nextHiddenItemTypes.map(HiddenItemType::name).toSet()
+        }
+    }
+
+    /**
+     * 키워드 감춤 규칙 전체를 저장값 기준으로 원자적으로 반영한다. 모든 규칙 수정 메서드가
+     * 거는 유일한 쓰기 경로다 — 키 입력마다 저장돼도 연속 변경이 서로를 덮어쓰지 않는다.
+     */
+    private suspend fun editKeywordHideRules(
+        transform: (currentRules: List<KeywordHideRule>) -> List<KeywordHideRule>,
+    ) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            storedPreferences[KEYWORD_HIDE_RULES_KEY] =
+                keywordHideRulesJsonFormat.encodeToString(
+                    transform(storedPreferences.parseKeywordHideRules()),
+                )
+        }
+    }
+
+    /** 새 감춤 규칙을 추가한다. 빈 단어 조건 하나를 시드한다 — 빈 단어는 매칭되지 않아 안전하다. */
+    suspend fun addKeywordHideRule() = editKeywordHideRules { currentRules ->
+        // 새 규칙과 그 시드 조건에 ID를 이어서 발급한다 — 두 종은 한 공간을 공유하므로
+        // 전역 max+1과 max+2로 서로 겹치지 않게 뽑는다.
+        val newRuleIdentifier = currentRules.findNextKeywordHideIdentifier()
+        currentRules + KeywordHideRule(
+            id = newRuleIdentifier,
+            conditions = listOf(
+                KeywordHideCondition(id = newRuleIdentifier + 1, keyword = ""),
+            ),
+            isHiddenWhenCollapsed = false,
+            isHiddenWhenExpanded = false,
+        )
+    }
+
+    /** 감춤 규칙 하나를 지운다. 조건은 규칙에 중첩돼 저장되므로 함께 사라진다. */
+    suspend fun removeKeywordHideRule(ruleId: Long) = editKeywordHideRules { currentRules ->
+        currentRules.filterNot { it.id == ruleId }
+    }
+
+    /** 규칙의 접힌 알림 적용 토글을 저장값 기준으로 원자적으로 반영한다. */
+    suspend fun toggleKeywordHideRuleCollapsed(ruleId: Long, isChecked: Boolean) =
+        toggleKeywordHideRule(ruleId, isCollapsedToggle = true, isChecked = isChecked)
+
+    /** 규칙의 펼친 알림 적용 토글. [toggleKeywordHideRuleCollapsed]와 같은 규칙으로 반영한다. */
+    suspend fun toggleKeywordHideRuleExpanded(ruleId: Long, isChecked: Boolean) =
+        toggleKeywordHideRule(ruleId, isCollapsedToggle = false, isChecked = isChecked)
+
+    private suspend fun toggleKeywordHideRule(
+        ruleId: Long,
+        isCollapsedToggle: Boolean,
+        isChecked: Boolean,
+    ) = editKeywordHideRules { currentRules ->
+        currentRules.map { rule ->
+            when {
+                rule.id != ruleId -> rule
+                isCollapsedToggle -> rule.copy(isHiddenWhenCollapsed = isChecked)
+                else -> rule.copy(isHiddenWhenExpanded = isChecked)
+            }
+        }
+    }
+
+    /** 규칙에 빈 단어 조건을 하나 추가한다. */
+    suspend fun addKeywordHideRuleCondition(ruleId: Long) = editKeywordHideRules { currentRules ->
+        val newConditionIdentifier = currentRules.findNextKeywordHideIdentifier()
+        currentRules.map { rule ->
+            if (rule.id != ruleId) {
+                rule
+            } else {
+                rule.copy(
+                    conditions =
+                        rule.conditions + KeywordHideCondition(id = newConditionIdentifier, keyword = ""),
+                )
+            }
+        }
+    }
+
+    /** 규칙에서 조건 하나를 지운다. */
+    suspend fun removeKeywordHideRuleCondition(ruleId: Long, conditionId: Long) =
+        editKeywordHideRules { currentRules ->
+            currentRules.map { rule ->
+                if (rule.id != ruleId) {
+                    rule
+                } else {
+                    rule.copy(
+                        conditions = rule.conditions.filterNot { it.id == conditionId },
+                    )
+                }
+            }
+        }
+
+    /**
+     * 조건의 단어를 바꾼다. 입력 중 임시값(공백 포함)도 그대로 저장해 라운드트립이
+     * 무손실이다 — trim은 매칭 판정 시점(KeywordHideRule.matchesEvent)에만 한다.
+     */
+    suspend fun updateKeywordHideRuleConditionKeyword(
+        ruleId: Long,
+        conditionId: Long,
+        keyword: String,
+    ) = editKeywordHideRules { currentRules ->
+        currentRules.map { rule ->
+            if (rule.id != ruleId) {
+                rule
+            } else {
+                rule.copy(
+                    conditions = rule.conditions.map { condition ->
+                        if (condition.id != conditionId) {
+                            condition
+                        } else {
+                            condition.copy(keyword = keyword)
+                        }
+                    },
+                )
+            }
         }
     }
 

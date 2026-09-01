@@ -111,6 +111,7 @@ class CalendarReader(private val context: Context) {
                 CalendarContract.Instances.ALL_DAY,
                 CalendarContract.Instances.EVENT_LOCATION,
                 CalendarContract.Instances.CALENDAR_COLOR,
+                CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
             ),
             /* selection = */ selectionFilters.joinToString(" AND "),
             /* selectionArgs = */ selectionValues.toTypedArray(),
@@ -126,6 +127,8 @@ class CalendarReader(private val context: Context) {
                 cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_LOCATION)
             val calendarColorColumnIndex =
                 cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_COLOR)
+            val calendarDisplayNameColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_DISPLAY_NAME)
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = cursor.getLong(endColumnIndex)
@@ -137,6 +140,8 @@ class CalendarReader(private val context: Context) {
                     isAllDay = cursor.getInt(allDayColumnIndex) != 0,
                     location = cursor.getString(locationColumnIndex),
                     calendarColor = cursor.getInt(calendarColorColumnIndex),
+                    calendarDisplayName =
+                        cursor.getString(calendarDisplayNameColumnIndex).orEmpty(),
                 )
                 // 창 시작 전에 완전히 끝난 일정은 표시 창과 안 겹치므로 제외한다.
                 // 창이 지금을 지나면(시작 ≤ now) 이 조건은 진행 중·예정 일정만 남긴다.
@@ -225,6 +230,7 @@ class CalendarReader(private val context: Context) {
                 CalendarContract.Events.ALL_DAY,
                 CalendarContract.Events.EVENT_LOCATION,
                 CalendarContract.Events.CALENDAR_COLOR,
+                CalendarContract.Events.CALENDAR_DISPLAY_NAME,
             ),
             /* selection = */ selectionFilters.joinToString(" AND "),
             /* selectionArgs = */ selectionValues.toTypedArray(),
@@ -240,6 +246,8 @@ class CalendarReader(private val context: Context) {
                 cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION)
             val calendarColorColumnIndex =
                 cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_COLOR)
+            val calendarDisplayNameColumnIndex =
+                cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_DISPLAY_NAME)
             while (cursor.moveToNext()) {
                 val beginTimeMilliseconds = cursor.getLong(beginColumnIndex)
                 val endTimeMilliseconds = resolveUnsyncedEventEndTime(
@@ -255,6 +263,8 @@ class CalendarReader(private val context: Context) {
                     isAllDay = cursor.getInt(allDayColumnIndex) != 0,
                     location = cursor.getString(locationColumnIndex),
                     calendarColor = cursor.getInt(calendarColorColumnIndex),
+                    calendarDisplayName =
+                        cursor.getString(calendarDisplayNameColumnIndex).orEmpty(),
                 )
                 // Instances 경로와 같은 이유로 보정된 종료 판정 시각으로 비교한다.
                 if (entry.finishTimeMilliseconds <= searchStartMilliseconds) continue

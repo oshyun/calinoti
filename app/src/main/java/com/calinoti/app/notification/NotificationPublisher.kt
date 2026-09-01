@@ -17,7 +17,9 @@ import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
+import com.calinoti.app.data.KeywordHideRule
 import com.calinoti.app.data.NotificationSpacing
+import com.calinoti.app.data.hidesEventAnywhere
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.scheduling.NotificationRefreshReceiver
 import java.time.Instant
@@ -73,6 +75,7 @@ class NotificationPublisher(
         listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
+        keywordHideRules: List<KeywordHideRule>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -88,6 +91,7 @@ class NotificationPublisher(
             listEntries,
             collapsedHiddenItemTypes,
             expandedHiddenItemTypes,
+            keywordHideRules,
             maxVisibleEntries,
             notificationTextSizeSp,
             allDayEventTextSizeSp,
@@ -105,6 +109,7 @@ class NotificationPublisher(
         listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
+        keywordHideRules: List<KeywordHideRule>,
         maxVisibleEntries: Int,
         notificationTextSizeSp: Int,
         allDayEventTextSizeSp: Int,
@@ -115,18 +120,20 @@ class NotificationPublisher(
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
     ): Notification {
-        // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙 집합을 받는다 — 두 규칙은 서로 독립이며,
-        // 어느 쪽이든 빈 집합이면 감춤 없이 전부 표시한다(필터는 빈 집합에서 멱등하다).
+        // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙(하루종일 상태 집합·키워드 규칙)을 받는다 —
+        // 두 규칙은 서로 독립이며, 어느 쪽이든 비어 있으면 감춤 없이 전부 표시한다(필터는
+        // 빈 규칙에서 멱등하다).
         return NotificationCompat.Builder(context, EVENTS_CHANNEL_ID)
             .setSmallIcon(smallIconResourceIdFor(currentTimeMilliseconds))
             .applyHeaderContent(
-                findNextUpcomingEvent(listEntries, currentTimeMilliseconds),
+                findNextUpcomingEvent(listEntries, keywordHideRules, currentTimeMilliseconds),
                 currentTimeMilliseconds,
             )
             .setCustomContentView(
                 remoteViewsFactory.createCollapsedViews(
                     listEntries,
                     collapsedHiddenItemTypes,
+                    keywordHideRules,
                     eventClickTargetPackageName,
                     spacing,
                     notificationTextSizeSp,
@@ -139,6 +146,7 @@ class NotificationPublisher(
                 remoteViewsFactory.createExpandedViews(
                     listEntries,
                     expandedHiddenItemTypes,
+                    keywordHideRules,
                     maxVisibleEntries,
                     eventClickTargetPackageName,
                     spacing,
@@ -203,18 +211,23 @@ class NotificationPublisher(
 
     /**
      * 아직 시작하지 않은 첫 일정. 종일 일정은 시작이 UTC 자정이라 카운트다운 대상에서 뺀다.
-     * 접힌 뷰 감춤 설정과 무관하게 항상 원본 목록에서 찾는다 — 종일 일정이 애초 대상이 아니라
-     * 감춰진 종일 일정이 시스템 헤더(subText)로 새어 나갈 일도 없다.
+     * 접힌·펼친 뷰의 감춤 설정과 무관하게 원본 목록에서 찾되, 키워드 규칙에 걸린 일정은
+     * 제외한다 — 감춰진 시간 있는 일정의 제목이 시스템 헤더(subText·카운트다운)로 새어
+     * 나가면 감춤이 무의미해진다. 하루종일 상태 감춤은 대상이 종일 일정뿐이라 여기서
+     * 걸릴 일이 없어 별도로 보지 않는다.
      */
     private fun findNextUpcomingEvent(
         listEntries: List<EventListEntry>,
+        keywordHideRules: List<KeywordHideRule>,
         currentTimeMilliseconds: Long,
     ): EventEntry? =
         listEntries
             .filterIsInstance<EventListEntry.Event>()
             .map { it.entry }
             .firstOrNull { entry ->
-                !entry.isAllDay && entry.beginTimeMilliseconds > currentTimeMilliseconds
+                !entry.isAllDay &&
+                    entry.beginTimeMilliseconds > currentTimeMilliseconds &&
+                    !keywordHideRules.hidesEventAnywhere(entry)
             }
 
     /**
