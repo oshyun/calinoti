@@ -35,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -90,6 +91,8 @@ import com.calinoti.app.R
 import com.calinoti.app.data.AppLocaleController
 import com.calinoti.app.data.CalendarAppReader
 import com.calinoti.app.data.CalendarReader
+import com.calinoti.app.data.decodeUserPreferencesBackup
+import com.calinoti.app.data.encodeUserPreferencesBackup
 import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListBuilder
 import com.calinoti.app.data.EventListEntry
@@ -98,6 +101,8 @@ import com.calinoti.app.data.InstalledCalendarApp
 import com.calinoti.app.data.KeywordHideCondition
 import com.calinoti.app.data.KeywordHideRule
 import com.calinoti.app.data.NotificationSpacing
+import com.calinoti.app.data.toExportedUserPreferences
+import com.calinoti.app.data.toUserPreferences
 import com.calinoti.app.data.UserCalendar
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.data.UserPreferencesRepository
@@ -106,13 +111,16 @@ import com.calinoti.app.notification.NotificationViewsFactory
 import com.calinoti.app.update.AppUpdateController
 import com.calinoti.app.update.UpdateUiState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
 /**
@@ -250,6 +258,83 @@ fun CalendarStatusScreen(
         coroutineScope.launch { update() }
     }
 
+    // 설정 내보내기·가져오기의 진행·결과 상태. 결과는 섹션 안에 한 줄 메시지로 보여준다.
+    var lastBackupResult by remember { mutableStateOf<BackupResult?>(null) }
+    var isBackupRunning by remember { mutableStateOf(false) }
+    // 파일을 읽어 검증까지 끝낸 가져오기 대기값. null은 대기 중이 아님을 뜻한다.
+    var pendingImportedPreferences by remember { mutableStateOf<UserPreferences?>(null) }
+
+    /** 현재 설정을 사용자가 고른 파일에 YAML로 쓴다. */
+    fun exportSettingsTo(targetFileUri: Uri) {
+        coroutineScope.launch {
+            isBackupRunning = true
+            try {
+                val currentPreferences = userPreferencesRepository.userPreferences.first()
+                val exportedSettings = currentPreferences.toExportedUserPreferences(
+                    exportedAtUtc = Instant.now(),
+                    appVersionName = installedVersionName,
+                )
+                val exportedYamlText = encodeUserPreferencesBackup(exportedSettings)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(targetFileUri)
+                        ?.use { outputStream -> outputStream.write(exportedYamlText.toByteArray()) }
+                        ?: throw IOException("대상 파일을 열 수 없습니다")
+                }
+                lastBackupResult = BackupResult(
+                    messageResourceId = R.string.settings_backup_export_success,
+                    isFailure = false,
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (runtimeError: Exception) {
+                lastBackupResult = BackupResult(
+                    messageResourceId = R.string.settings_backup_export_failure_format,
+                    isFailure = true,
+                    failureDetail = runtimeError.message ?: runtimeError.javaClass.simpleName,
+                )
+            } finally {
+                isBackupRunning = false
+            }
+        }
+    }
+
+    /** 가져올 파일을 읽고 검증한다. 적용은 확인 다이얼로그를 통과한 뒤다. */
+    fun readImportedSettings(sourceFileUri: Uri) {
+        coroutineScope.launch {
+            isBackupRunning = true
+            try {
+                val importedPreferences = withContext(Dispatchers.IO) {
+                    val fileContent = context.contentResolver.openInputStream(sourceFileUri)
+                        ?.use { inputStream -> inputStream.readBytes().toString(Charsets.UTF_8) }
+                        ?: throw IOException("파일을 열 수 없습니다")
+                    decodeUserPreferencesBackup(fileContent).toUserPreferences()
+                }
+                pendingImportedPreferences = importedPreferences
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (runtimeError: Exception) {
+                lastBackupResult = BackupResult(
+                    messageResourceId = R.string.settings_backup_import_failure_format,
+                    isFailure = true,
+                    failureDetail = runtimeError.message ?: runtimeError.javaClass.simpleName,
+                )
+            } finally {
+                isBackupRunning = false
+            }
+        }
+    }
+
+    val exportSettingsLauncher = rememberLauncherForActivityResult(
+        // 파일 관리 앱의 "새 파일 만들기"로 위치·이름을 사용자가 정한다. 결과 Uri는 이 화면이
+        // 살아 있는 동안만 쓸 수 있어 곧바로 쓴다(영구 권한 불필요).
+        ActivityResultContracts.CreateDocument("application/yaml"),
+    ) { createdFileUri -> if (createdFileUri != null) exportSettingsTo(createdFileUri) }
+
+    val importSettingsLauncher = rememberLauncherForActivityResult(
+        // YAML의 MIME 등록이 기기마다 달라 필터를 두면 파일이 아예 안 보이는 기기가 있다.
+        ActivityResultContracts.OpenDocument(),
+    ) { selectedFileUri -> if (selectedFileUri != null) readImportedSettings(selectedFileUri) }
+
     // 권한이 누락됐는지. 알림 권한은 런타임 요청 대상이 아닌 버전(Android 12 이하)에서는
     // 시스템이 부여하므로 검사 대상에서 뺀다.
     val hasMissingPermissions = !hasCalendarPermission ||
@@ -271,6 +356,7 @@ fun CalendarStatusScreen(
     var isNotificationClickActionSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isMiscSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isLanguageSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isBackupSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isAppInfoSectionExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 권한이 새로 누락되면 접힘을 무시하고 펼친다 — 권한 안내는 경보 성격이라 사용자 조작보다 우선한다.
@@ -1091,6 +1177,62 @@ fun CalendarStatusScreen(
             }
         }
 
+        // 설정 내보내기·가져오기. 권한이 필요 없고 모든 설정을 한 번에 다루는 관리 기능이라
+        // 권한 게이트 밖, 마지막 섹션(앱 정보) 앞에 둔다.
+        Spacer(Modifier.height(12.dp))
+        CollapsibleSection(
+            title = stringResource(R.string.settings_section_backup),
+            summary = stringResource(R.string.settings_section_backup_summary),
+            isExpanded = isBackupSectionExpanded,
+            onToggleExpanded = { isBackupSectionExpanded = !isBackupSectionExpanded },
+        ) {
+            Text(
+                text = stringResource(R.string.settings_backup_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = { exportSettingsLauncher.launch("calinoti-settings.yaml") },
+                enabled = !isBackupRunning,
+            ) {
+                Text(stringResource(R.string.settings_backup_export_button))
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = { importSettingsLauncher.launch(arrayOf("*/*")) },
+                enabled = !isBackupRunning,
+            ) {
+                Text(stringResource(R.string.settings_backup_import_button))
+            }
+            if (isBackupRunning) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.settings_backup_in_progress),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // 성공·실패 한 줄 결과. 실패는 오류색으로 내보내 색으로도 구분된다(업데이트 섹션과 같은 규칙).
+            val shownBackupResult = lastBackupResult
+            if (shownBackupResult != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = shownBackupResult.failureDetail
+                        ?.let { failureDetailText ->
+                            stringResource(shownBackupResult.messageResourceId, failureDetailText)
+                        }
+                        ?: stringResource(shownBackupResult.messageResourceId),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (shownBackupResult.isFailure) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+
         // 권한 여부와 무관하게 설치된 빌드를 확인할 수 있게 한다.
         Spacer(Modifier.height(12.dp))
         CollapsibleSection(
@@ -1119,7 +1261,44 @@ fun CalendarStatusScreen(
             )
         }
     }
+
+    // 파일을 읽어 검증까지 끝낸 뒤에만 뜬다. 적용은 파일 값으로 전부 교체라 되돌릴 수 없으므로
+    // 한 단계의 확인을 둔다.
+    pendingImportedPreferences?.let { importedPreferences ->
+        AlertDialog(
+            onDismissRequest = { pendingImportedPreferences = null },
+            title = { Text(stringResource(R.string.settings_backup_import_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_backup_import_confirm_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImportedPreferences = null
+                    updatePreferences {
+                        userPreferencesRepository.importPreferences(importedPreferences)
+                        lastBackupResult = BackupResult(
+                            messageResourceId = R.string.settings_backup_import_success,
+                            isFailure = false,
+                        )
+                    }
+                }) {
+                    Text(stringResource(R.string.settings_backup_import_confirm_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImportedPreferences = null }) {
+                    Text(stringResource(R.string.settings_backup_cancel_button))
+                }
+            },
+        )
+    }
 }
+
+/** 내보내기·가져오기 한 번의 결과. 섹션 안에 한 줄 메시지로 보여준다. */
+private data class BackupResult(
+    val messageResourceId: Int,
+    val isFailure: Boolean,
+    /** 실패 원인의 기술적 상세(예외 메시지). 사용자 안내용이 아니라 원인 파악용이다. */
+    val failureDetail: String? = null,
+)
 
 @Composable
 private fun UpdateCheckSection(
