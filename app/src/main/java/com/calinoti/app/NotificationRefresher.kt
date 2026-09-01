@@ -53,7 +53,6 @@ class NotificationRefresher(
                     isNotificationPinned = preferences.isNotificationPinned,
                     dayHeaderFormatPattern = preferences.dayHeaderFormatPattern,
                     currentTimeMilliseconds = currentTimeMilliseconds,
-                    backgroundColors = preferences.notificationBackgroundColors,
                 )
                 imminentEventNotifier.refresh(
                     listEntries = listEntries,
