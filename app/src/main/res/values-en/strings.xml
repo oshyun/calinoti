@@ -163,6 +163,22 @@
     <string name="notification_update_interval_hint">Reads the notification content again at the set interval. Updates at event start/end times and at midnight happen regardless of this setting. In power saving mode the system may limit updates to at least 15-minute intervals.</string>
     <string name="notification_update_interval_invalid_message">Enter a value between 10 and 1440 minutes (24 hours)</string>
 
+    <!-- Settings file export & import. Language is excluded: the system (per-app language) stores it. -->
+    <string name="settings_section_backup">Export &amp; import settings</string>
+    <string name="settings_section_backup_summary">Save settings to a YAML file or restore them</string>
+    <string name="settings_backup_description">Export all current settings to a YAML file, or restore them from a previously exported file. Importing replaces every setting with the values in the file. Language is not included, and calendar IDs in the selection may point to different calendars on another device.</string>
+    <string name="settings_backup_export_button">Export to YAML file</string>
+    <string name="settings_backup_import_button">Import from YAML file</string>
+    <string name="settings_backup_in_progress">Working…</string>
+    <string name="settings_backup_export_success">Settings exported</string>
+    <string name="settings_backup_export_failure_format">Failed to export settings (%1$s)</string>
+    <string name="settings_backup_import_success">Settings imported</string>
+    <string name="settings_backup_import_failure_format">Failed to import settings (%1$s)</string>
+    <string name="settings_backup_import_confirm_title">Import settings</string>
+    <string name="settings_backup_import_confirm_message">All current settings will be replaced with the ones in this file. Your current settings are lost until you export them again. Continue?</string>
+    <string name="settings_backup_import_confirm_button">Import</string>
+    <string name="settings_backup_cancel_button">Cancel</string>
+
     <string name="settings_section_app_info">App info</string>
     <string name="settings_section_app_info_summary">Version check &amp; updates</string>
 

@@ -247,6 +247,10 @@ private fun Preferences.parseKeywordHideRules(): List<KeywordHideRule> =
         }
         ?: emptyList()
 
+/** 규칙 목록을 저장용 JSON으로 직렬화한다. 규칙 쓰기 경로 전부가 이 한 곳을 쓴다. */
+private fun encodeKeywordHideRules(keywordHideRules: List<KeywordHideRule>): String =
+    keywordHideRulesJsonFormat.encodeToString(keywordHideRules)
+
 /**
  * 규칙 ID와 조건 ID가 공유하는 다음 식별자(전역 max + 1). 두 종의 ID가 겹치면 Compose
  * key 충돌·편집 매핑 오류가 나므로 한 공간에서 발급한다.
@@ -257,6 +261,29 @@ private fun List<KeywordHideRule>.findNextKeywordHideIdentifier(): Long {
         maxOfOrNull { rule -> rule.conditions.maxOfOrNull { it.id } ?: 0L } ?: 0L
     return maxOf(maxRuleIdentifier, maxConditionIdentifier) + 1
 }
+
+/**
+ * 가져온 규칙의 ID를 새로 발급한다. 규칙과 조건이 한 공간을 공유하므로 발급 규칙
+ * (findNextKeywordHideIdentifier)을 그대로 따른다 — 두 종의 ID가 겹치면 Compose key
+ * 충돌·편집 매핑 오류가 난다. 규칙 목록을 통째로 교체하는 가져오기에서만 쓴다.
+ */
+private fun reassignKeywordHideIdentifiers(
+    importedRules: List<KeywordHideRule>,
+): List<KeywordHideRule> =
+    importedRules.fold(emptyList()) { renumberedRules, importedRule ->
+        val newRuleIdentifier = renumberedRules.findNextKeywordHideIdentifier()
+        renumberedRules + KeywordHideRule(
+            id = newRuleIdentifier,
+            conditions = importedRule.conditions.mapIndexed { conditionIndex, importedCondition ->
+                KeywordHideCondition(
+                    id = newRuleIdentifier + 1 + conditionIndex,
+                    keyword = importedCondition.keyword,
+                )
+            },
+            isHiddenWhenCollapsed = importedRule.isHiddenWhenCollapsed,
+            isHiddenWhenExpanded = importedRule.isHiddenWhenExpanded,
+        )
+    }
 
 private val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "user_preferences",
@@ -409,9 +436,7 @@ class UserPreferencesRepository(private val context: Context) {
     ) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[KEYWORD_HIDE_RULES_KEY] =
-                keywordHideRulesJsonFormat.encodeToString(
-                    transform(storedPreferences.parseKeywordHideRules()),
-                )
+                encodeKeywordHideRules(transform(storedPreferences.parseKeywordHideRules()))
         }
     }
 
@@ -561,6 +586,58 @@ class UserPreferencesRepository(private val context: Context) {
             storedPreferences[BETWEEN_EVENTS_SPACING_KEY] = spacing.betweenEventsSpacingDp
             storedPreferences[BETWEEN_DAY_HEADERS_SPACING_KEY] = spacing.betweenDayHeadersSpacingDp
             storedPreferences[TIME_TO_TITLE_SPACING_KEY] = spacing.timeToTitleSpacingDp
+        }
+    }
+
+    /**
+     * 모든 설정을 한 번의 쓰기로 교체한다. 설정 파일 가져오기(스냅샷 복원)에서만 쓴다.
+     * 규칙 JSON을 여기서 직접 쓰는 것은 editKeywordHideRules의 유일한 예외다 — 규칙과
+     * 나머지 설정이 같은 트랜잭션에 담겨야 복원이 원자적이고, ID 재발급도 이 한 곳에서 끝난다.
+     */
+    suspend fun importPreferences(preferences: UserPreferences) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            // 캘린더 선택은 "키가 없으면 모든 캘린더"라서 null일 때는 키를 지운다.
+            // 빈 집합은 ""(선택 없음)으로 쓴다 — 두 상태의 구분을 저장까지 그대로 옮긴다.
+            val importedCalendarIds = preferences.selectedCalendarIds
+            if (importedCalendarIds == null) {
+                storedPreferences.remove(SELECTED_CALENDAR_IDS_KEY)
+            } else {
+                storedPreferences[SELECTED_CALENDAR_IDS_KEY] =
+                    importedCalendarIds.joinToString(SELECTED_CALENDAR_IDS_SEPARATOR)
+            }
+            storedPreferences[WINDOW_START_DAYS_KEY] = preferences.windowStartDays
+            storedPreferences[WINDOW_END_DAYS_KEY] = preferences.windowEndDays
+            storedPreferences[MAX_VISIBLE_ENTRIES_KEY] = preferences.maxVisibleEntries
+            storedPreferences[NOTIFICATION_TEXT_SIZE_KEY] = preferences.notificationTextSizeSp
+            storedPreferences[ALL_DAY_EVENT_TEXT_SIZE_KEY] = preferences.allDayEventTextSizeSp
+            storedPreferences[EVENT_CLICK_TARGET_PACKAGE_NAME_KEY] =
+                preferences.eventClickTargetPackageName
+            storedPreferences[NOTIFICATION_CLICK_TARGET_PACKAGE_NAME_KEY] =
+                preferences.notificationClickTargetPackageName
+            storedPreferences[NOTIFICATION_PINNED_KEY] = preferences.isNotificationPinned
+            storedPreferences[IMMINENT_LIVE_NOTIFICATION_KEY] =
+                preferences.isImminentLiveNotificationEnabled
+            storedPreferences[HIDDEN_ITEM_TYPES_COLLAPSED_KEY] =
+                preferences.collapsedHiddenItemTypes.map(HiddenItemType::name).toSet()
+            storedPreferences[HIDDEN_ITEM_TYPES_EXPANDED_KEY] =
+                preferences.expandedHiddenItemTypes.map(HiddenItemType::name).toSet()
+            storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY] = preferences.dayHeaderFormatPattern
+            storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY] =
+                preferences.notificationUpdateIntervalMinutes
+            storedPreferences[OUTER_VERTICAL_PADDING_KEY] =
+                preferences.notificationSpacing.outerVerticalPaddingDp
+            storedPreferences[DAY_HEADER_START_PADDING_KEY] =
+                preferences.notificationSpacing.dayHeaderStartPaddingDp
+            storedPreferences[DAY_HEADER_TO_EVENT_SPACING_KEY] =
+                preferences.notificationSpacing.dayHeaderToEventSpacingDp
+            storedPreferences[BETWEEN_EVENTS_SPACING_KEY] =
+                preferences.notificationSpacing.betweenEventsSpacingDp
+            storedPreferences[BETWEEN_DAY_HEADERS_SPACING_KEY] =
+                preferences.notificationSpacing.betweenDayHeadersSpacingDp
+            storedPreferences[TIME_TO_TITLE_SPACING_KEY] =
+                preferences.notificationSpacing.timeToTitleSpacingDp
+            storedPreferences[KEYWORD_HIDE_RULES_KEY] =
+                encodeKeywordHideRules(reassignKeywordHideIdentifiers(preferences.keywordHideRules))
         }
     }
 }
