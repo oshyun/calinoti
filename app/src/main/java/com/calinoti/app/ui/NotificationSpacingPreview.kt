@@ -3,6 +3,7 @@ package com.calinoti.app.ui
 import android.content.Context
 import android.view.ViewGroup
 import android.widget.RemoteViews
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,12 +12,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.calinoti.app.R
 import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
-import com.calinoti.app.data.NotificationBackgroundColors
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.notification.NotificationViewsFactory
 import java.time.Instant
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit
 /**
  * 알림 여백 설정 섹션에 보여줄 미리보기. 실제 알림을 만드는 같은 조립 경로
  * ([NotificationViewsFactory.createPreviewViews])가 그린 뷰를 그대로 인플레이트하므로,
- * 여기서 보이는 배열·배경색이 곧 알림의 모습이다. 각 슬라이더 값을 바꾸면 저장과 무관하게
+ * 여기서 보이는 배열이 곧 알림의 배열이다. 각 슬라이더 값을 바꾸면 저장과 무관하게
  * [spacing]에 즉시 반영된다.
  */
 @Composable
@@ -37,7 +38,6 @@ internal fun NotificationSpacingPreview(
     allDayEventTextSizeSp: Int,
     dayHeaderFormatPattern: String,
     remoteViewsFactory: NotificationViewsFactory,
-    backgroundColors: NotificationBackgroundColors,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -55,7 +55,6 @@ internal fun NotificationSpacingPreview(
         notificationTextSizeSp,
         allDayEventTextSizeSp,
         dayHeaderFormatPattern,
-        backgroundColors,
     ) {
         remoteViewsFactory.createPreviewViews(
             listEntries = sampleEntries,
@@ -64,16 +63,16 @@ internal fun NotificationSpacingPreview(
             allDayEventTextSizeSp = allDayEventTextSizeSp,
             dayHeaderFormatPattern = dayHeaderFormatPattern,
             currentTimeMilliseconds = previewTimeMilliseconds,
-            backgroundColors = backgroundColors,
         )
     }
-    // 카드 배경색은 조립된 뷰가 실제 알림과 같은 경로로 직접 칠한다(resolveCardBackgroundArgb).
-    // 이 Box는 실제 알림 카드처럼 모서리를 깎는 클리핑만 담당한다 — 앱 화면은 항상 라이트
-    // 스킴(Theme.kt)이라 배경색을 컬러롤로 입히면 다크 모드에서 실제 알림과 어긋난다.
+    // 실제 알림은 시스템이 카드 배경을 그린다. 여기서는 그 근사치를 입히는데, 색은 알림
+    // 텍스트 색처럼 시스템 night 마스크를 따른다 — 앱 화면은 항상 라이트 스킴(Theme.kt)이라
+    // colorScheme을 쓰면 다크 모드에서 흰 글씨가 흰 배경에 묻힌다.
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp)),
+            .clip(RoundedCornerShape(16.dp))
+            .background(colorResource(R.color.notification_preview_card_background)),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxWidth(),

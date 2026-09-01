@@ -1,9 +1,7 @@
 package com.calinoti.app.ui
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -82,7 +80,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import android.os.LocaleList
@@ -633,40 +630,6 @@ fun CalendarStatusScreen(
                     allDayEventTextSizeSp = effectiveAllDayEventTextSizeSp,
                     dayHeaderFormatPattern = userPreferences.dayHeaderFormatPattern,
                     remoteViewsFactory = remoteViewsFactory,
-                    backgroundColors = userPreferences.notificationBackgroundColors,
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.notification_background_label),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(R.string.notification_background_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(4.dp))
-                NotificationBackgroundColorRow(
-                    themeLabelResourceId = R.string.notification_background_light_label,
-                    storedColorArgb = userPreferences.lightNotificationBackgroundArgb,
-                    isNightTheme = false,
-                    onColorChange = { colorArgb ->
-                        updatePreferences {
-                            userPreferencesRepository.updateLightNotificationBackgroundArgb(colorArgb)
-                        }
-                    },
-                )
-                Spacer(Modifier.height(12.dp))
-                NotificationBackgroundColorRow(
-                    themeLabelResourceId = R.string.notification_background_dark_label,
-                    storedColorArgb = userPreferences.darkNotificationBackgroundArgb,
-                    isNightTheme = true,
-                    onColorChange = { colorArgb ->
-                        updatePreferences {
-                            userPreferencesRepository.updateDarkNotificationBackgroundArgb(colorArgb)
-                        }
-                    },
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -1452,120 +1415,6 @@ private fun negateSignOfIntegerText(text: String): String = when {
 }
 
 /**
- * 알림 카드 배경색 설정 행 하나(라이트 또는 다크 테마). 현재 적용색 스와치와 HEX 입력
- * 필드, 기본값 복원 버튼을 보여준다. [storedColorArgb]가 null이면 사용자 지정이 없다는
- * 뜻으로 테마 기본값 리소스색(R.color.notification_card_background)을 적용색으로 쓰고
- * "기본값으로 지정" 버튼은 비활성이다. 유효한 HEX 입력만 저장한다.
- */
-@Composable
-private fun NotificationBackgroundColorRow(
-    themeLabelResourceId: Int,
-    storedColorArgb: Int?,
-    isNightTheme: Boolean,
-    onColorChange: (Int?) -> Unit,
-) {
-    val context = LocalContext.current
-    val defaultColorArgb = remember(isNightTheme) {
-        resolveColorForNightMode(
-            context = context,
-            isNightMode = isNightTheme,
-            colorResourceId = R.color.notification_card_background,
-        )
-    }
-    val appliedColorArgb = storedColorArgb ?: defaultColorArgb
-    // 저장값이 바뀌면(지정·복원 직후) 필드 텍스트를 저장 상태에 맞춘다. 저장 전의 임시
-    // 입력은 필드에만 남는다(IntegerSettingField와 같은 규칙).
-    var inputHexText by remember(storedColorArgb, defaultColorArgb) {
-        mutableStateOf(formatHexColorText(appliedColorArgb))
-    }
-    val parsedInputColorArgb = parseHexColorArgb(inputHexText)
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        // 스와치는 알림에서 실제로 그려질 색(지정색, 미지정이면 기본색)을 보여준다.
-        Box(
-            Modifier
-                .size(14.dp)
-                .background(Color(appliedColorArgb), CircleShape),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(themeLabelResourceId),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(
-            onClick = { onColorChange(null) },
-            enabled = storedColorArgb != null,
-        ) {
-            Text(stringResource(R.string.notification_background_use_default_button))
-        }
-    }
-    OutlinedTextField(
-        value = inputHexText,
-        onValueChange = { typedText ->
-            inputHexText = typedText
-            // 유효한 입력만 저장한다. 무효한 입력은 오류 문구만 보여주고 저장하지 않는다.
-            val typedColorArgb = parseHexColorArgb(typedText)
-            if (typedColorArgb != null && typedColorArgb != storedColorArgb) {
-                onColorChange(typedColorArgb)
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.notification_background_hex_field_label)) },
-        prefix = { Text("#") },
-        isError = parsedInputColorArgb == null,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-        supportingText = {
-            when {
-                parsedInputColorArgb == null -> Text(
-                    stringResource(R.string.notification_background_hex_invalid_message),
-                )
-                else -> Text(
-                    stringResource(
-                        R.string.notification_background_default_format,
-                        formatHexColorText(defaultColorArgb),
-                    ),
-                )
-            }
-        },
-    )
-}
-
-/**
- * [isNightMode]가 강제된 Configuration으로 리소스 색을 resolve한다. 설정 화면은 라이트
- * 스킴(Theme.kt)이라 화면 컬러롤로는 다크 기본 배경색을 보여줄 수 없기 때문에, 라이트·다크
- * 두 기본값을 각 행에 표시할 때 이 함수 하나로 강제 resolve한다.
- */
-private fun resolveColorForNightMode(
-    context: Context,
-    isNightMode: Boolean,
-    colorResourceId: Int,
-): Int {
-    val forcedConfiguration = Configuration(context.resources.configuration)
-    forcedConfiguration.uiMode =
-        (forcedConfiguration.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
-            (if (isNightMode) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
-    val forcedContext = context.createConfigurationContext(forcedConfiguration)
-    return ContextCompat.getColor(forcedContext, colorResourceId)
-}
-
-/**
- * 6자리 16진수 색 텍스트를 불투명 ARGB로 바꾼다. 앞의 "#"과 소문자는 허용하고, 글자수·
- * 문자가 어긋나면 null이다.
- */
-private fun parseHexColorArgb(hexText: String): Int? {
-    val normalizedHex = hexText.trim().removePrefix("#")
-    if (normalizedHex.length != HEX_COLOR_TEXT_LENGTH) return null
-    val rgbValue = normalizedHex.toLongOrNull(HEX_COLOR_RADIX) ?: return null
-    return (0xFF000000L or rgbValue).toInt()
-}
-
-/** ARGB 색을 필드에 보여줄 6자리 대문자 16진수("F4F4F4")로 바꾼다. */
-private fun formatHexColorText(colorArgb: Int): String =
-    String.format(Locale.US, "%06X", colorArgb and 0xFFFFFF)
-
-/**
  * 날짜 헤더 표시 형식을 고르는 프리셋 드롭다운과 직접 입력 필드. 저장 패턴 하나가 유일한
  * 출처라 두 입력이 서로를 따라간다 — 저장값이 프리셋 중 하나면 그 항목이, 아니면
  * 드롭다운에는 직접 입력이 선택된 것으로 보이고, 직접 입력은 저장값이 바뀔 때만 필드를
@@ -1878,7 +1727,3 @@ private fun HiddenItemType.descriptionResourceId(): Int = when (this) {
     HiddenItemType.ALL_DAY_UPCOMING -> R.string.hidden_item_upcoming_description
     HiddenItemType.ALL_DAY_FINISHED -> R.string.hidden_item_finished_description
 }
-
-// 배경색 HEX 입력의 형식. "#RRGGBB"의 색 자리 여섯 자리를 16진수로 받는다.
-private const val HEX_COLOR_TEXT_LENGTH = 6
-private const val HEX_COLOR_RADIX = 16

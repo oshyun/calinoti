@@ -92,15 +92,6 @@
     <string name="text_size_sp_format">%1$d sp</string>
     <string name="settings_display_preview_caption">미리보기</string>
     <string name="settings_display_preview_description">실제 알림과 같은 배열입니다. 아래 설정을 바꾸면 바로 반영됩니다. (표시 항목 수·감춤 설정은 반영하지 않습니다)</string>
-    <!-- 알림 카드 배경색. 라이트·다크 테마별로 따로 지정하며 미지정은 테마 기본값 리소스색을 쓴다. -->
-    <string name="notification_background_label">알림 배경색</string>
-    <string name="notification_background_description">알림 카드의 배경색입니다. 라이트·다크 테마마다 따로 지정합니다.</string>
-    <string name="notification_background_light_label">라이트 테마 배경색</string>
-    <string name="notification_background_dark_label">다크 테마 배경색</string>
-    <string name="notification_background_use_default_button">기본값으로 지정</string>
-    <string name="notification_background_hex_field_label">HEX 색상</string>
-    <string name="notification_background_hex_invalid_message">여섯 자리 16진수(0-9, A-F)로 입력하세요</string>
-    <string name="notification_background_default_format">기본값 #%1$s</string>
     <!-- 여백 미리보기의 표본 일정 제목·위치. 실제 데이터가 아니라 배열을 보여주는 표본이다. -->
     <string name="preview_sample_title_meeting">주간 회의</string>
     <string name="preview_sample_location_meeting">회의실 B</string>
