@@ -88,7 +88,22 @@ data class UserPreferences(
      * 길면 알람·갱신이 줄어 배터리를 아낀다.
      */
     val notificationUpdateIntervalMinutes: Int,
+    /**
+     * 알림 카드 배경색(라이트 테마, ARGB). null이면 사용자가 지정하지 않은 것으로 테마
+     * 기본값 리소스(R.color.notification_card_background)를 쓴다. 다크 테마는
+     * [darkNotificationBackgroundArgb]가 담당한다.
+     */
+    val lightNotificationBackgroundArgb: Int?,
+    /** 알림 카드 배경색(다크 테마, ARGB). null일 때의 규칙은 [lightNotificationBackgroundArgb]와 같다. */
+    val darkNotificationBackgroundArgb: Int?,
 ) {
+    /** 조립·미리보기 경로에 전달할 배경색 묶음. null 필드는 기본값 리소스로 resolve된다. */
+    val notificationBackgroundColors: NotificationBackgroundColors
+        get() = NotificationBackgroundColors(
+            lightThemeArgb = lightNotificationBackgroundArgb,
+            darkThemeArgb = darkNotificationBackgroundArgb,
+        )
+
     companion object {
         // 이보다 작으면 글자가 눈에 들어오지 않고, 크면 알림 창 높이를 넘친다.
         const val NOTIFICATION_TEXT_SIZE_MIN_SP = 8
@@ -130,6 +145,8 @@ data class UserPreferences(
             expandedHiddenItemTypes = emptySet(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
             notificationUpdateIntervalMinutes = 360,
+            lightNotificationBackgroundArgb = null,
+            darkNotificationBackgroundArgb = null,
         )
     }
 }
@@ -187,6 +204,11 @@ private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
 private val DAY_HEADER_FORMAT_PATTERN_KEY = stringPreferencesKey("day_header_format_pattern")
 private val NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY =
     intPreferencesKey("notification_update_interval_minutes")
+// 카드 배경색은 테마별로 독립 저장한다. 키가 없는 것(제거된 것)이 "미지정 = 기본값 리소스"다.
+private val NOTIFICATION_BACKGROUND_COLOR_LIGHT_KEY =
+    intPreferencesKey("notification_background_color_light")
+private val NOTIFICATION_BACKGROUND_COLOR_DARK_KEY =
+    intPreferencesKey("notification_background_color_dark")
 private val OUTER_VERTICAL_PADDING_KEY = intPreferencesKey("outer_vertical_padding_dp")
 private val DAY_HEADER_START_PADDING_KEY = intPreferencesKey("day_header_start_padding_dp")
 private val DAY_HEADER_TO_EVENT_SPACING_KEY = intPreferencesKey("day_header_to_event_spacing_dp")
@@ -301,6 +323,11 @@ class UserPreferencesRepository(private val context: Context) {
                         storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY]
                             ?.coerceIn(UserPreferences.NOTIFICATION_UPDATE_INTERVAL_RANGE_MINUTES)
                             ?: UserPreferences.DEFAULTS.notificationUpdateIntervalMinutes,
+                    // 키가 없으면 미지정(null) — 기본값 리소스로 그린다.
+                    lightNotificationBackgroundArgb =
+                        storedPreferences[NOTIFICATION_BACKGROUND_COLOR_LIGHT_KEY],
+                    darkNotificationBackgroundArgb =
+                        storedPreferences[NOTIFICATION_BACKGROUND_COLOR_DARK_KEY],
                 )
             }
 
@@ -392,10 +419,25 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationUpdateIntervalMinutes(intervalMinutes: Int) =
         updateStoredValue(NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY, intervalMinutes)
 
+    /** 알림 카드 배경색(라이트 테마). null이면 지정을 지워 기본값 리소스로 되돌린다. */
+    suspend fun updateLightNotificationBackgroundArgb(colorArgb: Int?) =
+        updateRemovableStoredValue(NOTIFICATION_BACKGROUND_COLOR_LIGHT_KEY, colorArgb)
+
+    /** 알림 카드 배경색(다크 테마). null이면 지정을 지워 기본값 리소스로 되돌린다. */
+    suspend fun updateDarkNotificationBackgroundArgb(colorArgb: Int?) =
+        updateRemovableStoredValue(NOTIFICATION_BACKGROUND_COLOR_DARK_KEY, colorArgb)
+
     /** 단일 키 설정값 하나를 저장한다. 위 갱신 메서드들이 공유하는 쓰기 한 줄이다. */
     private suspend fun <T> updateStoredValue(key: Preferences.Key<T>, value: T) {
         context.userPreferencesDataStore.edit { storedPreferences ->
             storedPreferences[key] = value
+        }
+    }
+
+    /** 지정을 지울 수 있는 단일 키 설정값 저장. null이면 키를 제거해 "미지정"으로 되돌린다. */
+    private suspend fun <T> updateRemovableStoredValue(key: Preferences.Key<T>, value: T?) {
+        context.userPreferencesDataStore.edit { storedPreferences ->
+            if (value == null) storedPreferences.remove(key) else storedPreferences[key] = value
         }
     }
 

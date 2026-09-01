@@ -90,6 +90,15 @@
     <string name="text_size_sp_format">%1$d sp</string>
     <string name="settings_display_preview_caption">Preview</string>
     <string name="settings_display_preview_description">Laid out exactly like the real notification. Changes below apply immediately. (Entry limits and hiding rules are not reflected)</string>
+    <!-- Notification card background color. Set separately per light/dark theme; unset falls back to the theme default resource color. -->
+    <string name="notification_background_label">Notification background</string>
+    <string name="notification_background_description">Background color of the notification card. Set separately for light and dark themes.</string>
+    <string name="notification_background_light_label">Light theme background</string>
+    <string name="notification_background_dark_label">Dark theme background</string>
+    <string name="notification_background_use_default_button">Use default</string>
+    <string name="notification_background_hex_field_label">HEX color</string>
+    <string name="notification_background_hex_invalid_message">Enter six hex digits (0-9, A-F)</string>
+    <string name="notification_background_default_format">Default #%1$s</string>
     <string name="preview_sample_title_meeting">Weekly meeting</string>
     <string name="preview_sample_location_meeting">Meeting room B</string>
     <string name="preview_sample_title_walk">Short walk</string>

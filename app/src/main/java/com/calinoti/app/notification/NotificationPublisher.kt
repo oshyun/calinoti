@@ -17,6 +17,7 @@ import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
+import com.calinoti.app.data.NotificationBackgroundColors
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.scheduling.NotificationRefreshReceiver
@@ -82,6 +83,7 @@ class NotificationPublisher(
         isNotificationPinned: Boolean,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ) {
         if (!hasNotificationPermission()) return
         val notification = buildEventListNotification(
@@ -97,6 +99,7 @@ class NotificationPublisher(
             isNotificationPinned,
             dayHeaderFormatPattern,
             currentTimeMilliseconds,
+            backgroundColors,
         )
         NotificationManagerCompat.from(context).notify(EVENT_LIST_NOTIFICATION_ID, notification)
     }
@@ -114,6 +117,7 @@ class NotificationPublisher(
         isNotificationPinned: Boolean,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ): Notification {
         // 접힌 뷰와 펼친 뷰는 각자의 감춤 규칙 집합을 받는다 — 두 규칙은 서로 독립이며,
         // 어느 쪽이든 빈 집합이면 감춤 없이 전부 표시한다(필터는 빈 집합에서 멱등하다).
@@ -133,6 +137,7 @@ class NotificationPublisher(
                     allDayEventTextSizeSp,
                     dayHeaderFormatPattern,
                     currentTimeMilliseconds,
+                    backgroundColors,
                 ),
             )
             .setCustomBigContentView(
@@ -146,6 +151,7 @@ class NotificationPublisher(
                     allDayEventTextSizeSp,
                     dayHeaderFormatPattern,
                     currentTimeMilliseconds,
+                    backgroundColors,
                 ),
             )
             // Android 14부터는 ongoing 알림도 스와이프로 지워진다. 고정이 켜져 있으면
