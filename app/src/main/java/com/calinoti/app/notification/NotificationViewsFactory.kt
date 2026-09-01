@@ -255,9 +255,10 @@ class NotificationViewsFactory(private val context: Context) {
                         COMPLEX_UNIT_SP,
                         secondaryTextSizeSp,
                     )
-                    dayGroupViews.applyViewFixedLayoutWidth(
+                    dayGroupViews.applyViewFixedSize(
                         R.id.day_header_text,
                         dayHeaderMaxWidthPx,
+                        heightPx = -1,
                     )
                     // 행의 시작 여백은 날짜 앞 여백이 담당하고, 오른쪽 여백은 항목 공통
                     // 여백(일정 열 폭을 줄여 제목 말줄임 지점을 만든다)이 담당한다.
@@ -341,16 +342,25 @@ class NotificationViewsFactory(private val context: Context) {
             topPaddingDp = 0,
             bottomPaddingDp = 0,
         )
-        // 시간 열 폭을 고정해 시각 글자수와 무관하게 제목이 같은 x에서 시작하게 한다.
-        itemViews.applyViewFixedLayoutWidth(R.id.event_time_text, eventTimeFixedWidthPx)
         if (entry.isAllDay) {
             // 종일 일정은 시각 텍스트만 숨기고 칸은 남긴다(GONE 대신 INVISIBLE) — 빈 시간
-            // 열만큼 들여써 제목을 시간 있는 일정의 제목과 같은 x에서 시작시킨다.
-            itemViews.setViewVisibility(R.id.event_time_text, View.INVISIBLE)
+            // 열만큼 들여써 제목을 시간 있는 일정의 제목과 같은 x에서 시작시킨다. 단 빈
+            // TextView도 자체 한 줄 높이를 가져 칸이 행 위아래 여백을 늘리므로(API 31+에서
+            // 측정 확인), 칸 높이를 0으로 내려 행 높이가 제목에만 좌우되게 한다.
+            // setViewLayoutHeight가 없는 API 31 미만은 칸 폭 고정 자체가 불가해 정렬
+            // 이점도 없으므로 기존처럼 GONE으로 칸을 없애 행 높이 변화가 없게 한다.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                itemViews.setViewVisibility(R.id.event_time_text, View.INVISIBLE)
+                itemViews.applyViewFixedSize(R.id.event_time_text, eventTimeFixedWidthPx, 0)
+            } else {
+                itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
+            }
         } else {
             itemViews.setViewVisibility(R.id.event_time_text, View.VISIBLE)
             itemViews.setTextViewText(R.id.event_time_text, formatTimeText(entry.beginTimeMilliseconds))
             itemViews.setTextViewTextSize(R.id.event_time_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
+            // 시간 칸 폭을 고정해 시각 글자수와 무관하게 제목이 같은 x에서 시작하게 한다.
+            itemViews.applyViewFixedSize(R.id.event_time_text, eventTimeFixedWidthPx, -1)
         }
         // 상대 시간 라벨은 그 일정 제목보다 2sp 작다. 종일 일정은 종일 제목 크기를 따른다.
         val relativeLabelTextSizeSp = titleTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP
@@ -530,17 +540,19 @@ class NotificationViewsFactory(private val context: Context) {
     }
 
     /**
-     * 뷰의 폭을 [widthPx]로 고정한다 — 내용 길이가 제각각이어도 고정 열 뒤의 내용이 같은
-     * x에서 시작하게 한다. 날짜 헤더 열과 일정 줄의 시간 열이 쓴다. LayoutParams의
-     * width만 바꾸므로 나머지 레이아웃 속성(weight 등)은 그대로 유지된다.
+     * 뷰의 LayoutParams 폭·높이를 px로 고정한다 — 내용 길이가 제각각이어도 고정 열 뒤의
+     * 내용이 같은 x에서 시작하게 하거나, 빈 칸이 행 높이에 기여하지 않게 한다. 날짜 헤더
+     * 열과 일정 줄의 시간 칸이 쓴다. 현재 값을 유지할 축에는 -1을 넘긴다. 나머지 레이아웃
+     * 속성(weight 등)은 그대로 유지된다.
      */
-    private fun RemoteViews.applyViewFixedLayoutWidth(viewId: Int, widthPx: Int) {
-        // QUIRK(remoteviews-layout-width): RemoteViews에서 뷰 폭을 바꾸는 공개 API는
-        //   setViewLayoutWidth(API 31)부터다. 그 전 버전은 레이아웃 XML의 wrap_content를
-        //   그대로 쓴다(내용 길이대로 폭이 변하는 기존 동작).
+    private fun RemoteViews.applyViewFixedSize(viewId: Int, widthPx: Int, heightPx: Int) {
+        // QUIRK(remoteviews-layout-size): RemoteViews에서 뷰 폭·높이를 바꾸는 공개 API는
+        //   setViewLayoutWidth·setViewLayoutHeight(API 31)부터다. 그 전 버전은 레이아웃
+        //   XML의 wrap_content를 그대로 쓴다(내용 길이대로 변하는 기존 동작).
         // QUIRK-REMOVE-WHEN: minSdk가 31 이상이 될 때
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        setViewLayoutWidth(viewId, widthPx.toFloat(), COMPLEX_UNIT_PX)
+        if (widthPx >= 0) setViewLayoutWidth(viewId, widthPx.toFloat(), COMPLEX_UNIT_PX)
+        if (heightPx >= 0) setViewLayoutHeight(viewId, heightPx.toFloat(), COMPLEX_UNIT_PX)
     }
 
     private fun createOpenEventPendingIntent(
