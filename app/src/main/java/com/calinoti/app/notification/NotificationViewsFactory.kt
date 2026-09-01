@@ -28,6 +28,7 @@ import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.HiddenItemType
+import com.calinoti.app.data.NotificationBackgroundColors
 import com.calinoti.app.data.NotificationSpacing
 import com.calinoti.app.data.UserPreferences
 import com.calinoti.app.ui.CalendarColorTone
@@ -56,6 +57,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ): RemoteViews = createEventListViews(
         filterHiddenEntries(listEntries, collapsedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = COLLAPSED_ITEM_LIMIT,
@@ -65,6 +67,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp = allDayEventTextSizeSp,
         dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
+        backgroundColors = backgroundColors,
     )
 
     /**
@@ -81,6 +84,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ): RemoteViews = createEventListViews(
         listEntries,
         itemLimit = Int.MAX_VALUE,
@@ -90,6 +94,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp = allDayEventTextSizeSp,
         dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
+        backgroundColors = backgroundColors,
     )
 
     /**
@@ -106,6 +111,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ): RemoteViews = createEventListViews(
         filterHiddenEntries(listEntries, expandedHiddenItemTypes, currentTimeMilliseconds),
         itemLimit = maxVisibleEntries,
@@ -115,6 +121,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp = allDayEventTextSizeSp,
         dayHeaderFormatPattern = dayHeaderFormatPattern,
         currentTimeMilliseconds = currentTimeMilliseconds,
+        backgroundColors = backgroundColors,
     )
 
     /**
@@ -193,6 +200,7 @@ class NotificationViewsFactory(private val context: Context) {
         allDayEventTextSizeSp: Int,
         dayHeaderFormatPattern: String,
         currentTimeMilliseconds: Long,
+        backgroundColors: NotificationBackgroundColors,
     ): RemoteViews {
         // 글자 크기는 레이아웃 xml이 아니라 이 설정값이 유일한 출처다. 종일 일정 제목은
         // 시간 있는 일정 제목 크기와 독립적인 설정값을 쓴다. 시각·위치·날짜 헤더는 시간
@@ -202,6 +210,14 @@ class NotificationViewsFactory(private val context: Context) {
         val secondaryTextSizeSp = (notificationTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP).toFloat()
         val rootViews = RemoteViews(context.packageName, R.layout.notification_list)
         rootViews.removeAllViews(R.id.notification_list_container)
+        // 카드 배경은 직접 그린다. One UI는 커스텀 뷰 알림 카드를 표준보다 연하게 합성해
+        // 다른 앱 카드와 밝기가 어긋나므로, 불투명 배경을 덧대 시스템 카드색을 가린다.
+        // 빈 목록(자리표시자)일 때도 같은 배경이 필요하므로 분기 전에 칠한다.
+        rootViews.setInt(
+            R.id.notification_list_container,
+            "setBackgroundColor",
+            resolveCardBackgroundArgb(backgroundColors),
+        )
         if (listEntries.isEmpty()) {
             val emptyViews = RemoteViews(context.packageName, R.layout.notification_item_empty)
             emptyViews.setTextViewTextSize(R.id.event_list_empty_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
@@ -453,6 +469,21 @@ class NotificationViewsFactory(private val context: Context) {
     private fun isSystemDarkTheme(): Boolean =
         (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
+
+    /**
+     * 카드 배경색. 사용자가 지정한 색이 있으면 그것, 아니면 현재 테마의 기본값 리소스색이다.
+     * 리소스 resolve도 앱 프로세스의 night mask를 따르므로([isSystemDarkTheme] 참조) 지정색과
+     * 기본색이 같은 기준의 테마에서 고른다.
+     */
+    private fun resolveCardBackgroundArgb(
+        backgroundColors: NotificationBackgroundColors,
+    ): Int {
+        val specifiedBackgroundArgb =
+            if (isSystemDarkTheme()) backgroundColors.darkThemeArgb
+            else backgroundColors.lightThemeArgb
+        return specifiedBackgroundArgb
+            ?: ContextCompat.getColor(context, R.color.notification_card_background)
+    }
 
     /** 일정 행 클릭 대상. 행을 눌렀을 때 무엇을 여는지 세 갈래로 나뉜다. */
     private sealed interface EventRowClickTarget {

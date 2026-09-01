@@ -2,5 +2,7 @@
 <resources>
     <color name="notification_text_secondary">#A6FFFFFF</color>
 
-    <color name="notification_preview_card_background">#FF1D1D1D</color>
+    <!-- 알림 카드 배경의 기본값(다크). 값은 다크 테마의 기본 알림 카드색이다(2026-09-01
+         One UI 실기기 캡처에서 픽셀 추출). 라이트 기본값과 출처는 values/colors.xml 참조. -->
+    <color name="notification_card_background">#515151</color>
 </resources>
