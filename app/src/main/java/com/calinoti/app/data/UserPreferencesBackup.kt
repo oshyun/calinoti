@@ -7,9 +7,13 @@ import java.time.Instant
 
 /** 설정 파일(YAML) 직렬화 형식의 단일 출처. 낯선 키(미래 버전이 남긴 것)는 무시하고 읽는다. */
 private val userPreferencesBackupYaml = Yaml(
-    // 기본값(true)은 낯선 키에서 예외를 던진다. 파일에 미래 버전의 키가 섞여 있어도 가져올 수
-    // 있게 해서 이 저장소의 "낯선 저장값은 버린다" 정책과 맞춘다.
-    configuration = YamlConfiguration(strictMode = false),
+    configuration = YamlConfiguration(
+        // 기본값(true)은 낯선 키에서 예외를 던진다. 파일에 미래 버전의 키가 섞여 있어도
+        // 가져올 수 있게 해서 이 저장소의 "낯선 저장값은 버린다" 정책과 맞춘다.
+        strictMode = false,
+        // 시퀀스 항목을 부모 키보다 2칸 들여써 계층이 보이게 한다(기본값 0은 키와 같은 칸).
+        sequenceBlockIndent = 2,
+    ),
 )
 
 /** 설정 전체를 YAML 파일 내용으로 직렬화한다. */

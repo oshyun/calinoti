@@ -178,6 +178,10 @@
     <string name="settings_backup_import_confirm_message">All current settings will be replaced with the ones in this file. Your current settings are lost until you export them again. Continue?</string>
     <string name="settings_backup_import_confirm_button">Import</string>
     <string name="settings_backup_cancel_button">Cancel</string>
+    <string name="settings_backup_export_preview_title">Export preview</string>
+    <string name="settings_backup_export_preview_message">The content below will be saved to a file. You choose the location and name on the next screen.</string>
+    <string name="settings_backup_save_button">Save</string>
+    <string name="settings_backup_import_file_content_label">File contents</string>
 
     <string name="settings_section_app_info">App info</string>
     <string name="settings_section_app_info_summary">Version check &amp; updates</string>
