@@ -33,6 +33,13 @@ class NotificationPublisher(
 ) {
 
     fun ensureNotificationChannel() {
+        // COMPAT(agenda-channel-rename): Agenda->Event 개명(commit f86b91a) 때 채널 ID가
+        //   "agenda"->"events"로 바뀌었다. 구버전에서 업데이트한 기기에는 고아 채널 "agenda"
+        //   (표시명 "일정")가 시스템 설정에 남아 새 채널과 나란히 보이므로 삭제해 정리한다.
+        //   v1.2.260902.161321 이후 버전에 추가.
+        // COMPAT-REMOVE-WHEN: "agenda" 채널이 생성되는 마지막 배포 버전 사용이 0%임을
+        //   확인한 뒤 최소 30일 경과 시
+        NotificationManagerCompat.from(context).deleteNotificationChannel(LEGACY_AGENDA_CHANNEL_ID)
         val channel = NotificationChannel(
             EVENTS_CHANNEL_ID,
             context.getString(R.string.notification_channel_name),
@@ -290,6 +297,9 @@ class NotificationPublisher(
 
     private companion object {
         const val EVENTS_CHANNEL_ID = "events"
+
+        // COMPAT(agenda-channel-rename): 개명 전에 쓰던 채널 ID. 고아 채널 정리에만 쓴다.
+        const val LEGACY_AGENDA_CHANNEL_ID = "agenda"
         const val EVENT_LIST_NOTIFICATION_ID = 1001
         const val CONTENT_REQUEST_CODE = 1002
         const val DISMISS_RESTORE_REQUEST_CODE = 1003
