@@ -727,6 +727,48 @@ fun CalendarStatusScreen(
                     )
                 }
 
+                // ── 연속 하루종일 일정 감추기 ────────────────────────────────
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.hide_long_all_day_events_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.hide_long_all_day_events_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.collapsed_hide_long_all_day_events_label,
+                    unitSuffixResourceId = R.string.days_unit_suffix,
+                    storedValue = userPreferences.collapsedHideAllDayEventMinimumDays,
+                    guidanceText = stringResource(R.string.hide_long_all_day_events_field_hint),
+                    invalidValueText = stringResource(R.string.hide_long_all_day_events_invalid_message),
+                    isValidValue = { minimumDays -> minimumDays >= 0 },
+                    onValidValueChange = { minimumDays ->
+                        updatePreferences {
+                            userPreferencesRepository.updateCollapsedHideAllDayEventMinimumDays(minimumDays)
+                        }
+                    },
+                )
+                Spacer(Modifier.height(12.dp))
+                IntegerSettingField(
+                    fieldLabelResourceId = R.string.expanded_hide_long_all_day_events_label,
+                    unitSuffixResourceId = R.string.days_unit_suffix,
+                    storedValue = userPreferences.expandedHideAllDayEventMinimumDays,
+                    guidanceText = stringResource(R.string.hide_long_all_day_events_field_hint),
+                    invalidValueText = stringResource(R.string.hide_long_all_day_events_invalid_message),
+                    isValidValue = { minimumDays -> minimumDays >= 0 },
+                    onValidValueChange = { minimumDays ->
+                        updatePreferences {
+                            userPreferencesRepository.updateExpandedHideAllDayEventMinimumDays(minimumDays)
+                        }
+                    },
+                )
+
                 // ── 단어로 감추기 ────────────────────────────────────────────
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()

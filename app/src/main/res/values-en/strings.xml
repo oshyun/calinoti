@@ -83,6 +83,14 @@
     <string name="hidden_item_finished_label">Hide past all-day events</string>
     <string name="hidden_item_finished_description">Hides all-day events that already ended. They appear only when the date range includes the past.</string>
 
+    <!-- Hide multi-day all-day events. Hides all-day events spanning N days or more separately for collapsed and expanded notifications (0 to disable). -->
+    <string name="hide_long_all_day_events_title">Hide multi-day all-day events</string>
+    <string name="hide_long_all_day_events_description">Hides all-day events that span the specified number of days or more. Set to 0 to keep them visible.</string>
+    <string name="collapsed_hide_long_all_day_events_label">Collapsed notification threshold</string>
+    <string name="expanded_hide_long_all_day_events_label">Expanded notification threshold</string>
+    <string name="hide_long_all_day_events_field_hint">Hides all-day events spanning N days or more. Set to 0 to keep them visible.</string>
+    <string name="hide_long_all_day_events_invalid_message">Enter a number of 0 or more</string>
+
     <!-- Keyword hiding rules. Conditions within a rule are ANDed; rules are ORed.
          A keyword matches either the event title or the calendar display name. -->
     <string name="keyword_hide_rules_title">Hide by keywords</string>

@@ -85,6 +85,14 @@
     <string name="hidden_item_finished_label">지난 하루종일 일정 감추기</string>
     <string name="hidden_item_finished_description">이미 끝난 하루종일 일정을 감춥니다. 표시 창에 과거가 포함될 때만 나타납니다.</string>
 
+    <!-- 연속 하루종일 일정 감추기. N일 이상 이어지는 종일 일정을 접힌/펼친 알림에서 각각 감춘다 (0이면 감추지 않음). -->
+    <string name="hide_long_all_day_events_title">연속 하루종일 일정 감추기</string>
+    <string name="hide_long_all_day_events_description">지정한 일수 이상 이어지는 하루종일 일정을 감춥니다. 0으로 설정하면 감추지 않습니다.</string>
+    <string name="collapsed_hide_long_all_day_events_label">접힌 알림에서 연속 감추기 기준</string>
+    <string name="expanded_hide_long_all_day_events_label">펼친 알림에서 연속 감추기 기준</string>
+    <string name="hide_long_all_day_events_field_hint">N일 이상 이어지는 하루종일 일정을 감춥니다. 0이면 감추지 않습니다.</string>
+    <string name="hide_long_all_day_events_invalid_message">0 이상의 수를 입력하세요</string>
+
     <!-- 단어 감춤 규칙. 규칙 안 조건은 AND, 규칙 간은 OR다. 단어는 제목 또는 캘린더명에 포함돼도 충족이다. -->
     <string name="keyword_hide_rules_title">단어로 감추기</string>
     <string name="keyword_hide_rules_description">일정 제목이나 캘린더 이름에 단어가 모두 포함된 일정을 감춥니다. 조건을 여러 개 추가하면 모두 포함된 일정만 감추고(AND), 여러 규칙은 어느 하나라도 걸리면 감춥니다(OR). 캘린더 이름을 조건에 쓰면 특정 캘린더의 일정만 감출 수 있습니다. 제목이 비어 있는 일정은 캘린더 이름으로만 걸립니다. 감춤 규칙은 임박 실시간 알림에도 적용됩니다.</string>

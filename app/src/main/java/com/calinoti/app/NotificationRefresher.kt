@@ -43,6 +43,8 @@ class NotificationRefresher(
                     listEntries = listEntries,
                     collapsedHiddenItemTypes = preferences.collapsedHiddenItemTypes,
                     expandedHiddenItemTypes = preferences.expandedHiddenItemTypes,
+                    collapsedHideAllDayEventMinimumDays = preferences.collapsedHideAllDayEventMinimumDays,
+                    expandedHideAllDayEventMinimumDays = preferences.expandedHideAllDayEventMinimumDays,
                     keywordHideRules = preferences.keywordHideRules,
                     maxVisibleEntries = preferences.maxVisibleEntries,
                     notificationTextSizeSp = preferences.notificationTextSizeSp,

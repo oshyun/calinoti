@@ -57,6 +57,7 @@ class NotificationViewsFactory(private val context: Context) {
     fun createCollapsedViews(
         listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
+        collapsedHideAllDayEventMinimumDays: Int,
         keywordHideRules: List<KeywordHideRule>,
         eventClickTargetPackageName: String,
         spacing: NotificationSpacing,
@@ -72,6 +73,7 @@ class NotificationViewsFactory(private val context: Context) {
                 currentTimeMilliseconds,
             )
             hiddenItemType in collapsedHiddenItemTypes ||
+                hidesLongAllDayEvent(entry, collapsedHideAllDayEventMinimumDays) ||
                 keywordHideRules.hidesEventInCollapsedView(entry)
         },
         itemLimit = COLLAPSED_ITEM_LIMIT,
@@ -115,6 +117,7 @@ class NotificationViewsFactory(private val context: Context) {
     fun createExpandedViews(
         listEntries: List<EventListEntry>,
         expandedHiddenItemTypes: Set<HiddenItemType>,
+        expandedHideAllDayEventMinimumDays: Int,
         keywordHideRules: List<KeywordHideRule>,
         maxVisibleEntries: Int,
         eventClickTargetPackageName: String,
@@ -131,6 +134,7 @@ class NotificationViewsFactory(private val context: Context) {
                 currentTimeMilliseconds,
             )
             hiddenItemType in expandedHiddenItemTypes ||
+                hidesLongAllDayEvent(entry, expandedHideAllDayEventMinimumDays) ||
                 keywordHideRules.hidesEventInExpandedView(entry)
         },
         itemLimit = maxVisibleEntries,
@@ -202,6 +206,13 @@ class NotificationViewsFactory(private val context: Context) {
             else -> HiddenItemType.ALL_DAY_IN_PROGRESS
         }
     }
+
+    /**
+     * 지정한 일수([minimumDays]) 이상 이어지는 종일 일정을 감출지 판정한다.
+     * [minimumDays]가 0 이하이거나 종일 일정이 아니면 감추지 않는다.
+     */
+    private fun hidesLongAllDayEvent(entry: EventEntry, minimumDays: Int): Boolean =
+        minimumDays > 0 && entry.isAllDay && entry.allDayDurationDays >= minimumDays
 
     private fun createEventListViews(
         listEntries: List<EventListEntry>,
