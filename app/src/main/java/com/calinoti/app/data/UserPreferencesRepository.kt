@@ -80,6 +80,16 @@ data class UserPreferences(
      */
     val expandedHiddenItemTypes: Set<HiddenItemType>,
     /**
+     * 접힌 알림에서 감출 연속 하루종일 일정의 최소 일수(N일 이상이면 감춤).
+     * 0이면 일수 기준 감춤을 적용하지 않는다.
+     */
+    val collapsedHideAllDayEventMinimumDays: Int,
+    /**
+     * 펼친 알림에서 감출 연속 하루종일 일정의 최소 일수(N일 이상이면 감춤).
+     * 0이면 일수 기준 감춤을 적용하지 않는다.
+     */
+    val expandedHideAllDayEventMinimumDays: Int,
+    /**
      * 제목·캘린더명 단어로 일정을 감추는 규칙 목록. 규칙 안 조건은 모두(AND) 충족돼야 하고
      * 규칙 간은 OR다. 매칭 판정은 [KeywordHideRule]을, 접힌·펼친 적용은
      * [hidesEventInCollapsedView]·[hidesEventInExpandedView]·[hidesEventAnywhere]를 본다.
@@ -145,6 +155,8 @@ data class UserPreferences(
                 HiddenItemType.ALL_DAY_UPCOMING,
                 HiddenItemType.ALL_DAY_FINISHED,
             ),
+            collapsedHideAllDayEventMinimumDays = 0,
+            expandedHideAllDayEventMinimumDays = 0,
             keywordHideRules = emptyList(),
             dayHeaderFormatPattern = DEFAULT_DAY_HEADER_FORMAT_PATTERN,
             notificationUpdateIntervalMinutes = 10,
@@ -202,6 +214,10 @@ private val HIDDEN_ITEM_TYPES_COLLAPSED_KEY =
     stringSetPreferencesKey("hidden_item_types_collapsed")
 private val HIDDEN_ITEM_TYPES_EXPANDED_KEY =
     stringSetPreferencesKey("hidden_item_types_expanded")
+private val COLLAPSED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY =
+    intPreferencesKey("collapsed_hide_all_day_event_minimum_days")
+private val EXPANDED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY =
+    intPreferencesKey("expanded_hide_all_day_event_minimum_days")
 // 키워드 감춤 규칙은 사용자 자유 텍스트(단어)를 담으므로 구분자 직렬화 대신 JSON으로 저장한다 —
 // 단어에 구분자 문자가 들어오면 escaping이 필요해지기 때문이다. 확장 절차: 모델 필드 추가 후
 // 수정 메서드는 반드시 editKeywordHideRules 한 경로로만 쓴다(원자성·ID 발급 단일화).
@@ -377,6 +393,14 @@ class UserPreferencesRepository(private val context: Context) {
                         HIDDEN_ITEM_TYPES_EXPANDED_KEY,
                         UserPreferences.DEFAULTS.expandedHiddenItemTypes,
                     ),
+                    collapsedHideAllDayEventMinimumDays =
+                        storedPreferences[COLLAPSED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY]
+                            ?.coerceAtLeast(0)
+                            ?: UserPreferences.DEFAULTS.collapsedHideAllDayEventMinimumDays,
+                    expandedHideAllDayEventMinimumDays =
+                        storedPreferences[EXPANDED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY]
+                            ?.coerceAtLeast(0)
+                            ?: UserPreferences.DEFAULTS.expandedHideAllDayEventMinimumDays,
                     keywordHideRules = storedPreferences.parseKeywordHideRules(),
                     dayHeaderFormatPattern =
                         storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY]
@@ -598,6 +622,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateImminentLiveNotificationEnabled(isEnabled: Boolean) =
         updateStoredValue(IMMINENT_LIVE_NOTIFICATION_KEY, isEnabled)
 
+    suspend fun updateCollapsedHideAllDayEventMinimumDays(minimumDays: Int) =
+        updateStoredValue(COLLAPSED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY, minimumDays.coerceAtLeast(0))
+
+    suspend fun updateExpandedHideAllDayEventMinimumDays(minimumDays: Int) =
+        updateStoredValue(EXPANDED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY, minimumDays.coerceAtLeast(0))
+
     suspend fun updateDayHeaderFormatPattern(formatPattern: String) =
         updateStoredValue(DAY_HEADER_FORMAT_PATTERN_KEY, formatPattern)
 
@@ -655,6 +685,10 @@ class UserPreferencesRepository(private val context: Context) {
                 preferences.collapsedHiddenItemTypes.map(HiddenItemType::name).toSet()
             storedPreferences[HIDDEN_ITEM_TYPES_EXPANDED_KEY] =
                 preferences.expandedHiddenItemTypes.map(HiddenItemType::name).toSet()
+            storedPreferences[COLLAPSED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY] =
+                preferences.collapsedHideAllDayEventMinimumDays.coerceAtLeast(0)
+            storedPreferences[EXPANDED_HIDE_ALL_DAY_EVENT_MINIMUM_DAYS_KEY] =
+                preferences.expandedHideAllDayEventMinimumDays.coerceAtLeast(0)
             storedPreferences[DAY_HEADER_FORMAT_PATTERN_KEY] = preferences.dayHeaderFormatPattern
             storedPreferences[NOTIFICATION_UPDATE_INTERVAL_MINUTES_KEY] =
                 preferences.notificationUpdateIntervalMinutes

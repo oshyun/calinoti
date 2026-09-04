@@ -57,6 +57,11 @@ data class ExportedUserPreferences(
     /** 감춤 항목은 [HiddenItemType]의 이름 목록으로 담는다. 낯선 이름은 가져올 때 버린다. */
     val collapsedHiddenItemTypes: List<String> = emptyList(),
     val expandedHiddenItemTypes: List<String> = emptyList(),
+    /** 연속 하루종일 일정을 감출 최소 일수(N일 이상이면 감춤, 0이면 끔). */
+    val collapsedHideAllDayEventMinimumDays: Int =
+        UserPreferences.DEFAULTS.collapsedHideAllDayEventMinimumDays,
+    val expandedHideAllDayEventMinimumDays: Int =
+        UserPreferences.DEFAULTS.expandedHideAllDayEventMinimumDays,
     /** 단어 감춤 규칙은 저장 모델([KeywordHideRule])을 그대로 담는다. ID는 가져올 때 다시 발급한다. */
     val keywordHideRules: List<KeywordHideRule> = emptyList(),
     val dayHeaderFormatPattern: String = UserPreferences.DEFAULTS.dayHeaderFormatPattern,
@@ -92,6 +97,8 @@ fun UserPreferences.toExportedUserPreferences(
         isImminentLiveNotificationEnabled = isImminentLiveNotificationEnabled,
         collapsedHiddenItemTypes = collapsedHiddenItemTypes.map(HiddenItemType::name),
         expandedHiddenItemTypes = expandedHiddenItemTypes.map(HiddenItemType::name),
+        collapsedHideAllDayEventMinimumDays = collapsedHideAllDayEventMinimumDays,
+        expandedHideAllDayEventMinimumDays = expandedHideAllDayEventMinimumDays,
         keywordHideRules = keywordHideRules,
         dayHeaderFormatPattern = dayHeaderFormatPattern,
         notificationUpdateIntervalMinutes = notificationUpdateIntervalMinutes,
@@ -133,6 +140,8 @@ fun ExportedUserPreferences.toUserPreferences(): UserPreferences =
         isImminentLiveNotificationEnabled = isImminentLiveNotificationEnabled,
         collapsedHiddenItemTypes = collapsedHiddenItemTypes.mapNotNull(::hiddenItemTypeFromName).toSet(),
         expandedHiddenItemTypes = expandedHiddenItemTypes.mapNotNull(::hiddenItemTypeFromName).toSet(),
+        collapsedHideAllDayEventMinimumDays = collapsedHideAllDayEventMinimumDays.coerceAtLeast(0),
+        expandedHideAllDayEventMinimumDays = expandedHideAllDayEventMinimumDays.coerceAtLeast(0),
         keywordHideRules = keywordHideRules,
         dayHeaderFormatPattern = dayHeaderFormatPattern,
         notificationUpdateIntervalMinutes = notificationUpdateIntervalMinutes

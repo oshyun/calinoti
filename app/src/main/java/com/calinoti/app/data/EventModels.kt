@@ -3,6 +3,7 @@ package com.calinoti.app.data
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 
 /** 알림에 표시할 일정 한 건. 렌더링과 일정 열기에 필요한 최소 정보만 담는다. */
 data class EventEntry(
@@ -35,6 +36,24 @@ data class EventEntry(
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
                 .toEpochMilli()
+        }
+
+    /**
+     * 종일 일정의 기간(일 수, 시작일~마지막날). 하루짜리면 1, 이틀에 걸치면 2다.
+     * 종일 일정이 아니면 0이다. 종일 일정의 begin과 end는 UTC 자정으로 저장되므로
+     * (calendar-provider-allday-utc QUIRK) UTC 기준으로 날짜 차이를 계산한다.
+     */
+    val allDayDurationDays: Int
+        get() {
+            if (!isAllDay) return 0
+            val startDate = Instant.ofEpochMilli(beginTimeMilliseconds)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+            val endDateExclusive = Instant.ofEpochMilli(endTimeMilliseconds)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+            val durationDays = ChronoUnit.DAYS.between(startDate, endDateExclusive)
+            return durationDays.coerceAtLeast(1).toInt()
         }
 }
 
