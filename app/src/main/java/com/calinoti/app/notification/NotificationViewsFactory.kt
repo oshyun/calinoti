@@ -377,26 +377,16 @@ class NotificationViewsFactory(private val context: Context) {
             topPaddingDp = 0,
             bottomPaddingDp = 0,
         )
-        if (entry.isAllDay) {
-            // 종일 일정은 시각 텍스트만 숨기고 칸은 남긴다(GONE 대신 INVISIBLE) — 빈 시간
-            // 열만큼 들여써 제목을 시간 있는 일정의 제목과 같은 x에서 시작시킨다. 단 빈
-            // TextView도 자체 한 줄 높이를 가져 칸이 행 위아래 여백을 늘리므로(API 31+에서
-            // 측정 확인), 칸 높이를 0으로 내려 행 높이가 제목에만 좌우되게 한다.
-            // setViewLayoutHeight가 없는 API 31 미만은 칸 폭 고정 자체가 불가해 정렬
-            // 이점도 없으므로 기존처럼 GONE으로 칸을 없애 행 높이 변화가 없게 한다.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                itemViews.setViewVisibility(R.id.event_time_text, View.INVISIBLE)
-                itemViews.applyViewFixedSize(R.id.event_time_text, eventTimeFixedWidthPx, 0)
-            } else {
-                itemViews.setViewVisibility(R.id.event_time_text, View.GONE)
-            }
+        val timeText = if (entry.isAllDay) {
+            formatAllDayDurationText(entry)
         } else {
-            itemViews.setViewVisibility(R.id.event_time_text, View.VISIBLE)
-            itemViews.setTextViewText(R.id.event_time_text, formatTimeText(entry.beginTimeMilliseconds))
-            itemViews.setTextViewTextSize(R.id.event_time_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
-            // 시간 칸 폭을 고정해 시각 글자수와 무관하게 제목이 같은 x에서 시작하게 한다.
-            itemViews.applyViewFixedSize(R.id.event_time_text, eventTimeFixedWidthPx, -1)
+            formatTimeText(entry.beginTimeMilliseconds)
         }
+        itemViews.setViewVisibility(R.id.event_time_text, View.VISIBLE)
+        itemViews.setTextViewText(R.id.event_time_text, timeText)
+        itemViews.setTextViewTextSize(R.id.event_time_text, COMPLEX_UNIT_SP, secondaryTextSizeSp)
+        // 시간 칸 폭을 고정해 시각·기간 글자수와 무관하게 제목이 같은 x에서 시작하게 한다.
+        itemViews.applyViewFixedSize(R.id.event_time_text, eventTimeFixedWidthPx, -1)
         // 상대 시간 라벨은 그 일정 제목보다 2sp 작다. 종일 일정은 종일 제목 크기를 따른다.
         val relativeLabelTextSizeSp = titleTextSizeSp - SECONDARY_TEXT_SIZE_OFFSET_SP
         val isImminentCountdown = isImminentCountdownTarget(entry, currentTimeMilliseconds)
@@ -696,10 +686,14 @@ class NotificationViewsFactory(private val context: Context) {
         val textPaint = createMeasuredTextPaint(textSizeSp)
         var maxWidthPixels = 0f
         for (event in events) {
-            if (event.isAllDay) continue
+            val timeText = if (event.isAllDay) {
+                formatAllDayDurationText(event)
+            } else {
+                formatTimeText(event.beginTimeMilliseconds)
+            }
             maxWidthPixels = maxOf(
                 maxWidthPixels,
-                textPaint.measureText(formatTimeText(event.beginTimeMilliseconds)),
+                textPaint.measureText(timeText),
             )
         }
         val timeToTitleSpacingPixels = TypedValue.applyDimension(
@@ -726,6 +720,20 @@ class NotificationViewsFactory(private val context: Context) {
             .atZone(ZoneId.systemDefault())
             .toLocalTime()
             .format(createTimeFormatter())
+
+    /** 종일 일정의 기간 텍스트. 하루면 "종일", 여러 날이면 "n일간"으로 표시한다. */
+    fun formatAllDayDurationText(entry: EventEntry): String {
+        val durationDays = entry.allDayDurationDays
+        return if (durationDays <= 1) {
+            context.getString(R.string.event_all_day_single_day)
+        } else {
+            context.resources.getQuantityString(
+                R.plurals.event_all_day_duration_days,
+                durationDays,
+                durationDays,
+            )
+        }
+    }
 
     /**
      * 시각 포맷. 시스템의 12/24시간 설정을 자동으로 따른다. companion 상수로 두지 않는다 —
