@@ -307,6 +307,7 @@ private fun reassignKeywordHideIdentifiers(
                 KeywordHideCondition(
                     id = newRuleIdentifier + 1 + conditionIndex,
                     keyword = importedCondition.keyword,
+                    isExclude = importedCondition.isExclude,
                 )
             },
             isHiddenWhenCollapsed = importedRule.isHiddenWhenCollapsed,
@@ -540,8 +541,11 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    /** 규칙에 빈 단어 조건을 하나 추가한다. */
-    suspend fun addKeywordHideRuleCondition(ruleId: Long) = editKeywordHideRules { currentRules ->
+    /** 규칙에 빈 단어 조건을 하나 추가한다. [isExclude]가 true면 예외 단어 조건이다. */
+    suspend fun addKeywordHideRuleCondition(
+        ruleId: Long,
+        isExclude: Boolean = false,
+    ) = editKeywordHideRules { currentRules ->
         val newConditionIdentifier = currentRules.findNextKeywordHideIdentifier()
         currentRules.map { rule ->
             if (rule.id != ruleId) {
@@ -549,11 +553,35 @@ class UserPreferencesRepository(private val context: Context) {
             } else {
                 rule.copy(
                     conditions =
-                        rule.conditions + KeywordHideCondition(id = newConditionIdentifier, keyword = ""),
+                        rule.conditions + KeywordHideCondition(
+                            id = newConditionIdentifier,
+                            keyword = "",
+                            isExclude = isExclude,
+                        ),
                 )
             }
         }
     }
+
+    /** 조건의 유형(포함/예외)을 토글한다. */
+    suspend fun toggleKeywordHideRuleConditionType(ruleId: Long, conditionId: Long) =
+        editKeywordHideRules { currentRules ->
+            currentRules.map { rule ->
+                if (rule.id != ruleId) {
+                    rule
+                } else {
+                    rule.copy(
+                        conditions = rule.conditions.map { condition ->
+                            if (condition.id != conditionId) {
+                                condition
+                            } else {
+                                condition.copy(isExclude = !condition.isExclude)
+                            }
+                        },
+                    )
+                }
+            }
+        }
 
     /** 규칙에서 조건 하나를 지운다. */
     suspend fun removeKeywordHideRuleCondition(ruleId: Long, conditionId: Long) =

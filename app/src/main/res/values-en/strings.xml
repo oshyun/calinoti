@@ -99,11 +99,16 @@
     <!-- Keyword hiding rules. Conditions within a rule are ANDed; rules are ORed.
          A keyword matches either the event title or the calendar display name. -->
     <string name="keyword_hide_rules_title">Hide by keywords</string>
-    <string name="keyword_hide_rules_description">Hides events whose title or calendar name contains all of the keywords. Multiple keywords within a rule narrow it down (AND), while multiple rules hide an event when any one of them matches (OR). Use a calendar name as a keyword to hide events from a specific calendar. Events with an empty title can only match by calendar name. Hiding rules also apply to the imminent live notification.</string>
+    <string name="keyword_hide_rules_description">Hides events whose title or calendar name contains all include keywords, unless they contain any exclude keywords. Multiple include keywords within a rule narrow it down (AND), while multiple rules hide an event when any one of them matches (OR). Use a calendar name as a keyword to hide events from a specific calendar. Events with an empty title can only match by calendar name. Hiding rules also apply to the imminent live notification.</string>
     <string name="keyword_hide_rule_label_format">Rule %1$d</string>
     <string name="keyword_hide_rule_add_button">Add rule</string>
     <string name="keyword_hide_condition_add_button">Add condition</string>
+    <string name="keyword_hide_condition_add_include_button">Add include keyword</string>
+    <string name="keyword_hide_condition_add_exclude_button">Add exclude keyword</string>
     <string name="keyword_hide_condition_keyword_label">Keyword</string>
+    <string name="keyword_hide_condition_include_label">Include keyword</string>
+    <string name="keyword_hide_condition_exclude_label">Exclude keyword</string>
+    <string name="keyword_hide_condition_toggle_type_button">Toggle condition type (include/exclude)</string>
     <string name="keyword_hide_condition_keyword_blank_hint">Left blank, this condition is ignored</string>
     <string name="keyword_hide_delete_rule_button">Delete rule</string>
     <string name="keyword_hide_delete_condition_button">Delete condition</string>

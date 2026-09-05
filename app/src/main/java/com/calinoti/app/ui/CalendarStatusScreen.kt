@@ -35,6 +35,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
@@ -808,6 +810,8 @@ fun CalendarStatusScreen(
                     }
                 }
                 // 하루종일 상태 표와 같은 두 열(접힌/펼친)에 규칙 토글을 맞춘다.
+                // 규칙 카드의 우측 끝에는 규칙 삭제 IconButton(48dp)이 있으므로,
+                // 열 머리글에도 48dp 공간을 두어 체크박스 열과 머리글이 정확히 일치하게 한다.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.weight(1f))
                     HiddenStateColumnCell {
@@ -824,6 +828,7 @@ fun CalendarStatusScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Spacer(Modifier.width(48.dp))
                 }
                 for ((ruleIndex, rule) in userPreferences.keywordHideRules.withIndex()) {
                     // 규칙·조건 ID로 key를 걸어 편집 중 컴포지션 위치와 필드 상태가 유지되게 한다.
@@ -834,9 +839,28 @@ fun CalendarStatusScreen(
                             isLastRule = ruleIndex == userPreferences.keywordHideRules.lastIndex,
                             previewWindowEntries = previewWindowEntries,
                             dayHeaderFormatPattern = userPreferences.dayHeaderFormatPattern,
-                            onAddCondition = {
+                            onAddIncludeCondition = {
                                 updatePreferences {
-                                    userPreferencesRepository.addKeywordHideRuleCondition(rule.id)
+                                    userPreferencesRepository.addKeywordHideRuleCondition(
+                                        ruleId = rule.id,
+                                        isExclude = false,
+                                    )
+                                }
+                            },
+                            onAddExcludeCondition = {
+                                updatePreferences {
+                                    userPreferencesRepository.addKeywordHideRuleCondition(
+                                        ruleId = rule.id,
+                                        isExclude = true,
+                                    )
+                                }
+                            },
+                            onToggleConditionType = { conditionId ->
+                                updatePreferences {
+                                    userPreferencesRepository.toggleKeywordHideRuleConditionType(
+                                        ruleId = rule.id,
+                                        conditionId = conditionId,
+                                    )
                                 }
                             },
                             onRemoveCondition = { conditionId ->
@@ -2176,9 +2200,9 @@ private fun HiddenStateColumnCell(
 }
 
 /**
- * 단어 감춤 규칙 한 개의 편집 영역. 조건 행(단어 입력·삭제), 조건 추가, 접힌/펼친 적용
- * 토글과 규칙 삭제, 그리고 이 규칙에 걸리는 표시 창 일정의 실시간 미리보기를 담는다.
- * 토글 두 개는 [HiddenStateColumnCell]로 하루종일 상태 표와 같은 48dp 열에 놰 정렬된다.
+ * 단어 감춤 규칙 한 개의 편집 영역. 규칙 머리글(규칙 N, 접힌/펼친 적용 토글, 규칙 삭제),
+ * 조건 목록(포함/예외 단어 입력·유형 전환·삭제), 조건 추가 버튼(포함/예외), 그리고 실시간 미리보기를 담는다.
+ * 머리글의 토글 두 개는 [HiddenStateColumnCell]로 하루종일 상태 표와 같은 48dp 열에 놰 정렬된다.
  */
 @Composable
 private fun KeywordHideRuleCard(
@@ -2187,7 +2211,9 @@ private fun KeywordHideRuleCard(
     isLastRule: Boolean,
     previewWindowEntries: List<EventEntry>?,
     dayHeaderFormatPattern: String,
-    onAddCondition: () -> Unit,
+    onAddIncludeCondition: () -> Unit,
+    onAddExcludeCondition: () -> Unit,
+    onToggleConditionType: (Long) -> Unit,
     onRemoveCondition: (Long) -> Unit,
     onUpdateConditionKeyword: (Long, String) -> Unit,
     onHiddenWhenCollapsedChange: (Boolean) -> Unit,
@@ -2195,24 +2221,11 @@ private fun KeywordHideRuleCard(
     onRemoveRule: () -> Unit,
 ) {
     Column {
-        for (condition in rule.conditions) {
-            key(condition.id) {
-                KeywordConditionRow(
-                    condition = condition,
-                    onUpdateKeyword = { keyword ->
-                        onUpdateConditionKeyword(condition.id, keyword)
-                    },
-                    onRemove = { onRemoveCondition(condition.id) },
-                )
-            }
-        }
-        TextButton(onClick = onAddCondition) {
-            Text(stringResource(R.string.keyword_hide_condition_add_button))
-        }
+        // 규칙 N 머리글이 조건 목록보다 먼저 나온다 — 열 머리글 아래로 규칙 번호와 체크박스가 자연스럽게 정렬된다.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.keyword_hide_rule_label_format, ruleNumber),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
             HiddenStateColumnCell {
@@ -2235,6 +2248,44 @@ private fun KeywordHideRuleCard(
                 )
             }
         }
+        Spacer(Modifier.height(4.dp))
+        for (condition in rule.conditions) {
+            key(condition.id) {
+                KeywordConditionRow(
+                    condition = condition,
+                    onUpdateKeyword = { keyword ->
+                        onUpdateConditionKeyword(condition.id, keyword)
+                    },
+                    onToggleType = { onToggleConditionType(condition.id) },
+                    onRemove = { onRemoveCondition(condition.id) },
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onAddIncludeCondition) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.keyword_hide_condition_add_include_button))
+            }
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = onAddExcludeCondition) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.keyword_hide_condition_add_exclude_button))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         KeywordHideRulePreview(rule, previewWindowEntries, dayHeaderFormatPattern)
         if (!isLastRule) {
             Spacer(Modifier.height(12.dp))
@@ -2247,13 +2298,14 @@ private fun KeywordHideRuleCard(
 /**
  * 규칙의 단어 조건 한 줄. 입력은 raw(무trim)로 매 키마다 저장한다 — 저장 시점에 trim하면
  * 라운드트립 뒤 공백이 사라져 이어지는 입력이 유실된다. trim은 매칭 판정 시점에만 한다.
- * 필드 문구는 저장값이 아니라 조건 ID를 키로 한 번만 초기화한다 — 저장값을 키로 하면
- * 저장 도착 사이의 키 입력이 옛 값으로 되돌려진다.
+ * [condition.isExclude]에 따라 "포함 단어" 또는 "예외 단어"로 표시되며, leadingIcon을 눌러
+ * 유형을 상호 전환할 수 있다.
  */
 @Composable
 private fun KeywordConditionRow(
     condition: KeywordHideCondition,
     onUpdateKeyword: (String) -> Unit,
+    onToggleType: () -> Unit,
     onRemove: () -> Unit,
 ) {
     var draftKeyword by remember(condition.id) { mutableStateOf(condition.keyword) }
@@ -2264,7 +2316,31 @@ private fun KeywordConditionRow(
             onUpdateKeyword(typedKeyword)
         },
         modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.keyword_hide_condition_keyword_label)) },
+        label = {
+            Text(
+                stringResource(
+                    if (condition.isExclude) {
+                        R.string.keyword_hide_condition_exclude_label
+                    } else {
+                        R.string.keyword_hide_condition_include_label
+                    },
+                ),
+            )
+        },
+        leadingIcon = {
+            IconButton(onClick = onToggleType) {
+                Icon(
+                    imageVector = if (condition.isExclude) Icons.Default.Clear else Icons.Default.Add,
+                    contentDescription =
+                        stringResource(R.string.keyword_hide_condition_toggle_type_button),
+                    tint = if (condition.isExclude) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+            }
+        },
         singleLine = true,
         supportingText = if (draftKeyword.isBlank()) {
             // 공백 조건은 행을 유지한다 — 비우는 순간 행이 사라지면 다시 입력하기 번거롭다.
