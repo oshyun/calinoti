@@ -100,11 +100,16 @@
 
     <!-- 단어 감춤 규칙. 규칙 안 조건은 AND, 규칙 간은 OR다. 단어는 제목 또는 캘린더명에 포함돼도 충족이다. -->
     <string name="keyword_hide_rules_title">단어로 감추기</string>
-    <string name="keyword_hide_rules_description">일정 제목이나 캘린더 이름에 단어가 모두 포함된 일정을 감춥니다. 조건을 여러 개 추가하면 모두 포함된 일정만 감추고(AND), 여러 규칙은 어느 하나라도 걸리면 감춥니다(OR). 캘린더 이름을 조건에 쓰면 특정 캘린더의 일정만 감출 수 있습니다. 제목이 비어 있는 일정은 캘린더 이름으로만 걸립니다. 감춤 규칙은 임박 실시간 알림에도 적용됩니다.</string>
+    <string name="keyword_hide_rules_description">일정 제목이나 캘린더 이름에 포함 단어가 모두 들어있는 일정을 감춥니다. 예외 단어가 포함된 일정은 감추지 않습니다. 여러 조건을 추가하면 모두 포함된 일정만 감추고(AND), 여러 규칙은 어느 하나라도 걸리면 감춥니다(OR). 캘린더 이름을 조건에 쓰면 특정 캘린더의 일정만 감출 수 있습니다. 제목이 비어 있는 일정은 캘린더 이름으로만 걸립니다. 감춤 규칙은 임박 실시간 알림에도 적용됩니다.</string>
     <string name="keyword_hide_rule_label_format">규칙 %1$d</string>
     <string name="keyword_hide_rule_add_button">규칙 추가</string>
     <string name="keyword_hide_condition_add_button">조건 추가</string>
+    <string name="keyword_hide_condition_add_include_button">포함 단어 추가</string>
+    <string name="keyword_hide_condition_add_exclude_button">예외 단어 추가</string>
     <string name="keyword_hide_condition_keyword_label">포함 단어</string>
+    <string name="keyword_hide_condition_include_label">포함 단어</string>
+    <string name="keyword_hide_condition_exclude_label">예외 단어</string>
+    <string name="keyword_hide_condition_toggle_type_button">조건 유형 변경 (포함/예외)</string>
     <string name="keyword_hide_condition_keyword_blank_hint">비워 두면 이 조건은 무시됩니다</string>
     <string name="keyword_hide_delete_rule_button">규칙 삭제</string>
     <string name="keyword_hide_delete_condition_button">조건 삭제</string>

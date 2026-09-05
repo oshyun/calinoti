@@ -5,18 +5,20 @@ import kotlinx.serialization.Serializable
 /**
  * 키워드 감춤 규칙의 단어 조건 하나. 단어가 일정 제목 또는 캘린더 표시명 중 어느 하나에
  * 포함돼도 충족된다 — 매칭 대상을 고르는 UI 없이 단어 하나로 두 대상을 함께 본다.
+ * [isExclude]가 false면 포함 조건(포함돼야 감춤), true면 예외 조건(포함되면 감추지 않음)이다.
  * 단어는 자유 텍스트이므로 직렬화는 JSON 단일 키(UserPreferencesRepository)로 한다.
  */
 @Serializable
 data class KeywordHideCondition(
     val id: Long,
     val keyword: String,
+    val isExclude: Boolean = false,
 )
 
 /**
- * 키워드 감춤 규칙 하나. 조건들이 **모두(AND)** 충족돼야 일정을 감춘다 — 조건을 늘릴수록
- * 좁혀진다. 규칙 여러 개는 **OR**로 판정한다(어느 규칙 하나라도 걸리면 감춤). 규칙마다
- * 접힌·펼친 알림 적용 여부를 각자 저장한다(HiddenItemType 토글과 같은 구조).
+ * 키워드 감춤 규칙 하나. 포함 조건들이 **모두(AND)** 충족되고 예외 조건은 **어느 것도 충족되지
+ * 않아야(NOT ANY)** 일정을 감춘다. 규칙 여러 개는 **OR**로 판정한다(어느 규칙 하나라도
+ * 걸리면 감춤). 규칙마다 접힌·펼친 알림 적용 여부를 각자 저장한다(HiddenItemType 토글과 같은 구조).
  */
 @Serializable
 data class KeywordHideRule(
@@ -26,13 +28,16 @@ data class KeywordHideRule(
     val isHiddenWhenExpanded: Boolean,
 ) {
     /**
-     * 규칙이 이 일정을 걸는가. 공백만 있는 조건은 무시하고, 유효 조건이 하나도 없으면
-     * 거짓이다 — 조건이 없는 규칙이 "모든 일정 감춤"이 되는 사고를 막는다.
+     * 규칙이 이 일정을 걸는가. 공백만 있는 조건은 무시하고, 유효한 포함 조건이 하나도 없으면
+     * 거짓이다 — 조건이 없거나 예외 단어만 있는 규칙이 "모든 일정 감춤"이 되는 사고를 막는다.
+     * 모든 활성 포함 조건을 만족하고, 활성 예외 조건 중 어느 것에도 걸리지 않아야 참이다.
      */
     fun matchesEvent(eventEntry: EventEntry): Boolean {
-        val activeConditions = conditions.filter { it.keyword.isNotBlank() }
-        if (activeConditions.isEmpty()) return false
-        return activeConditions.all { condition -> condition.matchesEvent(eventEntry) }
+        val activeIncludeConditions = conditions.filter { !it.isExclude && it.keyword.isNotBlank() }
+        val activeExcludeConditions = conditions.filter { it.isExclude && it.keyword.isNotBlank() }
+        if (activeIncludeConditions.isEmpty()) return false
+        return activeIncludeConditions.all { condition -> condition.matchesEvent(eventEntry) } &&
+            activeExcludeConditions.none { condition -> condition.matchesEvent(eventEntry) }
     }
 
     /** 조건 충족 여부. 단어가 제목 또는 캘린더명에 포함(대소문자 무시)돼면 충족이다. */
