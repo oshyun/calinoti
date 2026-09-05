@@ -30,6 +30,11 @@
     <string name="event_finished">(done)</string>
     <!-- 물결표(~) 접두는 한국어 관습이라 영어에서는 쓰지 않는다. -->
     <string name="multiday_end_date_suffix_format">(until %1$s)</string>
+    <string name="event_all_day_single_day">All day</string>
+    <plurals name="event_all_day_duration_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
 
     <string name="calendar_permission_title">Calendar permission needed</string>
     <string name="calendar_permission_description">Reading your calendar is required to show its events in the notification.</string>
