@@ -16,8 +16,8 @@ android {
         // targetSdk 31+에서 시스템이 커스텀 알림에 아이콘·앱 이름 헤더를 입힌다(왼쪽 52dp 사용).
         //   아젠다 전체 폭보다 아이콘 표시를 택했다. 33+부턴 알림 권한을 런타임에 요청해야 한다.
         targetSdk = 35
-        versionCode = 74
-        versionName = "1.2.260905.001220"
+        versionCode = 75
+        versionName = "1.2.260906.025717"
     }
 
     buildTypes {
