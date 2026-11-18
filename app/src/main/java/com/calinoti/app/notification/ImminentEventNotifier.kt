@@ -6,21 +6,20 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.calinoti.app.R
-import com.calinoti.app.data.CalendarIntents
 import com.calinoti.app.data.EventEntry
 import com.calinoti.app.data.EventListEntry
 import com.calinoti.app.data.KeywordHideRule
-import java.util.concurrent.TimeUnit
+import com.calinoti.app.data.UserPreferences
 
 /**
- * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다. Live Updates
- * 승격을 요청해 One UI 8(Android 16) 이상에서는 상태바 칩·실시간 영역으로 노출되고, 미지원
- * 기기에서는 일반 ongoing 알림으로 내려온다. 승격 알림은 커스텀 RemoteViews·colorized·
- * 그룹 요약이 금지되므로(시스템 승격 조건) 이 알림은 시스템 표준 스타일로만 만든다. 사용자가
- * 알림을 지우면 그 일정이 시작할 때까지 재게시하지 않는다 — 반복해서 뜨는 알림은 사용자가
- * 게시 권한을 뺏을 동기가 된다.
+ * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다. Android 16
+ * Live Updates 승격을 요청해 One UI 8(Android 16) 이상에서는 실시간 알림(Now Bar)·
+ * 상태바 칩으로 노출되고, 미지원·미승격 기기에서는 해제 버튼이 있는 상단 고정 알림으로
+ * 표시된다. Live Updates 승격 규칙에 따라 커스텀 RemoteViews·colorized·그룹 요약은
+ * 사용하지 않고 BigTextStyle과 Chronometer 카운트다운만 사용한다. 사용자가 스와이프하거나
+ * 해제 버튼으로 닫으면 해당 시작 시각 전까지는 다시 게시하지 않는다.
  */
 class ImminentEventNotifier(
     private val context: Context,
@@ -28,21 +27,29 @@ class ImminentEventNotifier(
     private val notificationPublisher: NotificationPublisher,
 ) {
 
+    private val dismissedEventsLock = Any()
+
     /**
-     * 사용자가 스와이프로 지운 일정(이벤트 ID → 시작 시각). 프로세스 수명 동안만 유지되며,
-     * 시작 시각이 지난 뒤 정리된다. 프로세스가 죽었다 살어나면 다시 게시되는 것은 수용한다.
+     * 사용자가 스와이프·해제 버튼으로 지운 일정(이벤트 ID → 시작 시각). 프로세스 종료 뒤에도
+     * 알림 갱신 알람으로 다시 살아나지 않도록 SharedPreferences에 함께 보관하고, 시작 시각이
+     * 지나면 정리한다.
      */
     private val dismissedEventsByEventId = HashMap<Long, Long>()
+    private var hasLoadedDismissedEvents = false
+    private val dismissedPreferences by lazy {
+        context.getSharedPreferences(DISMISSED_PREFERENCES_NAME, Context.MODE_PRIVATE)
+    }
 
     /**
      * 임박 알림을 최신 상태로 맞춘다. 옵션이 꺼졌거나 임박 일정이 없거나(시작됨) 사용자가
-     * 지운 일정이면 게시분을 취소한다. 알림 ID가 하나라 어떤 트리거가 몇 번 겹쳐도
+     * 해제한 일정이면 게시분을 취소한다. 알림 ID가 하나라 어떤 트리거가 몇 번 겹쳐도
      * 마지막 상태 하나만 남는다.
      */
     fun refresh(
         listEntries: List<EventListEntry>,
         isEnabled: Boolean,
         keywordHideRules: List<KeywordHideRule>,
+        eventClickTargetPackageName: String = UserPreferences.UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
         currentTimeMilliseconds: Long,
     ) {
         pruneDismissedEvents(currentTimeMilliseconds)
@@ -56,27 +63,60 @@ class ImminentEventNotifier(
             notificationPublisher.hasNotificationPermission() ->
                 NotificationManagerCompat.from(context).notify(
                     IMMINENT_NOTIFICATION_ID,
-                    buildNotification(imminentEvent, currentTimeMilliseconds),
+                    buildNotification(
+                        event = imminentEvent,
+                        eventClickTargetPackageName = eventClickTargetPackageName,
+                        currentTimeMilliseconds = currentTimeMilliseconds,
+                    ),
                 )
         }
     }
 
-    /** 사용자가 임박 알림을 스와이프로 지웠다. 시작 전까지는 다시 게시하지 않는다. */
+    /** 사용자가 임박 알림을 스와이프하거나 '해제' 버튼으로 지웠다. 해당 시작 전까지는 재게시하지 않는다. */
     fun onDismissed(eventId: Long, beginTimeMilliseconds: Long) {
-        synchronized(dismissedEventsByEventId) {
+        synchronized(dismissedEventsLock) {
+            ensureDismissedEventsLoaded()
+            dismissedEventsByEventId[eventId] = beginTimeMilliseconds
+            dismissedPreferences.edit {
+                putLong(eventId.toString(), beginTimeMilliseconds)
+            }
+        }
+        // '해제' 액션 버튼은 스와이프와 달리 시스템이 알림을 자동으로 지우지 않으므로 즉시 취소한다.
+        cancelNotification()
+    }
+
+    private fun ensureDismissedEventsLoaded() {
+        if (hasLoadedDismissedEvents) return
+        for ((key, value) in dismissedPreferences.all) {
+            val eventId = key.toLongOrNull() ?: continue
+            val beginTimeMilliseconds = value as? Long ?: continue
             dismissedEventsByEventId[eventId] = beginTimeMilliseconds
         }
+        hasLoadedDismissedEvents = true
     }
 
     private fun isDismissed(event: EventEntry): Boolean =
-        synchronized(dismissedEventsByEventId) {
-            dismissedEventsByEventId.containsKey(event.eventId)
+        synchronized(dismissedEventsLock) {
+            ensureDismissedEventsLoaded()
+            dismissedEventsByEventId[event.eventId] == event.beginTimeMilliseconds
         }
 
-    /** 시작이 지난 일정은 더 이상 재게시 금지 대상이 아니므로 목록에서 비운다. */
+    /** 시작이 지난 일정은 더 이상 재게시 금지 대상이 아니므로 메모리·저장소에서 함께 비운다. */
     private fun pruneDismissedEvents(currentTimeMilliseconds: Long) {
-        synchronized(dismissedEventsByEventId) {
-            dismissedEventsByEventId.values.removeIf { it <= currentTimeMilliseconds }
+        synchronized(dismissedEventsLock) {
+            ensureDismissedEventsLoaded()
+            val expiredEventIds = dismissedEventsByEventId.entries
+                .filter { (_, beginTimeMilliseconds) ->
+                    beginTimeMilliseconds <= currentTimeMilliseconds
+                }
+                .map { it.key }
+            if (expiredEventIds.isEmpty()) return
+            dismissedPreferences.edit {
+                for (eventId in expiredEventIds) {
+                    dismissedEventsByEventId.remove(eventId)
+                    remove(eventId.toString())
+                }
+            }
         }
     }
 
@@ -86,78 +126,80 @@ class ImminentEventNotifier(
 
     private fun buildNotification(
         event: EventEntry,
+        eventClickTargetPackageName: String,
         currentTimeMilliseconds: Long,
     ): Notification {
-        // 위치가 없으면 시작 시각으로 본문을 채운다. 남은 시간은 헤더 카운트다운이 담당하므로
-        // 본문 텍스트는 시각만 짧게 안내한다.
-        val contentText = event.location?.takeIf { it.isNotEmpty() }
-            ?: context.getString(
-                R.string.imminent_notification_time_format,
-                remoteViewsFactory.formatTimeText(event.beginTimeMilliseconds),
+        val startTimeLine = context.getString(
+            R.string.imminent_notification_time_format,
+            remoteViewsFactory.formatTimeText(event.beginTimeMilliseconds),
+        )
+        val location = event.location?.trim().orEmpty()
+        val contentText = if (location.isNotEmpty()) {
+            context.getString(
+                R.string.imminent_notification_time_and_location_format,
+                startTimeLine,
+                location,
             )
-        val eventViewIntent = CalendarIntents.buildEventViewIntent(event.eventId)
-        // Live Updates 승격 조건(AOSP hasPromotableCharacteristics)은 통화 스타일이 아니면
-        // colorized + Progress/MetricStyle을 요구한다 — BigTextStyle만으로는 칩으로 승격되지
-        // 않는다. 시작 1시간을 게이지로 삼아 경과만큼 채운다(design guide: 채우기가 남은
-        // 시간과 일치해야 한다). 색은 일정이 속한 캘린더 색을 따른다.
-        val oneHourMilliseconds = TimeUnit.HOURS.toMillis(1)
-        val remainingMilliseconds = (event.beginTimeMilliseconds - currentTimeMilliseconds)
-            .coerceIn(0L, oneHourMilliseconds)
-        val elapsedPercent =
-            ((oneHourMilliseconds - remainingMilliseconds) * 100 / oneHourMilliseconds).toInt()
-        val accentColor = event.calendarColor.takeIf { it != 0 }
-            ?: ContextCompat.getColor(context, R.color.notification_text_secondary)
+        } else {
+            startTimeLine
+        }
+        val eventTitle = event.title.ifEmpty { context.getString(R.string.untitled_event) }
         return NotificationCompat.Builder(context, IMMINENT_CHANNEL_ID)
             .setSmallIcon(notificationPublisher.smallIconResourceIdFor(currentTimeMilliseconds))
-            .setContentTitle(event.title.ifEmpty { context.getString(R.string.untitled_event) })
+            .setContentTitle(eventTitle)
             .setContentText(contentText)
-            .setColor(accentColor)
-            .setColorized(true)
-            .setStyle(
-                NotificationCompat.ProgressStyle()
-                    .setProgress(elapsedPercent)
-                    .setStyledByProgress(true)
-                    .addProgressSegment(
-                        // 게이지 전체 길이는 세그먼트 길이의 합이다(0..100 범위).
-                        NotificationCompat.ProgressStyle.Segment(100).setColor(accentColor),
-                    ),
-            )
+            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+            // Android 16 Live Updates에서는 colorized가 금지되므로 setColorized를 쓰지 않는다.
+            // setShortCriticalText를 비워 두어 상태바 칩·실시간 카드가 정적 문구 대신 Chronometer
+            // 초 단위 카운트다운으로 갱신되도록 한다.
             .setShowWhen(true)
             .setWhen(event.beginTimeMilliseconds)
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
             .setOngoing(true)
             .setRequestPromotedOngoing(true)
+            .setGroup(IMMINENT_GROUP_KEY)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setOnlyAlertOnce(true)
             .setContentIntent(
-                PendingIntent.getActivity(
-                    context,
-                    IMMINENT_CONTENT_REQUEST_CODE,
-                    eventViewIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                remoteViewsFactory.createEventClickPendingIntent(
+                    eventId = event.eventId,
+                    eventClickTargetPackageName = eventClickTargetPackageName,
+                    requestCode = IMMINENT_CONTENT_REQUEST_CODE,
                 ),
             )
             .setDeleteIntent(
-                PendingIntent.getBroadcast(
-                    context,
-                    IMMINENT_DISMISS_REQUEST_CODE,
-                    Intent(context, ImminentEventDismissReceiver::class.java)
-                        .putExtra(ImminentEventDismissReceiver.EXTRA_EVENT_ID, event.eventId)
-                        .putExtra(
-                            ImminentEventDismissReceiver.EXTRA_EVENT_BEGIN_TIME_MILLISECONDS,
-                            event.beginTimeMilliseconds,
-                        ),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
+                buildDismissPendingIntent(event, IMMINENT_DISMISS_REQUEST_CODE),
+            )
+            .addAction(
+                0,
+                context.getString(R.string.imminent_notification_dismiss_action),
+                buildDismissPendingIntent(event, IMMINENT_DISMISS_ACTION_REQUEST_CODE),
             )
             .build()
     }
 
+    private fun buildDismissPendingIntent(event: EventEntry, requestCode: Int): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            Intent(context, ImminentEventDismissReceiver::class.java)
+                .putExtra(ImminentEventDismissReceiver.EXTRA_EVENT_ID, event.eventId)
+                .putExtra(
+                    ImminentEventDismissReceiver.EXTRA_EVENT_BEGIN_TIME_MILLISECONDS,
+                    event.beginTimeMilliseconds,
+                ),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
     internal companion object {
         const val IMMINENT_CHANNEL_ID = "events_imminent"
         const val IMMINENT_NOTIFICATION_ID = 1005
+        private const val IMMINENT_GROUP_KEY = "events_imminent"
+        private const val DISMISSED_PREFERENCES_NAME = "imminent_event_dismissals"
         private const val IMMINENT_CONTENT_REQUEST_CODE = 1006
         private const val IMMINENT_DISMISS_REQUEST_CODE = 1007
+        private const val IMMINENT_DISMISS_ACTION_REQUEST_CODE = 1008
     }
 }

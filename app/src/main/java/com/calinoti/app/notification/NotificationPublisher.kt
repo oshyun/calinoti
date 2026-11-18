@@ -78,6 +78,24 @@ class NotificationPublisher(
     fun shouldPromptForNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission()
 
+    /**
+     * Android 16(API 36) 이상에서 시스템이 이 앱의 Live Updates(실시간 승격 알림)를
+     * 지원하는지 여부.
+     */
+    fun isPromotedNotificationSupported(): Boolean =
+        Build.VERSION.SDK_INT >= ANDROID_16_API_LEVEL
+
+    /**
+     * Android 16(API 36) 이상에서 시스템이 이 앱의 Live Updates(실시간 승격 알림) 게시를
+     * 허용하고 있는지 조회한다. API 36 미만에서는 false다.
+     */
+    fun canPostPromotedNotifications(): Boolean =
+        if (isPromotedNotificationSupported()) {
+            NotificationManagerCompat.from(context).canPostPromotedNotifications()
+        } else {
+            false
+        }
+
     fun publishEventListNotification(
         listEntries: List<EventListEntry>,
         collapsedHiddenItemTypes: Set<HiddenItemType>,
@@ -177,6 +195,9 @@ class NotificationPublisher(
             .setDeleteIntent(
                 if (isNotificationPinned) buildDismissRestorePendingIntent() else null,
             )
+            // 임박 실시간 알림과 서로 다른 group 키를 부여해 Android 16의 자동 그룹화(GroupHelper)가
+            // 두 알림을 하나로 묶어 접지 않게 한다.
+            .setGroup(EVENT_LIST_GROUP_KEY)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -305,6 +326,8 @@ class NotificationPublisher(
 
     private companion object {
         const val EVENTS_CHANNEL_ID = "events"
+        const val EVENT_LIST_GROUP_KEY = "events"
+        const val ANDROID_16_API_LEVEL = 36
 
         // COMPAT(agenda-channel-rename): 개명 전에 쓰던 채널 ID. 고아 채널 정리에만 쓴다.
         const val LEGACY_AGENDA_CHANNEL_ID = "agenda"
