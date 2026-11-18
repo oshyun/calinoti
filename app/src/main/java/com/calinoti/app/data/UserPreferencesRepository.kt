@@ -144,7 +144,7 @@ data class UserPreferences(
             notificationClickTargetPackageName = UNSPECIFIED_CLICK_TARGET_PACKAGE_NAME,
             notificationSpacing = NotificationSpacing.DEFAULTS,
             isNotificationPinned = true,
-            isImminentLiveNotificationEnabled = false,
+            isImminentLiveNotificationEnabled = true,
             collapsedHiddenItemTypes = setOf(
                 HiddenItemType.ALL_DAY_STARTED_TODAY,
                 HiddenItemType.ALL_DAY_IN_PROGRESS,

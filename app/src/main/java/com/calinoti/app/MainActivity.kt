@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
         calinotiApplication.refreshIfLocaleChanged(resources.configuration)
         // 권한 다이얼로그가 닫히거나 설정에서 돌아온 뒤 감시자 등록을 다시 시도한다 (멱등).
         calinotiApplication.registerCalendarObserverIfPermitted()
+        // 앱을 다시 열 때 이전 해제 기록을 비워 임박한 일정이 있으면 즉시 실시간 알림을 다시 게시한다.
+        calinotiApplication.imminentEventNotifier.clearDismissedEvents()
         // 화면을 다시 열 때마다 알림을 갱신해 최신이 아닌 상태로 남지 않게 한다.
         // ContentObserver와 주기 알람이 갱신을 담당하지만 Doze 등으로 늦어질 수 있어
         // 열리는 순간 한 번 더 접수한다. 요청은 병합되고 Mutex로 직렬화되므로 멱등하다.
