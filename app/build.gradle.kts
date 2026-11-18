@@ -17,8 +17,8 @@ android {
         //   아젠다 전체 폭보다 아이콘 표시를 택했다. 33+부턴 알림 권한을 런타임에 요청해야 하며,
         //   36+는 Live Updates(POST_PROMOTED_NOTIFICATIONS) 동작 기준에 맞춘다.
         targetSdk = 36
-        versionCode = 77
-        versionName = "1.2.261118.130335"
+        versionCode = 78
+        versionName = "1.2.261118.155449"
     }
 
     buildTypes {
