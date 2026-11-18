@@ -454,14 +454,18 @@ class NotificationViewsFactory(private val context: Context) {
         when (eventRowClickTarget) {
             EventRowClickTarget.None -> Unit
             EventRowClickTarget.SelfApp -> {
-                val openSelfAppPendingIntent = createOpenSelfAppPendingIntent()
+                val openSelfAppPendingIntent =
+                    createOpenSelfAppPendingIntent(EVENT_CLICK_REQUEST_CODE)
                 itemViews.setOnClickPendingIntent(R.id.event_time_text, openSelfAppPendingIntent)
                 itemViews.setOnClickPendingIntent(R.id.event_title_text, openSelfAppPendingIntent)
                 itemViews.setOnClickPendingIntent(R.id.event_location_text, openSelfAppPendingIntent)
             }
             is EventRowClickTarget.CalendarEventDetail -> {
-                val openEventPendingIntent =
-                    createOpenEventPendingIntent(entry.eventId, eventRowClickTarget.packageName)
+                val openEventPendingIntent = createOpenEventPendingIntent(
+                    eventId = entry.eventId,
+                    targetPackageName = eventRowClickTarget.packageName,
+                    requestCode = EVENT_CLICK_REQUEST_CODE,
+                )
                 itemViews.setOnClickPendingIntent(R.id.event_time_text, openEventPendingIntent)
                 itemViews.setOnClickPendingIntent(R.id.event_title_text, openEventPendingIntent)
                 itemViews.setOnClickPendingIntent(R.id.event_location_text, openEventPendingIntent)
@@ -580,13 +584,33 @@ class NotificationViewsFactory(private val context: Context) {
         if (heightPx >= 0) setViewLayoutHeight(viewId, heightPx.toFloat(), COMPLEX_UNIT_PX)
     }
 
+    /**
+     * 일정 상세(또는 설정·기기에 따라 Calinoti 자신)를 여는 PendingIntent.
+     * [ImminentEventNotifier]와 일정 행 클릭이 같은 대상 해석 규칙을 공유하되, requestCode를
+     * 분리해 PendingIntent 레코드가 서로 덮어쓰이지 않게 한다.
+     */
+    fun createEventClickPendingIntent(
+        eventId: Long,
+        eventClickTargetPackageName: String,
+        requestCode: Int,
+    ): PendingIntent = when (val clickTarget = resolveEventRowClickTarget(eventClickTargetPackageName)) {
+        EventRowClickTarget.None,
+        EventRowClickTarget.SelfApp -> createOpenSelfAppPendingIntent(requestCode)
+        is EventRowClickTarget.CalendarEventDetail -> createOpenEventPendingIntent(
+            eventId = eventId,
+            targetPackageName = clickTarget.packageName,
+            requestCode = requestCode,
+        )
+    }
+
     private fun createOpenEventPendingIntent(
         eventId: Long,
         targetPackageName: String?,
+        requestCode: Int,
     ): PendingIntent =
         PendingIntent.getActivity(
             context,
-            EVENT_CLICK_REQUEST_CODE,
+            requestCode,
             CalendarIntents.buildEventViewIntent(eventId).apply {
                 if (targetPackageName != null) setPackage(targetPackageName)
             },
@@ -598,10 +622,10 @@ class NotificationViewsFactory(private val context: Context) {
      * 항상 존재해 null 검사가 없다. 일정별 인텐트가 아니므로 모든 행이 하나의 레코드를
      * 갱신 재사용한다.
      */
-    private fun createOpenSelfAppPendingIntent(): PendingIntent =
+    private fun createOpenSelfAppPendingIntent(requestCode: Int): PendingIntent =
         PendingIntent.getActivity(
             context,
-            EVENT_CLICK_REQUEST_CODE,
+            requestCode,
             context.packageManager.getLaunchIntentForPackage(context.packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

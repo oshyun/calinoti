@@ -145,8 +145,12 @@
     <string name="notification_pinned_label">Pin notification</string>
     <string name="notification_pinned_description">Brings the notification back instantly when swiped away, so it never disappears. Turn off to swipe it away freely.</string>
     <string name="imminent_live_notification_label">Live notification</string>
-    <string name="imminent_live_notification_description">Shows a separate second-by-second countdown notification from an hour before the event starts. On One UI 8 and later it also appears in the status bar chip and live area; other devices show it as an ongoing notification.</string>
+    <string name="imminent_live_notification_description">Shows a separate notification with a live second-by-second countdown and a Dismiss button starting an hour before the event. On Android 16 (One UI 8 and later) it can be promoted to the live area and status bar chip; other devices show it as an ongoing notification.</string>
+    <string name="imminent_live_promotion_permission_needed">System Live Updates promotion is not currently allowed, so this may appear as a regular notification. On Samsung One UI, \'Live notifications for all apps\' in Developer options may be required.</string>
+    <string name="imminent_live_promotion_settings_button">Open live notification settings</string>
     <string name="imminent_notification_time_format">Starts at %1$s</string>
+    <string name="imminent_notification_time_and_location_format">%1$s • %2$s</string>
+    <string name="imminent_notification_dismiss_action">Dismiss</string>
     <string name="day_header_start_padding_label">Space before day headers</string>
     <string name="time_to_title_spacing_label">Space between time and title</string>
     <string name="day_header_to_event_spacing_label">Space between day header and events</string>

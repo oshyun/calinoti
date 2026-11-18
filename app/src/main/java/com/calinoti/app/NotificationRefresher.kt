@@ -61,6 +61,7 @@ class NotificationRefresher(
                     listEntries = listEntries,
                     isEnabled = preferences.isImminentLiveNotificationEnabled,
                     keywordHideRules = preferences.keywordHideRules,
+                    eventClickTargetPackageName = preferences.eventClickTargetPackageName,
                     currentTimeMilliseconds = currentTimeMilliseconds,
                 )
                 NotificationRefreshScheduler.scheduleNextRefresh(

@@ -6,8 +6,9 @@ import android.content.Intent
 import com.calinoti.app.CalinotiApplication
 
 /**
- * 임박 일정 알림이 스와이프로 지워진 것을 감지해 재게시 금지를 접수한다. 알림 갱신 큐를
- * 건드리지 않으므로 갱신 리시버의 실행 겹침 방지(KEEP 정책)와 무간섭이다.
+ * 임박 일정 알림의 스와이프 삭제(deleteIntent)와 '해제' 액션 버튼 입력을 받아
+ * 알림을 닫고 재게시 금지를 접수한다. 알림 갱신 큐를 건드리지 않으므로 갱신 리시버의
+ * 실행 겹침 방지(KEEP 정책)와 무간섭이다.
  */
 class ImminentEventDismissReceiver : BroadcastReceiver() {
 

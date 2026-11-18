@@ -1,6 +1,7 @@
 package com.calinoti.app.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -221,12 +222,16 @@ fun CalendarStatusScreen(
     var canRequestPackageInstalls by remember {
         mutableStateOf(appUpdateController.canRequestPackageInstalls())
     }
+    var canPostPromotedNotifications by remember {
+        mutableStateOf(notificationPublisher.canPostPromotedNotifications())
+    }
     DisposableEffect(lifecycleOwner) {
         val batteryStateObserver = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isBatteryOptimizationIgnored = context.getSystemService(PowerManager::class.java)
                     .isIgnoringBatteryOptimizations(context.packageName)
                 canRequestPackageInstalls = appUpdateController.canRequestPackageInstalls()
+                canPostPromotedNotifications = notificationPublisher.canPostPromotedNotifications()
             }
         }
         lifecycleOwner.lifecycle.addObserver(batteryStateObserver)
@@ -238,6 +243,34 @@ fun CalendarStatusScreen(
         val requestIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             .setData(Uri.parse("package:${context.packageName}"))
         context.startActivity(requestIntent)
+    }
+
+    /**
+     * Android 16+ 시스템의 Live Updates(실시간 알림 승격) 허용 설정 화면을 연다.
+     * 해당 화면이 없는 기기에서는 앱 알림 설정 → 앱 상세 설정 순으로 폴백한다.
+     */
+    fun openPromotedNotificationSettings() {
+        val candidateIntents = buildList {
+            if (Build.VERSION.SDK_INT >= 36) {
+                add(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                )
+            }
+            add(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+            )
+        }
+        for (candidateIntent in candidateIntents) {
+            try {
+                context.startActivity(candidateIntent)
+                return
+            } catch (_: ActivityNotFoundException) {
+                // 다음 폴백 설정 화면을 시도한다.
+            }
+        }
+        openAppSettings()
     }
 
     // 프로바이더 쿼리는 IPC라서 컴포지션(메인 스레드)에서 직접 돌리지 않는다.
@@ -1215,6 +1248,20 @@ fun CalendarStatusScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (notificationPublisher.isPromotedNotificationSupported() &&
+                    userPreferences.isImminentLiveNotificationEnabled &&
+                    !canPostPromotedNotifications
+                ) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.imminent_live_promotion_permission_needed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    TextButton(onClick = ::openPromotedNotificationSettings) {
+                        Text(stringResource(R.string.imminent_live_promotion_settings_button))
+                    }
+                }
 
                 Spacer(Modifier.height(12.dp))
 
