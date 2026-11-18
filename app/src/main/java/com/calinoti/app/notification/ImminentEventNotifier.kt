@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.calinoti.app.R
 import com.calinoti.app.data.EventEntry
@@ -14,12 +15,11 @@ import com.calinoti.app.data.KeywordHideRule
 import com.calinoti.app.data.UserPreferences
 
 /**
- * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다. Android 16
- * Live Updates 승격을 요청해 One UI 8(Android 16) 이상에서는 실시간 알림(Now Bar)·
- * 상태바 칩으로 노출되고, 미지원·미승격 기기에서는 해제 버튼이 있는 상단 고정 알림으로
- * 표시된다. Live Updates 승격 규칙에 따라 커스텀 RemoteViews·colorized·그룹 요약은
- * 사용하지 않고 BigTextStyle과 Chronometer 카운트다운만 사용한다. 사용자가 스와이프하거나
- * 해제 버튼으로 닫으면 해당 시작 시각 전까지는 다시 게시하지 않는다.
+ * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다.
+ * 삼성 시계/타이머 알림처럼 큰 Chronometer 실시간 카운트다운(04:17)과 일정 요약,
+ * 해제 버튼을 갖춘 상단 실시간 카드로 노출된다.
+ * 사용자가 스와이프하거나 해제 버튼으로 닫으면 해당 시작 시각 전까지는 다시 게시하지 않으며,
+ * 앱을 재시작하거나 명시적으로 갱신할 때 재게시 금지가 해제되어 즉시 다시 트리거된다.
  */
 class ImminentEventNotifier(
     private val context: Context,
@@ -85,6 +85,18 @@ class ImminentEventNotifier(
         cancelNotification()
     }
 
+    /**
+     * 앱 재시작이나 사용자의 명시적 갱신 시 dismiss 기록을 초기화해
+     * 현재 임박한 일정이 있으면 즉시 실시간 알림을 다시 게시할 수 있게 한다.
+     */
+    fun clearDismissedEvents() {
+        synchronized(dismissedEventsLock) {
+            ensureDismissedEventsLoaded()
+            dismissedEventsByEventId.clear()
+            dismissedPreferences.edit { clear() }
+        }
+    }
+
     private fun ensureDismissedEventsLoaded() {
         if (hasLoadedDismissedEvents) return
         for ((key, value) in dismissedPreferences.all) {
@@ -129,6 +141,7 @@ class ImminentEventNotifier(
         eventClickTargetPackageName: String,
         currentTimeMilliseconds: Long,
     ): Notification {
+        val eventTitle = event.title.ifEmpty { context.getString(R.string.untitled_event) }
         val startTimeLine = context.getString(
             R.string.imminent_notification_time_format,
             remoteViewsFactory.formatTimeText(event.beginTimeMilliseconds),
@@ -143,19 +156,33 @@ class ImminentEventNotifier(
         } else {
             startTimeLine
         }
-        val eventTitle = event.title.ifEmpty { context.getString(R.string.untitled_event) }
+
+        val dismissActionPendingIntent = buildDismissPendingIntent(
+            event,
+            IMMINENT_DISMISS_ACTION_REQUEST_CODE,
+        )
+        val clockViews = remoteViewsFactory.createImminentClockViews(
+            event = event,
+            currentTimeMilliseconds = currentTimeMilliseconds,
+            dismissPendingIntent = dismissActionPendingIntent,
+        )
+
+        val accentColor = if (event.calendarColor != 0) {
+            event.calendarColor
+        } else {
+            ContextCompat.getColor(context, R.color.notification_text_secondary)
+        }
+
         return NotificationCompat.Builder(context, IMMINENT_CHANNEL_ID)
             .setSmallIcon(notificationPublisher.smallIconResourceIdFor(currentTimeMilliseconds))
             .setContentTitle(eventTitle)
             .setContentText(contentText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
-            // Android 16 Live Updates에서는 colorized가 금지되므로 setColorized를 쓰지 않는다.
-            // setShortCriticalText를 비워 두어 상태바 칩·실시간 카드가 정적 문구 대신 Chronometer
-            // 초 단위 카운트다운으로 갱신되도록 한다.
-            .setShowWhen(true)
-            .setWhen(event.beginTimeMilliseconds)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setCustomContentView(clockViews.collapsed)
+            .setCustomBigContentView(clockViews.expanded)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setColor(accentColor)
+            .setColorized(true)
+            .setShowWhen(false)
             .setOngoing(true)
             .setRequestPromotedOngoing(true)
             .setGroup(IMMINENT_GROUP_KEY)
@@ -171,11 +198,6 @@ class ImminentEventNotifier(
             )
             .setDeleteIntent(
                 buildDismissPendingIntent(event, IMMINENT_DISMISS_REQUEST_CODE),
-            )
-            .addAction(
-                0,
-                context.getString(R.string.imminent_notification_dismiss_action),
-                buildDismissPendingIntent(event, IMMINENT_DISMISS_ACTION_REQUEST_CODE),
             )
             .build()
     }

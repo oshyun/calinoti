@@ -603,6 +603,73 @@ class NotificationViewsFactory(private val context: Context) {
         )
     }
 
+    /**
+     * 임박 일정용 시계 알림 RemoteViews(접힌 뷰와 펼친 뷰).
+     * 삼성 시계/타이머 알림처럼 큰 Chronometer 카운트다운(04:17)과 일정 정보를 담는다.
+     */
+    fun createImminentClockViews(
+        event: EventEntry,
+        currentTimeMilliseconds: Long,
+        dismissPendingIntent: PendingIntent,
+    ): ImminentClockViews {
+        val packageName = context.packageName
+        val eventTitle = event.title.ifEmpty { context.getString(R.string.untitled_event) }
+        val startTimeText = formatTimeText(event.beginTimeMilliseconds)
+        val startTimeLine = context.getString(R.string.imminent_notification_time_format, startTimeText)
+        val location = event.location?.trim().orEmpty()
+        val subtitleText = if (location.isNotEmpty()) {
+            context.getString(
+                R.string.imminent_notification_time_and_location_format,
+                startTimeLine,
+                location,
+            )
+        } else {
+            startTimeLine
+        }
+        val summaryText = "$eventTitle • $subtitleText"
+
+        val chronometerBase = SystemClock.elapsedRealtime() +
+            (event.beginTimeMilliseconds - currentTimeMilliseconds)
+
+        // 1. 접힌 뷰
+        val collapsed = RemoteViews(packageName, R.layout.notification_imminent_clock_collapsed).apply {
+            setBoolean(R.id.imminent_clock_countdown, "setCountDown", true)
+            setChronometer(R.id.imminent_clock_countdown, chronometerBase, null, true)
+            setTextViewText(R.id.imminent_clock_summary, summaryText)
+            if (event.calendarColor != 0) {
+                setInt(
+                    R.id.imminent_clock_icon,
+                    "setColorFilter",
+                    CalendarColorTone.standardizeCalendarColor(
+                        color = event.calendarColor,
+                        isDarkTheme = isSystemDarkTheme(),
+                    ),
+                )
+            }
+        }
+
+        // 2. 펼친 뷰
+        val expanded = RemoteViews(packageName, R.layout.notification_imminent_clock_expanded).apply {
+            setBoolean(R.id.imminent_clock_countdown, "setCountDown", true)
+            setChronometer(R.id.imminent_clock_countdown, chronometerBase, null, true)
+            setTextViewText(R.id.imminent_clock_title, eventTitle)
+            setTextViewText(R.id.imminent_clock_subtitle, subtitleText)
+            setOnClickPendingIntent(R.id.imminent_clock_dismiss_button, dismissPendingIntent)
+            if (event.calendarColor != 0) {
+                setInt(
+                    R.id.imminent_clock_icon,
+                    "setColorFilter",
+                    CalendarColorTone.standardizeCalendarColor(
+                        color = event.calendarColor,
+                        isDarkTheme = isSystemDarkTheme(),
+                    ),
+                )
+            }
+        }
+
+        return ImminentClockViews(collapsed = collapsed, expanded = expanded)
+    }
+
     private fun createOpenEventPendingIntent(
         eventId: Long,
         targetPackageName: String?,
@@ -1122,3 +1189,9 @@ class NotificationViewsFactory(private val context: Context) {
         const val EVENT_CLICK_REQUEST_CODE = 1004
     }
 }
+
+/** 임박 일정 시계 알림에 쓸 접힌 상태와 펼친 상태의 RemoteViews. */
+data class ImminentClockViews(
+    val collapsed: RemoteViews,
+    val expanded: RemoteViews,
+)
