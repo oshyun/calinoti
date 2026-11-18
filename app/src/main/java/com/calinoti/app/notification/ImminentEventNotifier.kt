@@ -16,9 +16,8 @@ import com.calinoti.app.data.UserPreferences
 
 /**
  * 시작이 임박한(1시간 미만으로 남은) 일정을 아젠다 알림과 별도로 게시한다.
- * 삼성 시계/타이머 알림처럼 큰 Chronometer 실시간 카운트다운(04:17)과 일정 요약,
- * 해제 버튼을 갖춘 상단 실시간 카드로 노출된다.
- * 사용자가 스와이프하거나 해제 버튼으로 닫으면 해당 시작 시각 전까지는 다시 게시하지 않으며,
+ * 큰 Chronometer 실시간 카운트다운(04:17)과 일정 요약을 갖춘 상단 실시간 카드로 노출된다.
+ * 사용자가 스와이프로 닫으면 해당 시작 시각 전까지는 다시 게시하지 않으며,
  * 앱을 재시작하거나 명시적으로 갱신할 때 재게시 금지가 해제되어 즉시 다시 트리거된다.
  */
 class ImminentEventNotifier(
@@ -157,14 +156,9 @@ class ImminentEventNotifier(
             startTimeLine
         }
 
-        val dismissActionPendingIntent = buildDismissPendingIntent(
-            event,
-            IMMINENT_DISMISS_ACTION_REQUEST_CODE,
-        )
         val clockViews = remoteViewsFactory.createImminentClockViews(
             event = event,
             currentTimeMilliseconds = currentTimeMilliseconds,
-            dismissPendingIntent = dismissActionPendingIntent,
         )
 
         val accentColor = if (event.calendarColor != 0) {

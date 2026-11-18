@@ -605,12 +605,11 @@ class NotificationViewsFactory(private val context: Context) {
 
     /**
      * 임박 일정용 시계 알림 RemoteViews(접힌 뷰와 펼친 뷰).
-     * 삼성 시계/타이머 알림처럼 큰 Chronometer 카운트다운(04:17)과 일정 정보를 담는다.
+     * 큰 Chronometer 카운트다운(04:17)과 일정 정보를 담는다.
      */
     fun createImminentClockViews(
         event: EventEntry,
         currentTimeMilliseconds: Long,
-        dismissPendingIntent: PendingIntent,
     ): ImminentClockViews {
         val packageName = context.packageName
         val eventTitle = event.title.ifEmpty { context.getString(R.string.untitled_event) }
@@ -636,16 +635,6 @@ class NotificationViewsFactory(private val context: Context) {
             setBoolean(R.id.imminent_clock_countdown, "setCountDown", true)
             setChronometer(R.id.imminent_clock_countdown, chronometerBase, null, true)
             setTextViewText(R.id.imminent_clock_summary, summaryText)
-            if (event.calendarColor != 0) {
-                setInt(
-                    R.id.imminent_clock_icon,
-                    "setColorFilter",
-                    CalendarColorTone.standardizeCalendarColor(
-                        color = event.calendarColor,
-                        isDarkTheme = isSystemDarkTheme(),
-                    ),
-                )
-            }
         }
 
         // 2. 펼친 뷰
@@ -654,17 +643,6 @@ class NotificationViewsFactory(private val context: Context) {
             setChronometer(R.id.imminent_clock_countdown, chronometerBase, null, true)
             setTextViewText(R.id.imminent_clock_title, eventTitle)
             setTextViewText(R.id.imminent_clock_subtitle, subtitleText)
-            setOnClickPendingIntent(R.id.imminent_clock_dismiss_button, dismissPendingIntent)
-            if (event.calendarColor != 0) {
-                setInt(
-                    R.id.imminent_clock_icon,
-                    "setColorFilter",
-                    CalendarColorTone.standardizeCalendarColor(
-                        color = event.calendarColor,
-                        isDarkTheme = isSystemDarkTheme(),
-                    ),
-                )
-            }
         }
 
         return ImminentClockViews(collapsed = collapsed, expanded = expanded)
